@@ -11,7 +11,8 @@ WORKDIR /app
 COPY --from=builder /app/target/claimledger-backend-1.0.0.jar app.jar
 
 ENV PORT=8080
-ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8"
+ENV JAVA_TOOL_OPTIONS="-Dfile.encoding=UTF-8 -Xmx384m -XX:+UseSerialGC"
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
