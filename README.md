@@ -12,6 +12,13 @@
 
 ---
 
+### 🌐 Live Cloud Deployment
+- **Backend API (Render Cloud)**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)
+- **Database (Neon Cloud)**: Serverless PostgreSQL with `pgvector` (`aws-ap-southeast-1`)
+- **Interactive Swagger / OpenAPI Docs**: [https://claimledger-backend.onrender.com/swagger-ui.html](https://claimledger-backend.onrender.com/swagger-ui.html)
+
+---
+
 ## 🎯 The Core Problem & Primary Differentiator
 
 Organisational marketing and sales collateral are plagued by out-of-date pricing, unsupported performance claims, and non-compliant brand messaging. Generic LLM wrappers fail in enterprise brand governance because LLMs hallucinate, suffer from non-deterministic variance, and cannot enforce rigid institutional hierarchies.
@@ -181,3 +188,4 @@ npm run dev
 - **Problem Statement**: Inkloom AI – Brand Governance
 - **Repository**: [https://github.com/Ravikiranswamy/ClaimLedger](https://github.com/Ravikiranswamy/ClaimLedger)
 - **Author**: Ravikiran Swamy (`ravikiranswamy550@gmail.com`)
+
