@@ -1,0 +1,39 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider, useAuth } from './auth/AuthContext'
+import { AppShell } from './components/AppShell'
+import { ComingSoon } from './components/ComingSoon'
+import { Login } from './pages/Login'
+import { Submit } from './pages/Submit'
+
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
+
+function Protected() {
+  const { user, loading } = useAuth()
+  if (loading) return <p className="p-8 text-lg text-muted" role="status">Loading…</p>
+  if (!user) return <Navigate to="/login" replace />
+  return <AppShell />
+}
+
+export default function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route element={<Protected />}>
+              <Route index element={<ComingSoon title="Home" note="Your decision inbox arrives in Phase 4." />} />
+              <Route path="submit" element={<Submit />} />
+              <Route path="review" element={<ComingSoon title="Review" note="The two-pane review screen is next (Phase 3)." />} />
+              <Route path="review/:id" element={<ComingSoon title="Review" note="The two-pane review screen is next (Phase 3)." />} />
+              <Route path="knowledge-base" element={<ComingSoon title="Knowledge Base" note="Coming in Phase 5." />} />
+              <Route path="history" element={<ComingSoon title="History" note="Coming in Phase 5." />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </QueryClientProvider>
+  )
+}
