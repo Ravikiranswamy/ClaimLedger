@@ -97,6 +97,37 @@ export interface AuditEntry {
   createdAt: string
 }
 
+export type ApprovalStatus = 'APPROVED' | 'SUPERSEDED' | 'DRAFT' | 'REJECTED'
+
+export interface KnowledgeChunk {
+  id: string
+  documentId: string
+  chunkIndex: number
+  content: string
+  pageNumber: number
+  hasEmbedding: boolean
+}
+
+export interface KnowledgeDoc {
+  id: string
+  name: string
+  filePath?: string | null
+  departmentId?: string | null
+  departmentName?: string | null
+  organisationId?: string
+  approvalStatus: ApprovalStatus
+  authorityTier: AuthorityTier
+  version: string
+  effectiveDate?: string | null
+  expiryDate?: string | null
+  productScope?: string | null
+  region?: string
+  channel?: string
+  uploadedBy?: string
+  createdAt: string
+  chunkCount: number
+}
+
 export const isAuthoritative = (e: Evidence) => !!(e.authoritative ?? e.isAuthoritative)
 
 /** Seed department ids from the backend migration. Replace with a GET /departments call when one exists. */

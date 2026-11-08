@@ -11,4 +11,6 @@ import java.util.UUID;
 public interface ReviewActionRepository extends JpaRepository<ReviewAction, UUID> {
 
     List<ReviewAction> findBySubmissionIdOrderByCreatedAtAsc(UUID submissionId);
+
+    List<ReviewAction> findAllByOrderByCreatedAtDesc();
 }

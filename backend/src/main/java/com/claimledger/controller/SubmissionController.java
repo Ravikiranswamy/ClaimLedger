@@ -32,11 +32,12 @@ public class SubmissionController {
         this.workflowService = workflowService;
     }
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Submit content (text or PDF) as multipart/form-data")
-    public ResponseEntity<SubmissionResponse> submitMultipart(
+    public ResponseEntity<ApiResponse<SubmissionResponse>> submitMultipart(
             @RequestParam("title") String title,
             @RequestParam(value = "department", required = false) String department,
+            @RequestParam(value = "departmentId", required = false) String departmentId,
             @RequestParam(value = "text", required = false) String text,
             @RequestParam(value = "file", required = false) MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal
@@ -46,7 +47,11 @@ public class SubmissionController {
         request.setContent(text != null ? text : "");
         request.setContentType(file != null && !file.isEmpty() ? ContentType.PDF : ContentType.TEXT);
 
-        if (department != null) {
+        if (departmentId != null && !departmentId.isBlank()) {
+            try {
+                request.setDepartmentId(UUID.fromString(departmentId));
+            } catch (Exception ignored) {}
+        } else if (department != null) {
             String deptUpper = department.toUpperCase();
             if (deptUpper.contains("MARKET")) {
                 request.setDepartmentId(UUID.fromString("d0000001-0000-0000-0000-000000000001"));
@@ -58,54 +63,54 @@ public class SubmissionController {
         }
 
         SubmissionResponse response = workflowService.createSubmission(request, file, principal);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        return new ResponseEntity<>(ApiResponse.ok("Submission created successfully", response), HttpStatus.CREATED);
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Submit text content for brand governance verification via JSON")
-    public ResponseEntity<SubmissionResponse> submitText(
+    public ResponseEntity<ApiResponse<SubmissionResponse>> submitText(
             @Valid @RequestBody SubmissionCreateRequest request,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         request.setContentType(ContentType.TEXT);
         SubmissionResponse response = workflowService.createSubmission(request, null, principal);
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        return new ResponseEntity<>(ApiResponse.ok("Submission created successfully", response), HttpStatus.CREATED);
     }
 
     @GetMapping
     @Operation(summary = "List submissions filtered by user role and department")
-    public ResponseEntity<List<SubmissionResponse>> listSubmissions(
+    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> listSubmissions(
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         List<SubmissionResponse> submissions = workflowService.listSubmissions(principal);
-        return ResponseEntity.ok(submissions);
+        return ResponseEntity.ok(ApiResponse.ok(submissions));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get full submission details with claims, evidence, and authoritative verdicts")
-    public ResponseEntity<SubmissionResponse> getSubmissionById(
+    public ResponseEntity<ApiResponse<SubmissionResponse>> getSubmissionById(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         SubmissionResponse submission = workflowService.getSubmissionById(id, principal);
-        return ResponseEntity.ok(submission);
+        return ResponseEntity.ok(ApiResponse.ok(submission));
     }
 
     @GetMapping("/{id}/findings")
     @Operation(summary = "Get structured claim findings for the interactive frontend inspector")
-    public ResponseEntity<List<FindingDto>> getSubmissionFindings(@PathVariable UUID id) {
+    public ResponseEntity<ApiResponse<List<FindingDto>>> getSubmissionFindings(@PathVariable UUID id) {
         List<FindingDto> findings = workflowService.getSubmissionFindings(id);
-        return ResponseEntity.ok(findings);
+        return ResponseEntity.ok(ApiResponse.ok(findings));
     }
 
     @PutMapping("/{id}/revise")
     @Operation(summary = "Creator submits revised content, bumping revision and re-verifying claims")
-    public ResponseEntity<SubmissionResponse> reviseSubmission(
+    public ResponseEntity<ApiResponse<SubmissionResponse>> reviseSubmission(
             @PathVariable UUID id,
             @Valid @RequestBody SubmissionReviseRequest request,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         SubmissionResponse response = workflowService.reviseSubmission(id, request, principal);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(ApiResponse.ok("Revision analyzed successfully", response));
     }
 }

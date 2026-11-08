@@ -22,6 +22,13 @@ public class AuditController {
         this.reviewService = reviewService;
     }
 
+    @GetMapping("/audit")
+    @Operation(summary = "Get global chronological audit history across all submissions")
+    public ResponseEntity<ApiResponse<List<ReviewActionResponse>>> getGlobalAuditTrail() {
+        List<ReviewActionResponse> history = reviewService.getAllAuditHistory();
+        return ResponseEntity.ok(ApiResponse.ok(history));
+    }
+
     @GetMapping("/{id}/audit")
     @Operation(summary = "Get full chronological audit trail and review history for a submission")
     public ResponseEntity<ApiResponse<List<ReviewActionResponse>>> getAuditTrail(@PathVariable UUID id) {

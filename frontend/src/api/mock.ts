@@ -137,4 +137,34 @@ export const mockApi: Api = {
     await wait(150)
     return structuredClone(audits.get(id) ?? [])
   },
+  async listGlobalAudit() {
+    await wait(150)
+    const all: AuditEntry[] = []
+    audits.forEach((list) => all.push(...list))
+    return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  },
+  async listDocuments() {
+    await wait(200)
+    return [
+      { id: 'kd1', name: 'Product_Master_Catalogue_v4.2.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: 'v4.2', productScope: 'Nexora Core, Pro, Enterprise', chunkCount: 3, createdAt: new Date().toISOString() },
+      { id: 'kd2', name: 'Brand_Guidelines_v2.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: 'v2.0', productScope: 'All Brands', chunkCount: 2, createdAt: new Date().toISOString() },
+      { id: 'kd3', name: 'Nexora_Sales_Proposal_v2.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: 'v2.1', productScope: 'Nexora Enterprise', chunkCount: 2, createdAt: new Date().toISOString() },
+      { id: 'kd4', name: 'Nexora_Old_Brochure_v1.pdf', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: 'v1.0', productScope: 'Nexora Legacy', chunkCount: 1, createdAt: new Date().toISOString() },
+    ]
+  },
+  async getDocumentChunks(id) {
+    await wait(150)
+    return [
+      { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Pro delivers 99.99% uptime with enterprise governance.', pageNumber: 1, hasEmbedding: true },
+      { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Nexora Pro costs ₹999 per user per month billed annually.', pageNumber: 2, hasEmbedding: true },
+    ]
+  },
+  async uploadDocument() {
+    await wait(500)
+    return { id: `kd-${Date.now()}`, name: 'New_Document.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
+  },
+  async updateDocumentStatus(id, status) {
+    await wait(200)
+    return { id, name: 'Document.pdf', approvalStatus: status as any, authorityTier: 'TIER_2' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
+  },
 }

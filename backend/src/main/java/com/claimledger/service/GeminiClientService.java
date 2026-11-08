@@ -27,12 +27,12 @@ public class GeminiClientService {
 
     public GeminiClientService(
             @Value("${google.gemini.api-key:}") String apiKey,
-            @Value("${google.gemini.model:gemini-2.0-flash}") String model,
+            @Value("${google.gemini.model:gemini-3.8-flash}") String model,
             @Value("${spring.ai.vertex.ai.gemini.project-id:claimledger}") String projectId,
             ObjectMapper objectMapper
     ) {
         this.apiKey = apiKey != null ? apiKey.trim() : "";
-        this.model = model != null ? model.trim() : "gemini-2.0-flash";
+        this.model = model != null && !model.isBlank() ? model.trim() : "gemini-3.8-flash";
         this.projectId = projectId != null ? projectId.trim() : "claimledger";
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
@@ -99,7 +99,7 @@ public class GeminiClientService {
     }
 
     /**
-     * Calls Google text-embedding-004 to generate 768-dimensional embeddings.
+     * Calls Google embedding API to generate vector representations.
      */
     public Optional<float[]> generateEmbedding(String text) {
         if (!isGeminiConfigured() || text == null || text.isBlank()) {
@@ -108,12 +108,12 @@ public class GeminiClientService {
 
         try {
             String endpoint = String.format(
-                    "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=%s",
+                    "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=%s",
                     apiKey
             );
 
             Map<String, Object> body = Map.of(
-                    "model", "models/text-embedding-004",
+                    "model", "models/gemini-embedding-001",
                     "content", Map.of("parts", List.of(Map.of("text", text)))
             );
 

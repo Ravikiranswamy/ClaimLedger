@@ -85,6 +85,13 @@ public class DocumentController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @GetMapping("/{id}/chunks")
+    @Operation(summary = "Get extracted text chunks and vector status for a document")
+    public ResponseEntity<ApiResponse<List<com.claimledger.dto.document.DocumentChunkDto>>> getDocumentChunks(@PathVariable UUID id) {
+        List<com.claimledger.dto.document.DocumentChunkDto> chunks = documentService.getDocumentChunks(id);
+        return ResponseEntity.ok(ApiResponse.ok(chunks));
+    }
+
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update approval status of a knowledge document")

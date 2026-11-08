@@ -129,6 +129,13 @@ public class KnowledgeDocumentService {
     }
 
     @Transactional(readOnly = true)
+    public List<com.claimledger.dto.document.DocumentChunkDto> getDocumentChunks(UUID documentId) {
+        return chunkRepository.findByDocumentIdOrderByChunkIndexAsc(documentId).stream()
+                .map(com.claimledger.dto.document.DocumentChunkDto::fromEntity)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public DocumentResponse getDocumentById(UUID id) {
         KnowledgeDocument doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + id));

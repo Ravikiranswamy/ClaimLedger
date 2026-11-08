@@ -1,5 +1,5 @@
 import { ApiError, type Api } from './types'
-import type { AuditEntry, LoginResponse, Submission, User } from '../types'
+import type { AuditEntry, KnowledgeChunk, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
 
 const TOKEN_KEY = 'claimledger.token'
 export const tokenStore = {
@@ -14,8 +14,7 @@ export const tokenStore = {
   },
 }
 
-/** Backend wraps every response as { success, message, data, timestamp }. */
-interface Envelope<T> { success: boolean; message?: string; data: T }
+/** Helper token store for authenticated requests. */
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
@@ -30,17 +29,20 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError('Cannot reach the server. Check your connection and try again.', 0)
   }
 
-  let body: Partial<Envelope<T>> | null = null
+  let body: any = null
   try { body = await res.json() } catch { /* empty or non-JSON body */ }
 
-  if (!res.ok || body?.success === false) {
+  if (!res.ok || (body && typeof body === 'object' && body.success === false)) {
     const fallback =
       res.status === 401 ? 'Email or password is incorrect, or your session expired.'
       : res.status === 403 ? 'You do not have permission to do that.'
       : 'Something went wrong. Please try again.'
     throw new ApiError(body?.message || fallback, res.status)
   }
-  return body?.data as T
+  if (body && typeof body === 'object' && 'data' in body && body.data !== undefined) {
+    return body.data as T
+  }
+  return body as T
 }
 
 export const httpApi: Api = {
@@ -69,4 +71,20 @@ export const httpApi: Api = {
       body: JSON.stringify({ content, revisionComment: comment, contentType: 'TEXT' }),
     }),
   getAudit: (id) => request<AuditEntry[]>(`/submissions/${id}/audit`),
+  listGlobalAudit: () => request<AuditEntry[]>('/submissions/audit'),
+  listDocuments: (filters) => {
+    const params = new URLSearchParams()
+    if (filters?.departmentId) params.append('departmentId', filters.departmentId)
+    if (filters?.status) params.append('status', filters.status)
+    if (filters?.tier) params.append('tier', filters.tier)
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    return request<KnowledgeDoc[]>(`/documents${qs}`)
+  },
+  getDocumentChunks: (docId) => request<KnowledgeChunk[]>(`/documents/${docId}/chunks`),
+  uploadDocument: (formData) => request<KnowledgeDoc>('/documents/upload', { method: 'POST', body: formData }),
+  updateDocumentStatus: (id, status) =>
+    request<KnowledgeDoc>(`/documents/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ approvalStatus: status }),
+    }),
 }

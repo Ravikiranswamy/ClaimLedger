@@ -105,4 +105,27 @@ public class ReviewService {
             return ReviewActionResponse.fromEntity(action, actorName, actorEmail, actorRole);
         }).toList();
     }
+
+    /**
+     * Returns global chronological audit history across all submissions.
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewActionResponse> getAllAuditHistory() {
+        List<ReviewAction> actions = reviewActionRepository.findAllByOrderByCreatedAtDesc();
+        return actions.stream().map(action -> {
+            String actorName = "System";
+            String actorEmail = "";
+            String actorRole = "SYSTEM";
+
+            if (action.getActorId() != null) {
+                User actor = userRepository.findById(action.getActorId()).orElse(null);
+                if (actor != null) {
+                    actorName = actor.getFullName();
+                    actorEmail = actor.getEmail();
+                    actorRole = actor.getRole().name();
+                }
+            }
+            return ReviewActionResponse.fromEntity(action, actorName, actorEmail, actorRole);
+        }).toList();
+    }
 }
