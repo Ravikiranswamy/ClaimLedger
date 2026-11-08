@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
   CheckCircle2,
+  Download,
   FileText,
   Filter,
   History as HistoryIcon,
@@ -54,6 +55,32 @@ export function History() {
   const approvals = auditLogs.filter((l) => l.action === 'REVIEWER_APPROVED').length
   const revisions = auditLogs.filter((l) => l.action === 'CREATOR_REVISED').length
   const changes = auditLogs.filter((l) => l.action === 'REVIEWER_CHANGES_REQUESTED').length
+
+  const exportCSV = () => {
+    if (filtered.length === 0) return
+    const headers = ['ID', 'Timestamp', 'Action', 'Actor Name', 'Actor Email', 'Actor Role', 'Submission Title', 'Comment']
+    const rows = filtered.map((e) => {
+      const sub = e.submissionId ? subMap.get(e.submissionId) : null
+      return [
+        e.id,
+        new Date(e.createdAt).toISOString(),
+        e.action,
+        `"${(e.actorName || '').replace(/"/g, '""')}"`,
+        `"${(e.actorEmail || '').replace(/"/g, '""')}"`,
+        e.actorRole || '',
+        `"${(sub?.title || '').replace(/"/g, '""')}"`,
+        `"${(e.comment || '').replace(/"/g, '""')}"`,
+      ].join(',')
+    })
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n')
+    const encodedUri = encodeURI(csvContent)
+    const link = document.createElement('a')
+    link.setAttribute('href', encodedUri)
+    link.setAttribute('download', `claimledger-audit-${new Date().toISOString().slice(0, 10)}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   return (
     <div className="space-y-6">
@@ -110,15 +137,24 @@ export function History() {
           ))}
         </div>
 
-        <div className="relative min-w-[220px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            type="text"
-            placeholder="Search ledger by actor or content…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-line bg-canvas pl-9 pr-3 py-1.5 text-xs text-ink focus:bg-surface"
-          />
+        <div className="flex items-center gap-3">
+          <div className="relative min-w-[200px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              placeholder="Search ledger by actor or content…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-xl border border-line bg-canvas pl-9 pr-3 py-1.5 text-xs text-ink focus:bg-surface"
+            />
+          </div>
+          <button
+            onClick={exportCSV}
+            title="Export filtered audit entries as CSV"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink shadow-xs transition hover:bg-canvas"
+          >
+            <Download size={14} /> Export CSV
+          </button>
         </div>
       </div>
 

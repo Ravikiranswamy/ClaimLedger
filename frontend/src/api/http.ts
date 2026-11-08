@@ -16,6 +16,13 @@ export const tokenStore = {
 
 /** Helper token store for authenticated requests. */
 
+const RAW_API_URL = (import.meta.env.VITE_API_URL as string | undefined) || ''
+const API_BASE = RAW_API_URL.endsWith('/api')
+  ? RAW_API_URL
+  : RAW_API_URL
+    ? `${RAW_API_URL.replace(/\/$/, '')}/api`
+    : '/api'
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   const token = tokenStore.get()
@@ -24,7 +31,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   let res: Response
   try {
-    res = await fetch(`/api${path}`, { ...init, headers })
+    res = await fetch(`${API_BASE}${path}`, { ...init, headers })
   } catch {
     throw new ApiError('Cannot reach the server. Check your connection and try again.', 0)
   }
