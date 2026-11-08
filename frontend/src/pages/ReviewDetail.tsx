@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Lightbulb, Loader2, Wand2 } from 'lucide-react'
+import { ArrowLeft, Lightbulb, Loader2, Printer, Wand2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
@@ -71,7 +71,17 @@ export function ReviewDetail() {
             {s.departmentName ?? 'No department'} · {s.submittedByName}{s.revisionNumber > 1 ? ` · revision ${s.revisionNumber}` : ''}
           </p>
         </div>
-        <SubmissionStatusChip status={s.status} />
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            title="Print Brand Governance Clearance Certificate"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink shadow-2xs hover:bg-canvas print:hidden"
+          >
+            <Printer size={15} /> Print Certificate
+          </button>
+          <SubmissionStatusChip status={s.status} />
+        </div>
       </header>
 
       <p className="mb-5 text-lg" aria-live="polite">

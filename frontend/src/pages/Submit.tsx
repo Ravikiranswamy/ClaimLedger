@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { FileUp, Loader2, X } from 'lucide-react'
+import { FileUp, Loader2, Sparkles, X } from 'lucide-react'
 import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
@@ -10,6 +10,27 @@ import { useAuth } from '../auth/AuthContext'
 import { CheckingView } from '../components/CheckingView'
 import { PageHeader } from '../components/PageHeader'
 import { DEPARTMENTS } from '../types'
+
+const TEST_SCENARIOS = [
+  {
+    badge: '🚨 Test Scenario 1: Outdated Price Violation',
+    title: 'Nexora Pro Launch — Social Media Campaign',
+    departmentId: 'd0000001-0000-0000-0000-000000000001',
+    text: 'Get Nexora Pro today for ₹799 per month! Complete enterprise AI brand compliance and automated claim verification across all digital channels.',
+  },
+  {
+    badge: '⚖️ Test Scenario 2: Scoped Deal Proposal',
+    title: 'Enterprise Q4 Sales Proposal — Acme Corp',
+    departmentId: 'd0000002-0000-0000-0000-000000000002',
+    text: 'Nexora Pro special deal: ₹899 per user per month billed annually under the approved enterprise volume agreement.',
+  },
+  {
+    badge: '✅ Test Scenario 3: Authoritative Master Price',
+    title: 'Nexora Pro Product Launch Email',
+    departmentId: 'd0000001-0000-0000-0000-000000000001',
+    text: 'Nexora Pro is officially priced at ₹999 per user per month billed annually, backed by enterprise-grade brand governance.',
+  },
+]
 
 const MAX_MB = 10
 const schema = z
@@ -69,6 +90,30 @@ export function Submit() {
   return (
     <>
       <PageHeader title="Check your content" subtitle="Paste text or upload a PDF. We check every claim against your approved company sources." />
+
+      {/* 1-Click Scenarios for Judges */}
+      <section className="mb-6 rounded-2xl border border-line bg-gradient-to-r from-brand-soft/50 via-white to-canvas p-5 shadow-xs">
+        <div className="flex items-center gap-2 mb-2 text-xs font-bold uppercase tracking-wider text-brand">
+          <Sparkles size={16} /> Quick Test Scenarios (1-Click for Judges)
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          {TEST_SCENARIOS.map((sc, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => {
+                setValue('title', sc.title, { shouldValidate: true })
+                setValue('departmentId', sc.departmentId, { shouldValidate: true })
+                setValue('text', sc.text, { shouldValidate: true })
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink shadow-2xs transition hover:border-brand hover:bg-brand-soft hover:text-brand"
+            >
+              <span>{sc.badge}</span>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <form onSubmit={handleSubmit((v) => create.mutate(v))} noValidate className="space-y-6 rounded-2xl border border-line bg-surface p-7">
         <div className="grid gap-6 md:grid-cols-[1fr_14rem]">
           <div>
