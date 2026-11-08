@@ -3,7 +3,7 @@
 > **Judge Pitch & Live Walkthrough**  
 > **Challenge**: CodeTitans India 2026 — *Problem Statement: Inkloom AI – Brand Governance*  
 > **Presenter**: Ravikiran Swamy (`ravikiranswamy550@gmail.com`)  
-> **Application URL**: `https://claimledger.vercel.app` (or `http://localhost:5173`)
+> **Application URL**: `https://claimledger-india.vercel.app` (or `http://localhost:5173`)
 
 ---
 

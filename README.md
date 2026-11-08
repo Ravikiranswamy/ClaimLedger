@@ -13,7 +13,7 @@
 ---
 
 ### 🌐 Live Cloud Deployment
-- **Live Application (Frontend on Vercel)**: [https://claimledger.vercel.app](https://claimledger.vercel.app)
+- **Live Application (Frontend on Vercel)**: [https://claimledger-india.vercel.app](https://claimledger-india.vercel.app)
 - **Backend API (Render Cloud)**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)
 - **Database (Neon Cloud)**: Serverless PostgreSQL with `pgvector` (`aws-ap-southeast-1`)
 - **Interactive Swagger / OpenAPI Docs**: [https://claimledger-backend.onrender.com/swagger-ui.html](https://claimledger-backend.onrender.com/swagger-ui.html)

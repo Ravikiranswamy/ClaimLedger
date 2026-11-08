@@ -4,7 +4,7 @@
 **Problem Statement**: Inkloom AI – Brand Governance  
 **Project Name**: ClaimLedger — *"Every claim, accounted for."*  
 **Author**: Ravikiran Swamy (`ravikiranswamy550@gmail.com`)  
-**Live Production URL**: [https://claimledger.vercel.app](https://claimledger.vercel.app)  
+**Live Production URL**: [https://claimledger-india.vercel.app](https://claimledger-india.vercel.app)  
 **Source Code Repository**: [https://github.com/Ravikiranswamy/ClaimLedger](https://github.com/Ravikiranswamy/ClaimLedger)  
 **Backend API (Render Cloud)**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)  
 **Interactive API Documentation (Swagger)**: [https://claimledger-backend.onrender.com/swagger-ui.html](https://claimledger-backend.onrender.com/swagger-ui.html)  
@@ -16,7 +16,7 @@
 ClaimLedger is an AI-powered organizational brand governance platform designed to eliminate the enterprise risk of publishing out-of-date pricing, unsubstantiated performance claims, and non-compliant terminology across multi-departmental collateral.
 
 ### The Central End-to-End Journey (Self-Guided by Judges)
-A judge can open [https://claimledger.vercel.app](https://claimledger.vercel.app) on any device and complete the entire workflow in under 60 seconds without instruction:
+A judge can open [https://claimledger-india.vercel.app](https://claimledger-india.vercel.app) on any device and complete the entire workflow in under 60 seconds without instruction:
 
 1. **One-Click Role Authentication**: Access the application instantly as a **Content Creator** (`creator@nexora.com`), **Authorised Reviewer** (`reviewer@nexora.com`), or **Admin** (`admin@nexora.com`) via prominent demo quick-access buttons.
 2. **One-Click Scenario Submission**: On the `/submit` screen, judges can click **"🚨 Scenario 1: Outdated Price Violation"** to auto-populate a campaign text quoting `₹799 per month`.
@@ -105,3 +105,4 @@ For Round 3, we commit to three substantial architectural advancements that expa
 
 **The Part You Built (in your own words)**:  
 `Engineered the complete ClaimLedger platform end-to-end, including the React 19 governance UI, Spring Boot backend, Neon pgvector semantic retrieval, and the pure Java 6-step deterministic authority resolution engine.`
+
