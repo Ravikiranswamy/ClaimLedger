@@ -27,7 +27,7 @@ public class GeminiClientService {
 
     public GeminiClientService(
             @Value("${google.gemini.api-key:}") String apiKey,
-            @Value("${google.gemini.model:gemini-3.8-flash}") String model,
+            @Value("${google.gemini.model:gemini-1.5-flash}") String model,
             @Value("${spring.ai.vertex.ai.gemini.project-id:claimledger}") String projectId,
             ObjectMapper objectMapper
     ) {

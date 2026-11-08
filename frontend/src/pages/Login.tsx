@@ -32,7 +32,7 @@ const WAKEUP_MESSAGES = [
   'Nearly ready — hang tight!',
 ]
 
-function WakeupBanner({ elapsed }: { elapsed: number }) {
+function WakeupBanner({ elapsed, onSwitchMock }: { elapsed: number; onSwitchMock?: () => void }) {
   const msgIndex = Math.min(Math.floor(elapsed / 7), WAKEUP_MESSAGES.length - 1)
   const progress = Math.min((elapsed / 45) * 100, 95)
 
@@ -49,9 +49,18 @@ function WakeupBanner({ elapsed }: { elapsed: number }) {
           style={{ width: `${progress}%` }}
         />
       </div>
-      <p className="mt-1.5 text-xs text-amber-600">
-        Free-tier servers sleep after inactivity. First sign-in takes ~30–45 s.
-      </p>
+      <div className="mt-2 flex items-center justify-between text-xs text-amber-700">
+        <span>Free tier wakes up in ~30s.</span>
+        {onSwitchMock && (
+          <button
+            type="button"
+            onClick={onSwitchMock}
+            className="font-semibold underline hover:text-amber-900"
+          >
+            ⚡ Switch to Instant Mode →
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -60,10 +69,11 @@ export function Login() {
   const { user, login } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isWakingUp, setIsWakingUp] = useState(false)
+  const [submittingRole, setSubmittingRole] = useState<Role | 'form' | null>(null)
   const [elapsed, setElapsed] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Form>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
   })
 
@@ -80,12 +90,16 @@ export function Login() {
 
   if (user) return <Navigate to="/" replace />
 
-  const attempt = async (email: string, password: string) => {
+  const attempt = async (email: string, password: string, role?: Role) => {
     setError(null)
     setIsWakingUp(false)
+    setSubmittingRole(role || 'form')
 
-    // Show wake-up banner after 4 s of waiting
-    const wakeTimer = setTimeout(() => setIsWakingUp(true), 4000)
+    setValue('email', email)
+    setValue('password', password)
+
+    // Show wake-up banner after 3 s of waiting
+    const wakeTimer = setTimeout(() => setIsWakingUp(true), 3000)
     try {
       await login(email, password)
     } catch (e) {
@@ -93,21 +107,40 @@ export function Login() {
     } finally {
       clearTimeout(wakeTimer)
       setIsWakingUp(false)
+      setSubmittingRole(null)
     }
   }
 
-  const isLoading = isSubmitting
+  const handleInstantBypass = () => {
+    localStorage.setItem('claimledger.force_mock', 'true')
+    attempt('admin@nexora.com', DEMO_PASSWORD, 'ADMIN')
+  }
+
+  const isLoading = submittingRole !== null
 
   return (
     <div className="flex min-h-full items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
-        <h1 className="font-display text-4xl font-semibold tracking-tight">ClaimLedger</h1>
-        <p className="mt-2 text-lg text-muted">Every claim, accounted for.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-4xl font-semibold tracking-tight">ClaimLedger</h1>
+            <p className="mt-1 text-base text-muted">Every claim, accounted for.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleInstantBypass}
+            title="Immediate access without waiting for cold start"
+            className="flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100"
+          >
+            <Zap size={12} className="text-emerald-600" /> Instant Access
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit((v) => attempt(v.email, v.password))} className="mt-8 space-y-5 rounded-2xl border border-line bg-surface p-7" noValidate>
+        <form onSubmit={handleSubmit((v) => attempt(v.email, v.password))} className="mt-6 space-y-4 rounded-2xl border border-line bg-surface p-7" noValidate>
           <div>
             <label htmlFor="email" className="mb-1.5 block font-medium">Work email</label>
             <input id="email" type="email" autoComplete="username" {...register('email')}
+              placeholder="e.g. admin@nexora.com"
               aria-invalid={!!errors.email}
               className="w-full rounded-xl border border-line bg-white px-4 py-3 text-base" />
             {errors.email && <p className="mt-1.5 text-sm text-violation">{errors.email.message}</p>}
@@ -115,29 +148,33 @@ export function Login() {
           <div>
             <label htmlFor="password" className="mb-1.5 block font-medium">Password</label>
             <input id="password" type="password" autoComplete="current-password" {...register('password')}
+              placeholder="Demo@1234"
               aria-invalid={!!errors.password}
               className="w-full rounded-xl border border-line bg-white px-4 py-3 text-base" />
             {errors.password && <p className="mt-1.5 text-sm text-violation">{errors.password.message}</p>}
           </div>
-          {error && <p role="alert" className="rounded-lg bg-violation-soft px-4 py-3 text-violation">{error}</p>}
-          <button disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-base font-semibold text-white hover:bg-brand-strong disabled:opacity-60">
-            {isLoading && <Loader2 size={18} className="animate-spin" aria-hidden />} Sign in
+          {error && <p role="alert" className="rounded-lg bg-violation-soft px-4 py-3 text-sm text-violation">{error}</p>}
+          <button disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-base font-semibold text-white hover:bg-brand-strong disabled:opacity-60 cursor-pointer">
+            {submittingRole === 'form' && <Loader2 size={18} className="animate-spin" aria-hidden />} Sign in
           </button>
-          {isWakingUp && <WakeupBanner elapsed={elapsed} />}
+          {isWakingUp && <WakeupBanner elapsed={elapsed} onSwitchMock={handleInstantBypass} />}
         </form>
 
         <section className="mt-6 rounded-2xl border border-line bg-surface p-6" aria-labelledby="demo-h">
-          <div className="flex items-center gap-2">
-            <h2 id="demo-h" className="font-semibold">Demo accounts (Nexora Technologies)</h2>
-            <Zap size={14} className="text-amber-500" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h2 id="demo-h" className="font-semibold text-base">Demo accounts (Nexora Technologies)</h2>
+              <Zap size={14} className="text-amber-500" />
+            </div>
           </div>
-          <p className="mt-1 text-muted text-sm">Synthetic data. Tap a role to sign in instantly.</p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <p className="mt-1 text-muted text-xs">Tap any role to populate and sign in immediately.</p>
+          <div className="mt-4 grid grid-cols-2 gap-2.5">
             {DEMO.map((d) => (
               <button key={d.role} type="button"
                 disabled={isLoading}
-                onClick={() => attempt(d.email, DEMO_PASSWORD)}
-                className="rounded-xl border border-line px-3 py-3 text-base font-medium hover:border-brand hover:bg-brand-soft disabled:opacity-50">
+                onClick={() => attempt(d.email, DEMO_PASSWORD, d.role)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-sm font-medium hover:border-brand hover:bg-brand-soft disabled:opacity-50 cursor-pointer transition">
+                {submittingRole === d.role && <Loader2 size={14} className="animate-spin text-brand" />}
                 {ROLE_LABEL[d.role]}
               </button>
             ))}

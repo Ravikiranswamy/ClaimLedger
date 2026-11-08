@@ -12,6 +12,7 @@ const USERS: (User & { password: string })[] = [
   { id: 'u2', fullName: 'Kiran Mehta', email: 'creator@nexora.com', role: 'CREATOR', departmentId: MKT.id, password: 'Demo@1234' },
   { id: 'u3', fullName: 'Priya Nair', email: 'manager@nexora.com', role: 'DEPT_MANAGER', departmentId: MKT.id, password: 'Demo@1234' },
   { id: 'u4', fullName: 'Dev Sharma', email: 'reviewer@nexora.com', role: 'REVIEWER', departmentId: null, password: 'Demo@1234' },
+  { id: 'u5', fullName: 'Ravikiran Swamy', email: 'ravikiranswamy550@gmail.com', role: 'ADMIN', departmentId: null, password: 'Demo@1234' },
 ]
 
 let currentUserId: string | null = null

@@ -29,11 +29,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers.set('Authorization', `Bearer ${token}`)
   if (init.body && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
 
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 12000)
+
   let res: Response
   try {
-    res = await fetch(`${API_BASE}${path}`, { ...init, headers })
-  } catch {
-    throw new ApiError('Cannot reach the server. Check your connection and try again.', 0)
+    res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      headers,
+      signal: init.signal || controller.signal,
+    })
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new ApiError('Backend server is starting up (free-tier cold start) or unreachable. Try Instant Evaluation Mode.', 504)
+    }
+    throw new ApiError('Cannot reach the server. Check your connection or switch to Instant Evaluation Mode.', 0)
+  } finally {
+    clearTimeout(timeoutId)
   }
 
   let body: any = null

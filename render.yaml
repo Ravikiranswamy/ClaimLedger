@@ -19,3 +19,4 @@ services:
         value: npg_SJ8qm0CPrNyu
       - key: CLAIMLEDGER_CORS_ALLOWED_ORIGINS
         value: "*"
+
