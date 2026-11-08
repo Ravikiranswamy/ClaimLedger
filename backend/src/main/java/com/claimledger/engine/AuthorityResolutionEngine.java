@@ -157,10 +157,21 @@ public class AuthorityResolutionEngine {
             }
         }
 
-        // Choose the primary authoritative document (highest version, highest relevance score)
-        DocumentEvidenceCandidate authoritativeCandidate = highestVersionCandidates.stream()
-                .max(Comparator.comparing(c -> c.relevanceScore() != null ? c.relevanceScore() : 0.0))
-                .orElse(highestVersionCandidates.get(0));
+        // Choose the primary authoritative document
+        // If the claim contains numeric facts (e.g. pricing, uptime), prioritize authoritative candidates that contain numeric facts
+        List<NumericFactExtractor.NumericFact> claimFacts = NumericFactExtractor.extractFacts(claimText);
+        DocumentEvidenceCandidate authoritativeCandidate;
+
+        if (!claimFacts.isEmpty()) {
+            authoritativeCandidate = highestVersionCandidates.stream()
+                    .filter(c -> !NumericFactExtractor.extractFacts(c.excerpt()).isEmpty())
+                    .max(Comparator.comparing(c -> c.relevanceScore() != null ? c.relevanceScore() : 0.0))
+                    .orElse(highestVersionCandidates.get(0));
+        } else {
+            authoritativeCandidate = highestVersionCandidates.stream()
+                    .max(Comparator.comparing(c -> c.relevanceScore() != null ? c.relevanceScore() : 0.0))
+                    .orElse(highestVersionCandidates.get(0));
+        }
 
         KnowledgeDocument authoritativeDoc = authoritativeCandidate.document();
         String authoritativeExcerpt = authoritativeCandidate.excerpt() != null ? authoritativeCandidate.excerpt() : "";
@@ -173,7 +184,7 @@ public class AuthorityResolutionEngine {
                     authoritativeDoc.getAuthorityTier(), authoritativeDoc.getName(), authoritativeDoc.getVersion(), mismatch.get()
             );
             String suggestedCorrection = String.format(
-                    "Align claim with %s (%s). Excerpt: \"%s\"",
+                    "Update to match %s (%s). Authoritative excerpt: \"%s\"",
                     authoritativeDoc.getName(), authoritativeDoc.getVersion(),
                     authoritativeExcerpt.length() > 150 ? authoritativeExcerpt.substring(0, 150) + "..." : authoritativeExcerpt
             );

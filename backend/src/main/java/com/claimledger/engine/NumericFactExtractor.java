@@ -12,9 +12,9 @@ import java.util.regex.Pattern;
  */
 public class NumericFactExtractor {
 
-    // Matches numbers with optional currency symbols or percentages, e.g. $120, 99.9%, 50,000, 14 days
+    // Matches numbers with optional currency symbols or percentages, e.g. $120, ₹999, 99.9%, 50,000, 14 days
     private static final Pattern NUMERIC_PATTERN = Pattern.compile(
-            "(?i)(\\$|€|£|₹)?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d+)?)\\s*(%|per month|/month|users?|days?|hours?|pages?)?"
+            "(?i)(\\$|€|£|₹|rs\\.?|inr)?\\s*(\\d+(?:,\\d{3})*(?:\\.\\d+)?)\\s*(%|per month|/month|users?|days?|hours?|pages?)?"
     );
 
     public record NumericFact(
@@ -101,11 +101,21 @@ public class NumericFactExtractor {
             return true;
         }
         // Shared critical metric keywords in context
-        String[] keywords = {"price", "cost", "fee", "rate", "uptime", "sla", "sla:", "guarantee", "capacity", "limit", "discount"};
+        String[] keywords = {"price", "cost", "fee", "rate", "month", "/month", "per month", "uptime", "sla", "sla:", "guarantee", "capacity", "limit", "discount"};
         for (String kw : keywords) {
             if (f1.context().contains(kw) && f2.context().contains(kw)) {
                 return true;
             }
+        }
+        // If both have currency or both have percentage
+        if (!f1.prefix().isEmpty() && !f2.prefix().isEmpty()) {
+            return true;
+        }
+        if (f1.unit().contains("%") && f2.unit().contains("%")) {
+            return true;
+        }
+        if (f1.unit().contains("month") && f2.unit().contains("month")) {
+            return true;
         }
         return false;
     }
