@@ -86,6 +86,43 @@ export function Home() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-brand/20 blur-3xl" />
       </div>
 
+      {/* 60-Second Judge Interactive Guide */}
+      <section className="rounded-2xl border border-brand/30 bg-gradient-to-r from-brand-soft/40 via-white to-canvas p-6 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-brand/20 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand text-white text-xs font-bold">★</span>
+            <h2 className="font-display font-bold text-base text-ink">Judge Quickstart — Test the Full Workflow in 60 Seconds</h2>
+          </div>
+          <span className="text-xs font-semibold text-brand bg-brand-soft px-2.5 py-1 rounded-full">Inkloom AI Challenge</span>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Link to="/submit" className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs">
+            <span className="text-xs font-bold text-brand">STEP 1</span>
+            <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">1-Click Submission</p>
+            <p className="mt-0.5 text-xs text-muted">Use Scenario 1 to test an outdated ₹799 price claim.</p>
+          </Link>
+
+          <Link to="/review" className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs">
+            <span className="text-xs font-bold text-brand">STEP 2</span>
+            <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">Deterministic Engine</p>
+            <p className="mt-0.5 text-xs text-muted">Watch pure Java engine flag a VIOLATION against Tier 1 catalogue.</p>
+          </Link>
+
+          <Link to="/review" className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs">
+            <span className="text-xs font-bold text-brand">STEP 3</span>
+            <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">1-Click Fix & Resubmit</p>
+            <p className="mt-0.5 text-xs text-muted">Auto-correct to ₹999, bump revision, and approve the submission.</p>
+          </Link>
+
+          <Link to="/knowledge-base" className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs">
+            <span className="text-xs font-bold text-brand">STEP 4</span>
+            <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">Vector Chunk Inspector</p>
+            <p className="mt-0.5 text-xs text-muted">Inspect real 768-dim embeddings in Neon pgvector.</p>
+          </Link>
+        </div>
+      </section>
+
       {/* 4 KPI Metrics */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">

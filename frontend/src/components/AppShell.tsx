@@ -45,6 +45,19 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
+        {/* System Architecture Health */}
+        <div className="mx-3 my-2 rounded-xl bg-navy-soft/60 border border-white/10 p-3 text-xs hidden md:block">
+          <div className="flex items-center gap-2 font-bold text-[#5EEAD4] uppercase tracking-wider text-[10px]">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            Cloud System Live
+          </div>
+          <p className="mt-1 text-[11px] text-[#A9BED2] leading-relaxed">
+            Neon pgvector (Singapore) · Pure Java Deterministic Hierarchy
+          </p>
+        </div>
         <div className="border-t border-navy-soft px-6 py-4">
           <p className="font-semibold">{user.fullName}</p>
           <p className="text-sm text-[#A9BED2]">{ROLE_LABEL[user.role]}</p>
