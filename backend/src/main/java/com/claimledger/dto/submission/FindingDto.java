@@ -112,3 +112,4 @@ public class FindingDto {
     public String getSuggestedFix() { return suggestedFix; }
     public void setSuggestedFix(String suggestedFix) { this.suggestedFix = suggestedFix; }
 }
+

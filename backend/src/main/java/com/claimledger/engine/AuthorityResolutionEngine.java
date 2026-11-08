@@ -206,9 +206,15 @@ public class AuthorityResolutionEngine {
             return true;
         }
 
-        // Department check
+        // Department check:
+        // A department-specific document applies to its own department, OR to any claim that references
+        // its authoritative product scope (e.g. Sales owns the Product Master Catalogue, but Marketing must adhere to its pricing)
         if (doc.getDepartmentId() != null && context.departmentId() != null) {
-            if (!doc.getDepartmentId().equals(context.departmentId())) {
+            boolean deptMatches = doc.getDepartmentId().equals(context.departmentId());
+            boolean productMatches = doc.getProductScope() != null && !doc.getProductScope().isBlank() &&
+                    claimText != null && claimText.toLowerCase().contains(doc.getProductScope().toLowerCase());
+
+            if (!deptMatches && !productMatches) {
                 return false;
             }
         }
