@@ -4,7 +4,7 @@
 > **Product**: ClaimLedger — *"Every claim, accounted for."*  
 > **Author**: Ravikiran Swamy (`ravikiranswamy550@gmail.com`)  
 > **Repository**: [https://github.com/Ravikiranswamy/ClaimLedger](https://github.com/Ravikiranswamy/ClaimLedger)  
-> **Live Demo**: [https://claimledger-six.vercel.app](https://claimledger-six.vercel.app)  
+> **Live Demo**: [https://claimledger.vercel.app](https://claimledger.vercel.app)  
 > **Live Backend API**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)
 
 ---

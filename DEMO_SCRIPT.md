@@ -3,7 +3,7 @@
 > **Judge Pitch & Live Walkthrough**  
 > **Challenge**: CodeTitans India 2026 — *Problem Statement: Inkloom AI – Brand Governance*  
 > **Presenter**: Ravikiran Swamy (`ravikiranswamy550@gmail.com`)  
-> **Application URL**: `http://localhost:5173`
+> **Application URL**: `https://claimledger.vercel.app` (or `http://localhost:5173`)
 
 ---
 
@@ -88,3 +88,4 @@
 - **What to Say**:
   > *"Finally, for enterprise compliance officers and regulatory audits, ClaimLedger maintains an immutable append-only ledger of every single submission, analysis run, revision, and reviewer decision — exportable directly to CSV for compliance archives.*  
   > *With pure Java deterministic authority, pgvector RAG, and an intuitive two-pane workflow, ClaimLedger ensures that for your organisation: **every claim is accounted for**. Thank you!"*
+
