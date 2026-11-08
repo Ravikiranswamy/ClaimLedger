@@ -4,7 +4,7 @@
 > **Product**: ClaimLedger — *"Every claim, accounted for."*  
 > **Author**: Ravikiran Swamy (`ravikiranswamy550@gmail.com`)  
 > **Repository**: [https://github.com/Ravikiranswamy/ClaimLedger](https://github.com/Ravikiranswamy/ClaimLedger)  
-> **Live Demo**: [https://claimledger.vercel.app](https://claimledger.vercel.app) *(or your Vercel deployment URL)*  
+> **Live Demo**: [https://claimledger-six.vercel.app](https://claimledger-six.vercel.app)  
 > **Live Backend API**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)
 
 ---
@@ -88,3 +88,4 @@ ClaimLedger decouples language understanding from compliance truth:
   - Figma & Canva live plugins (pre-flight checks before export).
   - Chrome Extension for Google Docs & Slack sales proposals.
   - Automated regulatory audit bundle generation (SOC2 / ISO 27001 Brand Integrity).
+
