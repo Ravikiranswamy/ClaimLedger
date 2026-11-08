@@ -4,9 +4,10 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate } from 'react-router-dom'
 import { z } from 'zod'
-import { USE_MOCK } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { ROLE_LABEL, type Role } from '../types'
+
+const DEMO_PASSWORD = 'Demo@1234'
 
 const schema = z.object({
   email: z.string().min(1, 'Enter your email').email('Enter a valid email'),
@@ -16,10 +17,10 @@ type Form = z.infer<typeof schema>
 
 // Demo convenience only. The backend must still enforce every permission.
 const DEMO: { role: Role; email: string }[] = [
-  { role: 'CREATOR', email: 'creator@nexora.test' },
-  { role: 'MANAGER', email: 'manager@nexora.test' },
-  { role: 'REVIEWER', email: 'reviewer@nexora.test' },
-  { role: 'ADMIN', email: 'admin@nexora.test' },
+  { role: 'CREATOR', email: 'creator@nexora.com' },
+  { role: 'DEPT_MANAGER', email: 'manager@nexora.com' },
+  { role: 'REVIEWER', email: 'reviewer@nexora.com' },
+  { role: 'ADMIN', email: 'admin@nexora.com' },
 ]
 
 export function Login() {
@@ -67,13 +68,13 @@ export function Login() {
           </button>
         </form>
 
-        {USE_MOCK && (
+        {(
           <section className="mt-6 rounded-2xl border border-line bg-surface p-6" aria-labelledby="demo-h">
             <h2 id="demo-h" className="font-semibold">Demo accounts (Nexora Technologies)</h2>
             <p className="mt-1 text-muted">Synthetic data. Tap a role to sign in.</p>
             <div className="mt-4 grid grid-cols-2 gap-3">
               {DEMO.map((d) => (
-                <button key={d.role} type="button" onClick={() => attempt(d.email, 'demo')}
+                <button key={d.role} type="button" onClick={() => attempt(d.email, DEMO_PASSWORD)}
                   className="rounded-xl border border-line px-3 py-3 text-base font-medium hover:border-brand hover:bg-brand-soft">
                   {ROLE_LABEL[d.role]}
                 </button>

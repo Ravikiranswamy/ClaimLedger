@@ -1,5 +1,5 @@
-import type { CreateSubmissionInput, Finding, LoginResponse, Submission, User } from '../types'
 import { ApiError, type Api } from './types'
+import type { AuditEntry, LoginResponse, Submission, User } from '../types'
 
 const TOKEN_KEY = 'claimledger.token'
 export const tokenStore = {
@@ -14,6 +14,9 @@ export const tokenStore = {
   },
 }
 
+/** Backend wraps every response as { success, message, data, timestamp }. */
+interface Envelope<T> { success: boolean; message?: string; data: T }
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers)
   const token = tokenStore.get()
@@ -26,29 +29,44 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch {
     throw new ApiError('Cannot reach the server. Check your connection and try again.', 0)
   }
-  if (!res.ok) {
-    let message = 'Something went wrong. Please try again.'
-    try {
-      const body = await res.json()
-      if (body?.message) message = body.message
-    } catch { /* keep default */ }
-    throw new ApiError(message, res.status)
+
+  let body: Partial<Envelope<T>> | null = null
+  try { body = await res.json() } catch { /* empty or non-JSON body */ }
+
+  if (!res.ok || body?.success === false) {
+    const fallback =
+      res.status === 401 ? 'Email or password is incorrect, or your session expired.'
+      : res.status === 403 ? 'You do not have permission to do that.'
+      : 'Something went wrong. Please try again.'
+    throw new ApiError(body?.message || fallback, res.status)
   }
-  return (await res.json()) as T
+  return body?.data as T
 }
 
 export const httpApi: Api = {
   login: (email, password) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  me: () => request<User>('/me'),
-  createSubmission: (input: CreateSubmissionInput) => {
+  me: () => request<User>('/auth/me'),
+  createTextSubmission: ({ title, content, departmentId }) =>
+    request<Submission>('/submissions', {
+      method: 'POST',
+      body: JSON.stringify({ title, content, contentType: 'TEXT', departmentId }),
+    }),
+  createPdfSubmission: ({ title, file, departmentId }) => {
     const form = new FormData()
-    form.append('title', input.title)
-    form.append('department', input.department)
-    if (input.text) form.append('text', input.text)
-    if (input.file) form.append('file', input.file)
-    return request<Submission>('/submissions', { method: 'POST', body: form })
+    form.append('title', title)
+    form.append('file', file)
+    if (departmentId) form.append('departmentId', departmentId)
+    return request<Submission>('/submissions/upload', { method: 'POST', body: form })
   },
   getSubmission: (id) => request<Submission>(`/submissions/${id}`),
-  getFindings: (id) => request<Finding[]>(`/submissions/${id}/findings`),
+  listSubmissions: () => request<Submission[]>('/submissions'),
+  reviewSubmission: (id, action, comment) =>
+    request<Submission>(`/submissions/${id}/review`, { method: 'POST', body: JSON.stringify({ action, comment }) }),
+  reviseSubmission: (id, content, comment) =>
+    request<Submission>(`/submissions/${id}/revise`, {
+      method: 'PUT',
+      body: JSON.stringify({ content, revisionComment: comment, contentType: 'TEXT' }),
+    }),
+  getAudit: (id) => request<AuditEntry[]>(`/submissions/${id}/audit`),
 }

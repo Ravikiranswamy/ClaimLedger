@@ -1,22 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { FileUp, Loader2, X } from 'lucide-react'
 import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
-import { AnalysisProgressView } from '../components/AnalysisProgress'
+import { CheckingView } from '../components/CheckingView'
 import { PageHeader } from '../components/PageHeader'
-import { StatusPill } from '../components/StatusPill'
-import { DEPARTMENT_LABEL, type ClaimState, type Department } from '../types'
+import { DEPARTMENTS } from '../types'
 
 const MAX_MB = 10
 const schema = z
   .object({
     title: z.string().trim().min(3, 'Give your content a short title'),
-    department: z.enum(['MARKETING', 'SALES', 'HR'], { message: 'Choose a department' }),
+    departmentId: z.string().min(1, 'Choose a department'),
     text: z.string().optional(),
     file: z.custom<File | undefined>().optional(),
   })
@@ -37,69 +36,32 @@ type Form = z.infer<typeof schema>
 
 export function Submit() {
   const { user } = useAuth()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
   const fileInput = useRef<HTMLInputElement>(null)
   const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
-    defaultValues: { title: '', department: (user?.department ?? '') as Department, text: '' },
+    defaultValues: { title: '', departmentId: user?.departmentId ?? '', text: '' },
   })
   const file = watch('file')
 
   const create = useMutation({
     mutationFn: (v: Form) =>
-      api.createSubmission({ title: v.title.trim(), department: v.department, text: v.text?.trim() || undefined, file: v.file }),
-  })
-  const submissionId = create.data?.id
-
-  const sub = useQuery({
-    queryKey: ['submission', submissionId],
-    queryFn: () => api.getSubmission(submissionId!),
-    enabled: !!submissionId,
-    refetchInterval: (q) => (q.state.data?.status === 'ANALYZING' ? 1000 : false),
-  })
-  const analysed = sub.data && sub.data.status !== 'ANALYZING'
-  const findings = useQuery({
-    queryKey: ['findings', submissionId],
-    queryFn: () => api.getFindings(submissionId!),
-    enabled: !!analysed,
+      v.file
+        ? api.createPdfSubmission({ title: v.title.trim(), file: v.file, departmentId: v.departmentId })
+        : api.createTextSubmission({ title: v.title.trim(), content: (v.text ?? '').trim(), departmentId: v.departmentId }),
+    onSuccess: (s) => {
+      qc.setQueryData(['submission', s.id], s)
+      qc.invalidateQueries({ queryKey: ['submissions'] })
+      navigate(`/review/${s.id}`)
+    },
   })
 
-  // ---- After submit: progress, then summary ----
-  if (submissionId) {
-    const counts: Partial<Record<ClaimState, number>> = {}
-    findings.data?.forEach((f) => { counts[f.state] = (counts[f.state] ?? 0) + 1 })
+  if (create.isPending) {
     return (
       <>
-        <PageHeader title="Checking your content" subtitle={create.data?.title} />
-        {sub.isError ? (
-          <p role="alert" className="rounded-2xl bg-violation-soft p-6 text-violation">We couldn’t load the analysis. Please refresh and try again.</p>
-        ) : !analysed ? (
-          <AnalysisProgressView progress={sub.data?.progress} />
-        ) : (
-          <div className="rounded-2xl border border-line bg-surface p-8">
-            <h2 className="font-display text-2xl font-semibold">
-              {findings.data
-                ? findings.data.length === 0
-                  ? 'No claims needed checking'
-                  : `${findings.data.length} claim${findings.data.length === 1 ? '' : 's'} checked`
-                : 'Loading results…'}
-            </h2>
-            <div className="mt-4 flex flex-wrap gap-3">
-              {(Object.keys(counts) as ClaimState[]).map((s) => (
-                <span key={s} className="inline-flex items-center gap-2">
-                  <StatusPill state={s} /> <span className="font-semibold">{counts[s]}</span>
-                </span>
-              ))}
-            </div>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link to={`/review/${submissionId}`} className="rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-strong">
-                See findings
-              </Link>
-              <button onClick={() => { create.reset(); }} className="rounded-xl border border-line px-5 py-3 font-semibold hover:bg-canvas">
-                Check something else
-              </button>
-            </div>
-          </div>
-        )}
+        <PageHeader title="Checking your content" subtitle={create.variables?.title} />
+        <CheckingView />
       </>
     )
   }
@@ -117,14 +79,12 @@ export function Submit() {
           </div>
           <div>
             <label htmlFor="department" className="mb-1.5 block font-medium">Department</label>
-            <select id="department" {...register('department')} aria-invalid={!!errors.department}
+            <select id="department" {...register('departmentId')} aria-invalid={!!errors.departmentId}
               className="w-full rounded-xl border border-line bg-white px-4 py-3 text-base">
               <option value="">Choose…</option>
-              {(Object.keys(DEPARTMENT_LABEL) as Department[]).map((d) => (
-                <option key={d} value={d}>{DEPARTMENT_LABEL[d]}</option>
-              ))}
+              {DEPARTMENTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-            {errors.department && <p className="mt-1.5 text-sm text-violation">{errors.department.message}</p>}
+            {errors.departmentId && <p className="mt-1.5 text-sm text-violation">{errors.departmentId.message}</p>}
           </div>
         </div>
 
@@ -137,8 +97,8 @@ export function Submit() {
         </div>
 
         <div>
-          <p className="mb-1.5 font-medium">Or upload a PDF</p>
-          <input ref={fileInput} type="file" accept="application/pdf,.pdf" className="sr-only" id="file" aria-label="Upload a PDF"
+          <p className="mb-1.5 font-medium">Or upload a PDF <span className="font-normal text-muted">(if you add one, we check the PDF)</span></p>
+          <input ref={fileInput} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="Upload a PDF"
             onChange={(e) => setValue('file', e.target.files?.[0], { shouldValidate: true })} />
           {file ? (
             <div className="flex items-center justify-between rounded-xl border border-line bg-canvas px-4 py-3">
@@ -160,7 +120,7 @@ export function Submit() {
             {create.error instanceof Error ? create.error.message : 'Could not submit. Please try again.'}
           </p>
         )}
-        <button disabled={create.isPending} className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 text-base font-semibold text-white hover:bg-brand-strong disabled:opacity-60">
+        <button className="inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 text-base font-semibold text-white hover:bg-brand-strong">
           {create.isPending && <Loader2 size={18} className="animate-spin" aria-hidden />} Check my content
         </button>
       </form>

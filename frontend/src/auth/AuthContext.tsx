@@ -51,7 +51,7 @@ export function useAuth() {
 /** UI convenience only. The backend is the real permission check. */
 export const NAV_BY_ROLE: Record<Role, string[]> = {
   CREATOR: ['home', 'submit', 'history'],
-  MANAGER: ['home', 'review', 'history'],
+  DEPT_MANAGER: ['home', 'review', 'history'],
   REVIEWER: ['home', 'review', 'history'],
   ADMIN: ['home', 'submit', 'review', 'knowledge', 'history'],
 }

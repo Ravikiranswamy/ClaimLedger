@@ -46,7 +46,7 @@ export function AppShell() {
           ))}
         </nav>
         <div className="border-t border-navy-soft px-6 py-4">
-          <p className="font-semibold">{user.name}</p>
+          <p className="font-semibold">{user.fullName}</p>
           <p className="text-sm text-[#A9BED2]">{ROLE_LABEL[user.role]}</p>
           <button
             onClick={logout}
