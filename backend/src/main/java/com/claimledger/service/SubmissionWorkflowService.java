@@ -6,6 +6,8 @@ import com.claimledger.exception.BadRequestException;
 import com.claimledger.exception.ResourceNotFoundException;
 import com.claimledger.model.*;
 import com.claimledger.model.enums.ActionType;
+import com.claimledger.model.enums.ApprovalStatus;
+import com.claimledger.model.enums.AuthorityTier;
 import com.claimledger.model.enums.ContentType;
 import com.claimledger.model.enums.Role;
 import com.claimledger.model.enums.SubmissionStatus;
@@ -73,6 +75,7 @@ public class SubmissionWorkflowService {
         Submission submission = new Submission();
         submission.setTitle(request.getTitle());
         submission.setSubmittedBy(currentUser.getId());
+        submission.setOrganisationId(currentUser.getOrganisationId() != null ? currentUser.getOrganisationId() : UUID.fromString("a1b2c3d4-0000-0000-0000-000000000001"));
         submission.setRevisionNumber(1);
         submission.setStatus(SubmissionStatus.DRAFT);
 
@@ -218,6 +221,82 @@ public class SubmissionWorkflowService {
         }
 
         return SubmissionResponse.fromEntity(submission, deptName, submitterName, claimResponses);
+    }
+
+    /**
+     * Returns structured findings for a submission formatted for the frontend claims inspector.
+     */
+    @Transactional(readOnly = true)
+    public List<FindingDto> getSubmissionFindings(UUID submissionId) {
+        List<Claim> claims = claimRepository.findBySubmissionId(submissionId);
+        List<FindingDto> findings = new ArrayList<>();
+
+        for (Claim claim : claims) {
+            FindingDto finding = new FindingDto();
+            finding.setId(claim.getId());
+            finding.setClaimText(claim.getClaimText());
+
+            int start = claim.getStartIndex() != null ? claim.getStartIndex() : 0;
+            int end = claim.getEndIndex() != null ? claim.getEndIndex() : 0;
+            finding.setSpan(new int[]{start, end});
+
+            finding.setState(claim.getVerificationStatus() != null ? claim.getVerificationStatus().name() : "UNVERIFIED");
+            finding.setMessage(claim.getExplanation() != null ? claim.getExplanation() : "Verification evaluation complete.");
+            finding.setSuggestedFix(claim.getSuggestedCorrection());
+
+            List<Evidence> evidenceList = evidenceRepository.findByClaimId(claim.getId());
+            FindingDto.AuthorityDto authority = new FindingDto.AuthorityDto();
+            List<FindingDto.AuthorityConsiderationDto> considerations = new ArrayList<>();
+
+            FindingDto.SourceDto winnerSource = null;
+            String approvedVal = null;
+
+            for (Evidence e : evidenceList) {
+                Optional<KnowledgeDocument> docOpt = documentRepository.findById(e.getDocumentId());
+                if (docOpt.isPresent()) {
+                    KnowledgeDocument doc = docOpt.get();
+                    FindingDto.SourceDto sourceDto = new FindingDto.SourceDto(
+                            doc.getId(),
+                            doc.getName(),
+                            doc.getVersion() != null ? doc.getVersion() : "1.0",
+                            doc.getApprovalStatus() != null ? doc.getApprovalStatus().name() : "APPROVED",
+                            doc.getEffectiveDate() != null ? doc.getEffectiveDate().toString() : null,
+                            doc.getExpiryDate() != null ? doc.getExpiryDate().toString() : null
+                    );
+
+                    String outcome;
+                    String reason;
+                    if (doc.getApprovalStatus() == ApprovalStatus.SUPERSEDED) {
+                        outcome = "SUPERSEDED";
+                        reason = "Document is superseded by active Product Master Catalogue";
+                    } else if (e.isAuthoritative()) {
+                        outcome = "AUTHORITATIVE";
+                        reason = "Tier 1 authoritative approved company document (single source of truth)";
+                        winnerSource = sourceDto;
+                        approvedVal = e.getExcerpt();
+                    } else if (doc.getAuthorityTier() == AuthorityTier.TIER_2) {
+                        outcome = "SCOPED";
+                        reason = "Tier 2 approved reference document, subordinate to Tier 1 catalogue";
+                    } else {
+                        outcome = "NOT_APPLICABLE";
+                        reason = "Reference evidence with subordinate authority";
+                    }
+
+                    considerations.add(new FindingDto.AuthorityConsiderationDto(
+                            sourceDto, outcome, e.getExcerpt(), reason
+                    ));
+                }
+            }
+
+            authority.setWinner(winnerSource);
+            authority.setApprovedValue(approvedVal);
+            authority.setConsidered(considerations);
+            finding.setAuthority(authority);
+
+            findings.add(finding);
+        }
+
+        return findings;
     }
 
     private void validateAccess(Submission submission, UserPrincipal currentUser) {

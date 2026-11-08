@@ -128,6 +128,25 @@ public class SubmissionResponse {
         this.submittedByName = submittedByName;
     }
 
+    public String getDepartment() {
+        if (departmentName != null) {
+            return departmentName.toUpperCase();
+        }
+        return "MARKETING";
+    }
+
+    public String getText() {
+        return content;
+    }
+
+    public String getFileName() {
+        return filePath != null ? filePath.substring(filePath.lastIndexOf("/") + 1) : null;
+    }
+
+    public String getCreatedBy() {
+        return submittedByName != null ? submittedByName : (submittedBy != null ? submittedBy.toString() : "Creator");
+    }
+
     public SubmissionStatus getStatus() {
         return status;
     }

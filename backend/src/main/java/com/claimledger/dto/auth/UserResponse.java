@@ -11,7 +11,9 @@ public class UserResponse {
     private UUID id;
     private String email;
     private String fullName;
-    private Role role;
+    private String name;
+    private String role;
+    private String department;
     private UUID departmentId;
     private UUID organisationId;
     private LocalDateTime createdAt;
@@ -24,7 +26,29 @@ public class UserResponse {
         response.setId(user.getId());
         response.setEmail(user.getEmail());
         response.setFullName(user.getFullName());
-        response.setRole(user.getRole());
+        response.setName(user.getFullName());
+
+        // Map role string: DEPT_MANAGER -> MANAGER for frontend compatibility
+        if (user.getRole() == Role.DEPT_MANAGER) {
+            response.setRole("MANAGER");
+        } else {
+            response.setRole(user.getRole() != null ? user.getRole().name() : "CREATOR");
+        }
+
+        // Map department name
+        if (user.getDepartmentId() != null) {
+            String deptIdStr = user.getDepartmentId().toString();
+            if (deptIdStr.contains("d0000001")) {
+                response.setDepartment("MARKETING");
+            } else if (deptIdStr.contains("d0000002")) {
+                response.setDepartment("SALES");
+            } else if (deptIdStr.contains("d0000003")) {
+                response.setDepartment("HR");
+            } else {
+                response.setDepartment("MARKETING");
+            }
+        }
+
         response.setDepartmentId(user.getDepartmentId());
         response.setOrganisationId(user.getOrganisationId());
         response.setCreatedAt(user.getCreatedAt());
@@ -56,12 +80,28 @@ public class UserResponse {
         this.fullName = fullName;
     }
 
-    public Role getRole() {
+    public String getName() {
+        return name != null ? name : fullName;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getRole() {
         return role;
     }
 
-    public void setRole(Role role) {
+    public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
     }
 
     public UUID getDepartmentId() {

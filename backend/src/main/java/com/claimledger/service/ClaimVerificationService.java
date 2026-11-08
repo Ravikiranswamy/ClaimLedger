@@ -114,6 +114,17 @@ public class ClaimVerificationService {
             claim.setSuggestedCorrection(resolution.getSuggestedCorrection());
             claim.setAiConfidence(ec.aiConfidence());
 
+            // Compute exact character span offsets in original submission content
+            int startIdx = content.indexOf(ec.claimText());
+            if (startIdx == -1) {
+                startIdx = content.toLowerCase().indexOf(ec.claimText().toLowerCase());
+            }
+            int endIdx = startIdx != -1 ? startIdx + ec.claimText().length() : 0;
+            if (startIdx == -1) startIdx = 0;
+
+            claim.setStartIndex(startIdx);
+            claim.setEndIndex(endIdx);
+
             Claim persistedClaim = claimRepository.save(claim);
             savedClaims.add(persistedClaim);
 
