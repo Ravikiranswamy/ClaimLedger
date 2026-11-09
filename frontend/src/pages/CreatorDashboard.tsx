@@ -16,6 +16,8 @@ import {
   PlusCircle,
   Search,
   Send,
+  ShieldCheck,
+  Sparkles,
   Tag,
   Wand2,
   X,
@@ -40,8 +42,165 @@ export function CreatorDashboard() {
   const auditQ = useQuery({ queryKey: ['audit-global'], queryFn: api.listGlobalAudit })
 
   const submissions = submissionsQ.data ?? []
-  const documents = (documentsQ.data ?? []).filter((d) => d.approvalStatus === 'APPROVED')
   const audits = auditQ.data ?? []
+
+  // Section E: Brand Guidelines – Applicability Filters
+  const [scopeProductFilter, setScopeProductFilter] = useState<string>('ALL')
+  const [scopeRegionFilter, setScopeRegionFilter] = useState<string>('ALL')
+  const [scopeChannelFilter, setScopeChannelFilter] = useState<string>('ALL')
+
+  const availableProducts = useMemo(() => {
+    const set = new Set<string>()
+    for (const d of documentsQ.data ?? []) {
+      if (d.productScope && d.productScope !== 'ALL' && d.productScope !== 'All Products') {
+        set.add(d.productScope)
+      }
+    }
+    return Array.from(set).sort()
+  }, [documentsQ.data])
+
+  const availableRegions = useMemo(() => {
+    const set = new Set<string>()
+    for (const d of documentsQ.data ?? []) {
+      if (d.region && d.region !== 'GLOBAL' && d.region !== 'ALL') {
+        set.add(d.region)
+      }
+    }
+    return Array.from(set).sort()
+  }, [documentsQ.data])
+
+  const availableChannels = useMemo(() => {
+    const set = new Set<string>()
+    for (const d of documentsQ.data ?? []) {
+      if (d.channel && d.channel !== 'ALL' && d.channel !== 'All Channels') {
+        set.add(d.channel)
+      }
+    }
+    return Array.from(set).sort()
+  }, [documentsQ.data])
+
+  // Display only approved, currently valid guidelines applicable to the Creator's department, product, region and channel.
+  const applicableGuidelines = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    return (documentsQ.data ?? []).filter((doc) => {
+      // 1. Must be APPROVED and not withdrawn/expired/superseded
+      if (doc.approvalStatus !== 'APPROVED') return false
+
+      // 2. Must be currently valid (effective date <= today, expiry date >= today)
+      if (doc.effectiveDate && doc.effectiveDate > today) return false
+      if (doc.expiryDate && doc.expiryDate < today) return false
+
+      // 3. Department applicability:
+      // Tier 1 documents are Master Authority (universal organisation-wide truth applicable to all departments)
+      // Tier 2/3 documents must match the Creator's department (or be universal / unassigned)
+      if (doc.authorityTier !== 'TIER_1') {
+        if (doc.departmentId && user?.departmentId && doc.departmentId !== user.departmentId) {
+          return false
+        }
+        if (doc.departmentName && user?.departmentName && doc.departmentName.toLowerCase() !== user.departmentName.toLowerCase()) {
+          if (doc.departmentId) return false
+        }
+      }
+
+      // 4. Product scope filter
+      if (scopeProductFilter !== 'ALL') {
+        const docProd = (doc.productScope ?? '').toLowerCase()
+        const targetProd = scopeProductFilter.toLowerCase()
+        if (docProd !== 'all' && docProd !== 'all products' && !docProd.includes(targetProd)) {
+          return false
+        }
+      }
+
+      // 5. Region scope filter
+      if (scopeRegionFilter !== 'ALL') {
+        const docReg = (doc.region ?? '').toLowerCase()
+        const targetReg = scopeRegionFilter.toLowerCase()
+        if (docReg !== 'global' && docReg !== 'all' && !docReg.includes(targetReg)) {
+          return false
+        }
+      }
+
+      // 6. Channel scope filter
+      if (scopeChannelFilter !== 'ALL') {
+        const docChan = (doc.channel ?? '').toLowerCase()
+        const targetChan = scopeChannelFilter.toLowerCase()
+        if (docChan !== 'all' && docChan !== 'all channels' && !docChan.includes(targetChan)) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [documentsQ.data, user, scopeProductFilter, scopeRegionFilter, scopeChannelFilter])
+
+  // Recent Activity Event Metadata Mapper
+  const getActivityMeta = (a: { action: string; comment?: string | null }) => {
+    switch (a.action) {
+      case 'SUBMITTED':
+        return {
+          title: 'New Submission Created',
+          badgeClass: 'bg-blue-50 text-blue-700',
+          icon: Send,
+        }
+      case 'ANALYZED': {
+        const lower = (a.comment || '').toLowerCase()
+        if (lower.includes('claim verification') || (lower.includes('verified') && !lower.includes('analysis'))) {
+          return {
+            title: 'Claim Verification Completed',
+            badgeClass: 'bg-teal-50 text-teal-700',
+            icon: ShieldCheck,
+          }
+        }
+        return {
+          title: 'Compliance Analysis Completed',
+          badgeClass: 'bg-indigo-50 text-indigo-700',
+          icon: Sparkles,
+        }
+      }
+      case 'CREATOR_REVISED':
+        return {
+          title: 'Submitted Revision',
+          badgeClass: 'bg-purple-50 text-purple-700',
+          icon: Wand2,
+        }
+      case 'REVIEWER_APPROVED':
+        return {
+          title: 'Reviewer Approved Content',
+          badgeClass: 'bg-emerald-50 text-emerald-700',
+          icon: CheckCircle2,
+        }
+      case 'REVIEWER_CHANGES_REQUESTED':
+        return {
+          title: 'Reviewer Requested Changes',
+          badgeClass: 'bg-amber-50 text-amber-700',
+          icon: AlertCircle,
+        }
+      case 'REVIEWER_REJECTED':
+        return {
+          title: 'Reviewer Rejected Content',
+          badgeClass: 'bg-rose-50 text-rose-700',
+          icon: XCircle,
+        }
+      case 'KNOWLEDGE_UPLOADED':
+        return {
+          title: 'Knowledge Document Uploaded',
+          badgeClass: 'bg-slate-100 text-slate-700',
+          icon: BookOpen,
+        }
+      case 'KNOWLEDGE_APPROVED':
+        return {
+          title: 'Knowledge Document Approved',
+          badgeClass: 'bg-emerald-50 text-emerald-700',
+          icon: CheckCircle2,
+        }
+      default:
+        return {
+          title: 'Activity Logged',
+          badgeClass: 'bg-slate-100 text-slate-700',
+          icon: Clock,
+        }
+    }
+  }
 
   // Handle hash scrolling to #my-content
   useEffect(() => {
@@ -69,7 +228,7 @@ export function CreatorDashboard() {
     () => submissions.filter((s) => ['IN_REVIEW', 'ANALYZING', 'FLAGGED', 'VERIFIED'].includes(s.status)).length,
     [submissions]
   )
-  const needsRevisionCount = useMemo(
+  const changesRequestedCount = useMemo(
     () => submissions.filter((s) => s.status === 'CHANGES_REQUESTED').length,
     [submissions]
   )
@@ -98,16 +257,16 @@ export function CreatorDashboard() {
 
   // Section D: Search and filter state for My Content
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'CHANGES_REQUESTED' | 'IN_REVIEW' | 'APPROVED' | 'DRAFT' | 'REJECTED'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'DRAFT' | 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED'>('ALL')
   const [selectedGuideline, setSelectedGuideline] = useState<KnowledgeDoc | null>(null)
 
   const filteredSubmissions = useMemo(() => {
     return submissions.filter((s) => {
-      // Status filtering
-      if (statusFilter === 'CHANGES_REQUESTED' && s.status !== 'CHANGES_REQUESTED') return false
-      if (statusFilter === 'IN_REVIEW' && !['IN_REVIEW', 'ANALYZING', 'FLAGGED', 'VERIFIED'].includes(s.status)) return false
-      if (statusFilter === 'APPROVED' && s.status !== 'APPROVED') return false
+      // Status filtering with actual workflow statuses
       if (statusFilter === 'DRAFT' && s.status !== 'DRAFT') return false
+      if (statusFilter === 'IN_REVIEW' && !['IN_REVIEW', 'ANALYZING', 'FLAGGED', 'VERIFIED'].includes(s.status)) return false
+      if (statusFilter === 'CHANGES_REQUESTED' && s.status !== 'CHANGES_REQUESTED') return false
+      if (statusFilter === 'APPROVED' && s.status !== 'APPROVED') return false
       if (statusFilter === 'REJECTED' && s.status !== 'REJECTED') return false
 
       // Text search
@@ -210,7 +369,7 @@ export function CreatorDashboard() {
             <p className="mt-1 text-xs text-muted">In reviewer queue for verification</p>
           </button>
 
-          {/* Needs Revision */}
+          {/* Changes Requested */}
           <button
             type="button"
             onClick={() => {
@@ -222,13 +381,13 @@ export function CreatorDashboard() {
             }`}
           >
             <div className="flex items-center justify-between w-full">
-              <span className="text-sm font-medium text-muted">Needs Revision</span>
+              <span className="text-sm font-medium text-muted">Changes Requested</span>
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-conflict-soft text-conflict">
                 <AlertCircle size={20} />
               </span>
             </div>
-            <p className="mt-3 font-display text-3xl font-bold text-conflict">{needsRevisionCount}</p>
-            <p className="mt-1 text-xs text-muted">Changes requested by reviewer</p>
+            <p className="mt-3 font-display text-3xl font-bold text-conflict">{changesRequestedCount}</p>
+            <p className="mt-1 text-xs text-muted">Revisions requested before approval</p>
           </button>
 
           {/* Approved */}
@@ -433,10 +592,10 @@ export function CreatorDashboard() {
             {(
               [
                 { id: 'ALL', label: 'All' },
-                { id: 'CHANGES_REQUESTED', label: 'Needs Revision' },
+                { id: 'DRAFT', label: 'Draft' },
                 { id: 'IN_REVIEW', label: 'In Review' },
+                { id: 'CHANGES_REQUESTED', label: 'Changes Requested' },
                 { id: 'APPROVED', label: 'Approved' },
-                { id: 'DRAFT', label: 'Drafts' },
                 { id: 'REJECTED', label: 'Rejected' },
               ] as const
             ).map((f) => (
@@ -484,14 +643,17 @@ export function CreatorDashboard() {
                 <th className="py-3 px-3">Format</th>
                 <th className="py-3 px-3">Last Updated</th>
                 <th className="py-3 px-3">Workflow Status</th>
-                <th className="py-3 px-3">Findings</th>
+                <th className="py-3 px-3">Compliance Findings</th>
                 <th className="py-3 px-3 text-right">Next Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {filteredSubmissions.map((s) => {
                 const totalClaims = s.claims.length
-                const nonVerified = s.claims.filter((c) => c.verificationStatus !== 'VERIFIED').length
+                const verifiedCount = s.claims.filter((c) => c.verificationStatus === 'VERIFIED').length
+                const violationCount = s.claims.filter((c) => c.verificationStatus === 'VIOLATION').length
+                const unverifiedCount = s.claims.filter((c) => c.verificationStatus === 'UNVERIFIED').length
+                const conflictCount = s.claims.filter((c) => c.verificationStatus === 'CONFLICT').length
 
                 return (
                   <tr key={s.id} className="transition hover:bg-canvas">
@@ -517,17 +679,36 @@ export function CreatorDashboard() {
                     <td className="py-3 px-3 whitespace-nowrap">
                       <SubmissionStatusChip status={s.status} />
                     </td>
-                    <td className="py-3 px-3 whitespace-nowrap">
+                    <td className="py-3 px-3">
                       {totalClaims === 0 ? (
-                        <span className="text-xs text-muted">0 claims</span>
-                      ) : nonVerified === 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-verified">
-                          <CheckCircle2 size={13} /> {totalClaims} verified
-                        </span>
+                        <span className="text-xs text-muted italic">0 claims</span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-conflict">
-                          <AlertCircle size={13} /> {nonVerified} issue{nonVerified === 1 ? '' : 's'}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 max-w-xs">
+                          {verifiedCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              {verifiedCount} Verified
+                            </span>
+                          )}
+                          {violationCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[11px] font-bold text-rose-800">
+                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                              {violationCount} {violationCount === 1 ? 'Violation' : 'Violations'}
+                            </span>
+                          )}
+                          {unverifiedCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                              {unverifiedCount} Unverified
+                            </span>
+                          )}
+                          {conflictCount > 0 && (
+                            <span className="inline-flex items-center gap-1 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[11px] font-bold text-purple-800">
+                              <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
+                              {conflictCount} {conflictCount === 1 ? 'Conflict' : 'Conflicts'}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td className="py-3 px-3 text-right whitespace-nowrap">
@@ -586,10 +767,73 @@ export function CreatorDashboard() {
           </Link>
         </div>
 
+        {/* Scope Context & Applicability Toolbar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas p-3 border border-line text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-muted uppercase tracking-wider text-[11px]">Department Scope:</span>
+            <span className="rounded-md bg-brand-soft px-2 py-0.5 font-bold text-brand">
+              {user?.departmentName ?? 'Marketing'}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted">Product:</span>
+              <select
+                value={scopeProductFilter}
+                onChange={(e) => setScopeProductFilter(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1 text-ink focus:border-brand focus:outline-none"
+              >
+                <option value="ALL">All Products</option>
+                {availableProducts.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted">Region:</span>
+              <select
+                value={scopeRegionFilter}
+                onChange={(e) => setScopeRegionFilter(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1 text-ink focus:border-brand focus:outline-none"
+              >
+                <option value="ALL">All Regions</option>
+                <option value="GLOBAL">GLOBAL</option>
+                {availableRegions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted">Channel:</span>
+              <select
+                value={scopeChannelFilter}
+                onChange={(e) => setScopeChannelFilter(e.target.value)}
+                className="rounded-lg border border-line bg-surface px-2 py-1 text-ink focus:border-brand focus:outline-none"
+              >
+                <option value="ALL">All Channels</option>
+                {availableChannels.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         {documentsQ.isLoading && <p className="py-6 text-center text-muted">Loading brand guidelines…</p>}
 
+        {documentsQ.isSuccess && applicableGuidelines.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-line bg-canvas p-8 text-center">
+            <BookOpen size={36} className="mx-auto text-muted opacity-60" />
+            <p className="mt-2 font-semibold text-ink">No applicable brand guidelines found</p>
+            <p className="text-xs text-muted mt-1">There are no approved, currently valid guidelines matching your department, product, region, and channel scope.</p>
+          </div>
+        )}
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {documents.slice(0, 3).map((doc) => {
+          {applicableGuidelines.slice(0, 3).map((doc) => {
             const isTier1 = doc.authorityTier === 'TIER_1'
             return (
               <div
@@ -603,10 +847,10 @@ export function CreatorDashboard() {
                         isTier1 ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
                       }`}
                     >
-                      {isTier1 ? 'Tier 1 — Master Authority' : 'Tier 2 — Departmental'}
+                      {isTier1 ? 'Tier 1 — Master Authority' : doc.authorityTier === 'TIER_2' ? 'Tier 2 — Departmental' : 'Tier 3 — Supporting'}
                     </span>
                     <span className="rounded-full bg-verified-soft px-2 py-0.5 text-[10px] font-bold text-verified uppercase">
-                      {doc.approvalStatus}
+                      Approved & Active
                     </span>
                   </div>
 
@@ -614,12 +858,10 @@ export function CreatorDashboard() {
                   <p className="mt-1 text-xs text-muted">Version {doc.version} · {doc.channel ?? 'All Channels'}</p>
 
                   <div className="mt-3 space-y-1 text-xs text-muted">
-                    {doc.productScope && (
-                      <p className="flex items-center gap-1.5">
-                        <Tag size={13} className="text-muted shrink-0" />
-                        <span className="truncate">{doc.productScope}</span>
-                      </p>
-                    )}
+                    <p className="flex items-center gap-1.5">
+                      <Tag size={13} className="text-muted shrink-0" />
+                      <span className="truncate">Scope: {doc.productScope ?? 'All Products'} · {doc.region ?? 'GLOBAL'}</span>
+                    </p>
                     <p className="flex items-center gap-1.5">
                       <Calendar size={13} className="text-muted shrink-0" />
                       <span>Valid: {doc.effectiveDate ?? 'Current'} {doc.expiryDate ? `to ${doc.expiryDate}` : '(Ongoing)'}</span>
@@ -671,10 +913,8 @@ export function CreatorDashboard() {
 
         <div className="space-y-3">
           {audits.slice(0, 6).map((a) => {
-            const isApproved = a.action === 'REVIEWER_APPROVED'
-            const isChangesRequested = a.action === 'REVIEWER_CHANGES_REQUESTED'
-            const isRevised = a.action === 'CREATOR_REVISED'
-            const isRejected = a.action === 'REVIEWER_REJECTED'
+            const meta = getActivityMeta(a)
+            const Icon = meta.icon
 
             return (
               <div
@@ -683,41 +923,13 @@ export function CreatorDashboard() {
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                      isApproved
-                        ? 'bg-verified-soft text-verified'
-                        : isChangesRequested
-                          ? 'bg-conflict-soft text-conflict'
-                          : isRevised
-                            ? 'bg-brand-soft text-brand'
-                            : isRejected
-                              ? 'bg-violation-soft text-violation'
-                              : 'bg-navy-soft text-navy'
-                    }`}
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${meta.badgeClass}`}
                   >
-                    {isApproved ? (
-                      <CheckCircle2 size={16} />
-                    ) : isChangesRequested ? (
-                      <AlertCircle size={16} />
-                    ) : isRevised ? (
-                      <Wand2 size={16} />
-                    ) : isRejected ? (
-                      <XCircle size={16} />
-                    ) : (
-                      <Send size={16} />
-                    )}
+                    <Icon size={16} />
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-ink">
-                      {isApproved
-                        ? 'Reviewer Approved Content'
-                        : isChangesRequested
-                          ? 'Reviewer Requested Changes'
-                          : isRevised
-                            ? 'Submitted Revision'
-                            : isRejected
-                              ? 'Reviewer Rejected Content'
-                              : 'New Submission Created'}
+                      {meta.title}
                     </p>
                     <p className="text-xs text-muted truncate">
                       {a.comment ? `“${a.comment}” · ` : ''}By {a.actorName} ({a.actorRole ?? 'User'})
@@ -752,7 +964,7 @@ export function CreatorDashboard() {
                 </span>
                 <div>
                   <h2 className="font-display font-bold text-lg">{selectedGuideline.name}</h2>
-                  <p className="text-xs text-muted">Authoritative Brand Guideline (Read-Only)</p>
+                  <p className="text-xs text-muted">Authoritative Brand Guideline (Read-Only Scope)</p>
                 </div>
               </div>
               <button
@@ -767,18 +979,38 @@ export function CreatorDashboard() {
               <div className="rounded-2xl border border-line bg-canvas p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted">Authority Tier</span>
-                  <span className="text-xs font-bold text-brand">{selectedGuideline.authorityTier}</span>
+                  <span className="text-xs font-bold text-brand">
+                    {selectedGuideline.authorityTier === 'TIER_1'
+                      ? 'Tier 1 — Master Authority'
+                      : selectedGuideline.authorityTier === 'TIER_2'
+                        ? 'Tier 2 — Departmental Scope'
+                        : 'Tier 3 — Supporting Material'}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted">Version</span>
                   <span className="text-xs font-bold text-ink">{selectedGuideline.version}</span>
                 </div>
-                {selectedGuideline.productScope && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-muted">Product Scope</span>
-                    <span className="text-xs font-bold text-ink">{selectedGuideline.productScope}</span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Department Scope</span>
+                  <span className="text-xs font-bold text-ink">
+                    {selectedGuideline.authorityTier === 'TIER_1'
+                      ? 'Universal (All Departments)'
+                      : selectedGuideline.departmentName ?? 'Department Specific'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Product Scope</span>
+                  <span className="text-xs font-bold text-ink">{selectedGuideline.productScope ?? 'All Products'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Region</span>
+                  <span className="text-xs font-bold text-ink">{selectedGuideline.region ?? 'GLOBAL'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Channel</span>
+                  <span className="text-xs font-bold text-ink">{selectedGuideline.channel ?? 'All Channels'}</span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted">Validity</span>
                   <span className="text-xs font-bold text-ink">
@@ -788,15 +1020,15 @@ export function CreatorDashboard() {
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wider text-muted">Approval Status</span>
                   <span className="rounded-full bg-verified-soft px-2.5 py-0.5 text-xs font-bold text-verified">
-                    {selectedGuideline.approvalStatus}
+                    Approved & Active
                   </span>
                 </div>
               </div>
 
               <div className="rounded-xl border border-line bg-brand-soft/40 p-4 text-xs text-ink space-y-1">
-                <p className="font-bold text-brand">Authoritative Standard</p>
+                <p className="font-bold text-brand">Authoritative Brand Governance</p>
                 <p className="text-muted leading-relaxed">
-                  All claims in your content are deterministically compared against this approved document before publication.
+                  All claims in your content are deterministically compared against this approved document before publication. This reference view is read-only for creators; authorised admins manage tiers and scope in the Knowledge Base.
                 </p>
               </div>
             </div>
