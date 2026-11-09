@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Server, Zap } from 'lucide-react'
+import { Loader2, Server } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate } from 'react-router-dom'
@@ -121,19 +121,9 @@ export function Login() {
   return (
     <div className="flex min-h-full items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-4xl font-semibold tracking-tight">ClaimLedger</h1>
-            <p className="mt-1 text-base text-muted">Every claim, accounted for.</p>
-          </div>
-          <button
-            type="button"
-            onClick={handleInstantBypass}
-            title="Immediate access without waiting for cold start"
-            className="flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 shadow-xs hover:bg-emerald-100"
-          >
-            <Zap size={12} className="text-emerald-600" /> Instant Access
-          </button>
+        <div>
+          <h1 className="font-display text-4xl font-semibold tracking-tight">ClaimLedger</h1>
+          <p className="mt-1 text-base text-muted">Every claim, accounted for.</p>
         </div>
 
         <form onSubmit={handleSubmit((v) => attempt(v.email, v.password))} className="mt-6 space-y-4 rounded-2xl border border-line bg-surface p-7" noValidate>
@@ -161,13 +151,14 @@ export function Login() {
         </form>
 
         <section className="mt-6 rounded-2xl border border-line bg-surface p-6" aria-labelledby="demo-h">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <h2 id="demo-h" className="font-semibold text-base">Demo accounts (Nexora Technologies)</h2>
-              <Zap size={14} className="text-amber-500" />
-            </div>
+          <div>
+            <h2 id="demo-h" className="font-semibold text-base text-[#0A1F36]">
+              Evaluation workspace <span className="font-normal text-muted text-sm">(Demo: Nexora Technologies)</span>
+            </h2>
+            <p className="mt-1 text-muted text-xs leading-relaxed">
+              Pre-configured sample enterprise for testing governance workflows across roles. Tap any profile to sign in.
+            </p>
           </div>
-          <p className="mt-1 text-muted text-xs">Tap any role to populate and sign in immediately.</p>
           <div className="mt-4 grid grid-cols-2 gap-2.5">
             {DEMO.map((d) => (
               <button key={d.role} type="button"
