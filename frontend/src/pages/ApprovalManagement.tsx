@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle,
-  BookOpen,
   Calendar,
   Check,
   CheckCircle2,
@@ -54,11 +53,9 @@ export function ApprovalManagement() {
   const qc = useQueryClient()
 
   // State
-  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'audit'>('pending')
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL')
   const [tierFilter, setTierFilter] = useState<string>('ALL')
-  const [statusFilter, setStatusFilter] = useState<string>('ALL')
 
   // Selected document for inspection modal
   const [inspectDoc, setInspectDoc] = useState<KnowledgeDoc | null>(null)
@@ -91,13 +88,6 @@ export function ApprovalManagement() {
     queryFn: () => api.listDocuments(),
   })
   const docs = docsQ.data ?? []
-
-  // Fetch global audit for the audit ledger tab
-  const auditQ = useQuery({
-    queryKey: ['global-audit-ledger'],
-    queryFn: () => api.listGlobalAudit(),
-  })
-  const globalAudit = auditQ.data ?? []
 
   // Computed dashboard counts
   const metrics = useMemo(() => {
@@ -180,11 +170,11 @@ export function ApprovalManagement() {
     },
   })
 
-  // Filtered documents list
+  // Filtered documents list for Pending Approval Queue
   const filteredDocs = useMemo(() => {
     return docs.filter((d) => {
-      // If on Pending tab, only show DRAFT
-      if (activeTab === 'pending' && d.approvalStatus !== 'DRAFT') {
+      // Pending Approval Queue only shows documents awaiting approval (DRAFT)
+      if (d.approvalStatus !== 'DRAFT') {
         return false
       }
 
@@ -204,12 +194,9 @@ export function ApprovalManagement() {
       // Tier filter
       if (tierFilter !== 'ALL' && d.authorityTier !== tierFilter) return false
 
-      // Status filter (on All tab)
-      if (activeTab === 'all' && statusFilter !== 'ALL' && d.approvalStatus !== statusFilter) return false
-
       return true
     })
-  }, [docs, activeTab, search, categoryFilter, tierFilter, statusFilter])
+  }, [docs, search, categoryFilter, tierFilter])
 
   // Open authority edit modal
   const openAuthorityEdit = (doc: KnowledgeDoc) => {
@@ -229,9 +216,6 @@ export function ApprovalManagement() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F766E] text-white text-xs font-bold font-mono">
-                05
-              </span>
               <span className="text-xs font-bold uppercase tracking-wider text-[#0F766E]">
                 Knowledge Governance
               </span>
@@ -281,23 +265,12 @@ export function ApprovalManagement() {
         </div>
       )}
 
-      {/* 2. Approval Dashboard (4 KPI Metric Cards with click-to-filter) */}
+      {/* 2. Approval Dashboard (4 Summary Metric Cards) */}
       <section aria-labelledby="approval-metrics-heading">
         <h2 id="approval-metrics-heading" className="sr-only">Approval Status Metrics</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {/* Pending Approvals */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('pending')
-              setStatusFilter('ALL')
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
-              activeTab === 'pending'
-                ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20 shadow-xs'
-                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
-            }`}
-          >
+          <div className="flex flex-col justify-between rounded-2xl border border-amber-300 bg-amber-50/70 p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-amber-900">
                 Pending Approvals
@@ -308,21 +281,10 @@ export function ApprovalManagement() {
               <span className="font-display text-2xl font-bold text-amber-950">{metrics.pending}</span>
               <p className="mt-0.5 text-xs text-amber-700">Awaiting admin review</p>
             </div>
-          </button>
+          </div>
 
           {/* Approved Documents */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('all')
-              setStatusFilter('APPROVED')
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
-              activeTab === 'all' && statusFilter === 'APPROVED'
-                ? 'border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20 shadow-xs'
-                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
-            }`}
-          >
+          <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-emerald-900">
                 Approved Documents
@@ -333,21 +295,10 @@ export function ApprovalManagement() {
               <span className="font-display text-2xl font-bold text-emerald-950">{metrics.approved}</span>
               <p className="mt-0.5 text-xs text-emerald-700">Active authoritative sources</p>
             </div>
-          </button>
+          </div>
 
           {/* Rejected Documents */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('all')
-              setStatusFilter('REJECTED')
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
-              activeTab === 'all' && statusFilter === 'REJECTED'
-                ? 'border-rose-500 bg-rose-50/70 ring-2 ring-rose-500/20 shadow-xs'
-                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
-            }`}
-          >
+          <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-rose-900">
                 Rejected Documents
@@ -356,23 +307,12 @@ export function ApprovalManagement() {
             </div>
             <div className="mt-3">
               <span className="font-display text-2xl font-bold text-rose-950">{metrics.rejected}</span>
-              <p className="mt-0.5 text-xs text-rose-700">Non-compliant knowledge</p>
+              <p className="mt-0.5 text-xs text-rose-700">Documents not approved</p>
             </div>
-          </button>
+          </div>
 
           {/* Superseded Documents */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('all')
-              setStatusFilter('SUPERSEDED')
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all ${
-              activeTab === 'all' && statusFilter === 'SUPERSEDED'
-                ? 'border-slate-500 bg-slate-100 ring-2 ring-slate-500/20 shadow-xs'
-                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
-            }`}
-          >
+          <div className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-4 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-slate-800">
                 Superseded Documents
@@ -383,152 +323,98 @@ export function ApprovalManagement() {
               <span className="font-display text-2xl font-bold text-slate-900">{metrics.superseded}</span>
               <p className="mt-0.5 text-xs text-muted">Replaced by newer versions</p>
             </div>
-          </button>
+          </div>
         </div>
       </section>
 
-      {/* 3. Navigation Tabs */}
-      <div className="flex border-b border-line">
-        <button
-          type="button"
-          onClick={() => setActiveTab('pending')}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition ${
-            activeTab === 'pending'
-              ? 'border-[#0F766E] text-[#0F766E]'
-              : 'border-transparent text-muted hover:text-ink'
-          }`}
-        >
-          <Clock size={16} />
-          <span>Pending Approval Queue</span>
-          {metrics.pending > 0 && (
-            <span className="rounded-full bg-amber-500 text-white px-2 py-0.2 text-xs font-bold">
-              {metrics.pending}
-            </span>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('all')}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition ${
-            activeTab === 'all'
-              ? 'border-[#0F766E] text-[#0F766E]'
-              : 'border-transparent text-muted hover:text-ink'
-          }`}
-        >
-          <BookOpen size={16} />
-          <span>All Knowledge Documents ({docs.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('audit')}
-          className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition ${
-            activeTab === 'audit'
-              ? 'border-[#0F766E] text-[#0F766E]'
-              : 'border-transparent text-muted hover:text-ink'
-          }`}
-        >
-          <ShieldCheck size={16} />
-          <span>Governance Audit Ledger</span>
-        </button>
-      </div>
-
-      {/* 4. Filter Bar (Active on Pending and All tabs) */}
-      {activeTab !== 'audit' && (
-        <section aria-labelledby="approval-filters" className="rounded-2xl border border-line bg-surface p-4 shadow-xs">
-          <h2 id="approval-filters" className="sr-only">Document Approval Filters</h2>
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by document name, category, or scope…"
-                className="w-full rounded-xl border border-line bg-canvas pl-9 pr-4 py-2 text-sm text-ink placeholder:text-muted focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted hover:text-ink"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-
-            {/* Filter Dropdowns */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              {/* Category */}
-              <select
-                aria-label="Filter by Category"
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
+      {/* 3. Filter Bar */}
+      <section aria-labelledby="approval-filters" className="rounded-2xl border border-line bg-surface p-4 shadow-xs">
+        <h2 id="approval-filters" className="sr-only">Document Approval Filters</h2>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          {/* Search */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search pending documents by name, category, or scope…"
+              className="w-full rounded-xl border border-line bg-canvas pl-9 pr-4 py-2 text-sm text-ink placeholder:text-muted focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted hover:text-ink"
               >
-                <option value="ALL">All Categories</option>
-                <option value="BRAND">Brand Guidelines</option>
-                <option value="PRODUCTS">Products</option>
-                <option value="DEPARTMENTAL">Departmental</option>
-                <option value="TERMINOLOGY">Terminology</option>
-                <option value="ASSETS">Assets</option>
-              </select>
-
-              {/* Authority Tier */}
-              <select
-                aria-label="Filter by Tier"
-                value={tierFilter}
-                onChange={(e) => setTierFilter(e.target.value)}
-                className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
-              >
-                <option value="ALL">All Authority Tiers</option>
-                <option value="TIER_1">Tier 1 — Master Authority</option>
-                <option value="TIER_2">Tier 2 — Departmental Scope</option>
-                <option value="TIER_3">Tier 3 — Supporting Material</option>
-              </select>
-
-              {/* Status (on All tab) */}
-              {activeTab === 'all' && (
-                <select
-                  aria-label="Filter by Status"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
-                >
-                  <option value="ALL">All Statuses</option>
-                  <option value="APPROVED">Approved & Active</option>
-                  <option value="DRAFT">Pending Approval</option>
-                  <option value="SUPERSEDED">Superseded</option>
-                  <option value="REJECTED">Rejected</option>
-                </select>
-              )}
-
-              {(search || categoryFilter !== 'ALL' || tierFilter !== 'ALL' || (activeTab === 'all' && statusFilter !== 'ALL')) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch('')
-                    setCategoryFilter('ALL')
-                    setTierFilter('ALL')
-                    setStatusFilter('ALL')
-                  }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-muted hover:bg-canvas hover:text-ink"
-                >
-                  <RotateCcw size={12} /> Reset
-                </button>
-              )}
-            </div>
+                Clear
+              </button>
+            )}
           </div>
-        </section>
-      )}
 
-      {/* 5. Tab Content: Pending Approval Queue & All Documents */}
-      {activeTab !== 'audit' && (
-        <section aria-labelledby="approval-table-heading" className="rounded-2xl border border-line bg-surface overflow-hidden shadow-xs">
-          <h2 id="approval-table-heading" className="sr-only">Knowledge Documents Queue</h2>
+          {/* Filter Dropdowns */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* Category */}
+            <select
+              aria-label="Filter by Category"
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
+            >
+              <option value="ALL">All Categories</option>
+              <option value="BRAND">Brand Guidelines</option>
+              <option value="PRODUCTS">Products</option>
+              <option value="DEPARTMENTAL">Departmental</option>
+              <option value="TERMINOLOGY">Terminology</option>
+              <option value="ASSETS">Assets</option>
+            </select>
+
+            {/* Authority Tier */}
+            <select
+              aria-label="Filter by Tier"
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value)}
+              className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
+            >
+              <option value="ALL">All Authority Tiers</option>
+              <option value="TIER_1">Tier 1 — Master Authority</option>
+              <option value="TIER_2">Tier 2 — Departmental Scope</option>
+              <option value="TIER_3">Tier 3 — Supporting Material</option>
+            </select>
+
+            {(search || categoryFilter !== 'ALL' || tierFilter !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('')
+                  setCategoryFilter('ALL')
+                  setTierFilter('ALL')
+                }}
+                className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-muted hover:bg-canvas hover:text-ink transition"
+              >
+                <RotateCcw size={12} /> Reset
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Pending Approval Queue */}
+      <section aria-labelledby="approval-table-heading" className="rounded-2xl border border-line bg-surface overflow-hidden shadow-xs">
+        <div className="flex items-center justify-between border-b border-line bg-canvas px-5 py-3.5">
+          <div className="flex items-center gap-2">
+            <Clock size={16} className="text-amber-600" />
+            <h2 id="approval-table-heading" className="font-display text-sm font-bold text-[#0A1F36]">
+              Pending Approval Queue
+            </h2>
+            <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.2 text-xs font-bold">
+              {filteredDocs.length} awaiting decision
+            </span>
+          </div>
+          <span className="text-xs text-muted hidden sm:inline">
+            Knowledge documents awaiting review before entering authoritative engine
+          </span>
+        </div>
 
           {docsQ.isLoading ? (
             <div className="p-12 text-center text-muted">
@@ -537,16 +423,12 @@ export function ApprovalManagement() {
             </div>
           ) : filteredDocs.length === 0 ? (
             <div className="p-12 text-center">
-              <BookOpen size={32} className="mx-auto mb-3 text-muted/60" />
+              <FileText size={32} className="mx-auto mb-3 text-muted/60" />
               <p className="font-semibold text-ink">
-                {activeTab === 'pending'
-                  ? 'No documents currently awaiting approval'
-                  : 'No documents match your filter criteria'}
+                No documents currently awaiting approval
               </p>
               <p className="text-xs text-muted mt-1 max-w-sm mx-auto">
-                {activeTab === 'pending'
-                  ? 'All uploaded guidelines, catalogues, and proposals have been evaluated and resolved.'
-                  : 'Try clearing your filters or search keywords.'}
+                All uploaded guidelines, catalogues, and proposals have been evaluated and resolved.
               </p>
             </div>
           ) : (
@@ -655,7 +537,7 @@ export function ApprovalManagement() {
                               Inspect <ChevronRight size={13} />
                             </button>
 
-                            {/* If pending, quick approve/reject */}
+                            {/* Quick approve/reject */}
                             {doc.approvalStatus === 'DRAFT' && (
                               <>
                                 <button
@@ -682,16 +564,6 @@ export function ApprovalManagement() {
                                 </button>
                               </>
                             )}
-
-                            {/* Authority & Scope Edit */}
-                            <button
-                              type="button"
-                              onClick={() => openAuthorityEdit(doc)}
-                              title="Edit authority tier, scope, or validity dates"
-                              className="inline-flex items-center gap-1 rounded-lg border border-line p-1 text-muted hover:text-ink hover:bg-canvas transition"
-                            >
-                              <Edit3 size={13} />
-                            </button>
                           </div>
                         </td>
                       </tr>
@@ -702,54 +574,6 @@ export function ApprovalManagement() {
             </div>
           )}
         </section>
-      )}
-
-      {/* 6. Tab Content: Governance Audit Ledger */}
-      {activeTab === 'audit' && (
-        <section aria-labelledby="audit-ledger-heading" className="rounded-2xl border border-line bg-surface p-6 shadow-xs space-y-6">
-          <div className="flex items-center justify-between border-b border-line pb-4">
-            <div>
-              <h2 id="audit-ledger-heading" className="font-display text-lg font-bold text-[#0A1F36]">
-                Knowledge Governance Audit Ledger
-              </h2>
-              <p className="text-xs text-muted mt-0.5">
-                Immutable, append-only audit trail of knowledge uploads, approvals, tier updates, and supersessions.
-              </p>
-            </div>
-            <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-              Append-Only Ledger
-            </span>
-          </div>
-
-          {globalAudit.length === 0 ? (
-            <p className="text-muted text-sm py-4">No audit actions recorded yet.</p>
-          ) : (
-            <ol className="space-y-4 border-l-2 border-line pl-5">
-              {globalAudit
-                .filter((a) => a.action.startsWith('KNOWLEDGE_') || a.action.includes('APPROVED') || a.action.includes('REJECTED'))
-                .slice(0, 15)
-                .map((a) => (
-                  <li key={a.id} className="relative">
-                    <span className="absolute -left-[1.78rem] top-1.5 h-3 w-3 rounded-full bg-[#0F766E]" />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded bg-teal-50 border border-teal-200 px-2 py-0.5 text-xs font-bold text-teal-800 font-mono">
-                        {a.action}
-                      </span>
-                      <span className="text-xs text-muted">
-                        {a.actorName} ({a.actorRole ?? 'Admin'}) · {formatWhen(a.createdAt)}
-                      </span>
-                    </div>
-                    {a.comment && (
-                      <p className="mt-1 text-sm text-slate-800 font-medium leading-relaxed">
-                        {a.comment}
-                      </p>
-                    )}
-                  </li>
-                ))}
-            </ol>
-          )}
-        </section>
-      )}
 
       {/* 7. Problem Statement Alignment & Governance Architecture */}
       <section className="rounded-2xl border border-line bg-gradient-to-br from-slate-50 to-white p-6 shadow-xs">

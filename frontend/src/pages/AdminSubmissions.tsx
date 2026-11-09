@@ -8,7 +8,6 @@ import {
   FileCheck2,
   FileText,
   Filter,
-  Layers,
   RotateCcw,
   Search,
   ShieldAlert,
@@ -18,7 +17,6 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { formatWhen } from '../components/AuditTimeline'
-import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { DEPARTMENTS, type Submission, type SubmissionStatus } from '../types'
 
 type StatusFilterType = 'ALL' | 'AWAITING_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED' | 'DRAFT'
@@ -131,9 +129,6 @@ export function AdminSubmissions() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1.5">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F766E] text-white text-xs font-bold font-mono">
-                03
-              </span>
               <span className="text-xs font-bold uppercase tracking-wider text-[#0F766E]">
                 Organisation Governance
               </span>
@@ -210,7 +205,7 @@ export function AdminSubmissions() {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wider text-orange-800">Changes Needed</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-orange-800">Changes Requested</span>
               <AlertCircle size={16} className="text-orange-600" />
             </div>
             <div className="mt-3">
@@ -255,7 +250,7 @@ export function AdminSubmissions() {
             </div>
             <div className="mt-3">
               <span className="font-display text-2xl font-bold text-rose-900">{metrics.rejected}</span>
-              <p className="mt-0.5 text-xs text-rose-700">Critical brand violations</p>
+              <p className="mt-0.5 text-xs text-rose-700">Rejected after review</p>
             </div>
           </button>
         </div>
@@ -415,7 +410,7 @@ export function AdminSubmissions() {
                   <th scope="col" className="px-4 py-3.5">Department</th>
                   <th scope="col" className="px-3 py-3.5">Type</th>
                   <th scope="col" className="px-4 py-3.5">Submitted</th>
-                  <th scope="col" className="px-4 py-3.5">Status</th>
+                  <th scope="col" className="px-4 py-3.5">Workflow Status</th>
                   <th scope="col" className="px-4 py-3.5">Compliance Findings</th>
                   <th scope="col" className="px-4 py-3.5">Assigned Reviewer</th>
                   <th scope="col" className="px-5 py-3.5 text-right">Actions</th>
@@ -431,6 +426,7 @@ export function AdminSubmissions() {
 
                   // Assigned reviewer determination (simulated or from audit)
                   const reviewerLabel = getAssignedReviewer(s)
+                  const workflowBadge = getWorkflowStatusBadge(s.status)
 
                   return (
                     <tr key={s.id} className="hover:bg-canvas/60 transition-colors">
@@ -518,15 +514,28 @@ export function AdminSubmissions() {
 
                       {/* 6. Workflow Status */}
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <SubmissionStatusChip status={s.status} />
+                        <span
+                          className={`inline-block rounded-md border px-2.5 py-1 text-xs font-semibold ${workflowBadge.cls}`}
+                        >
+                          {workflowBadge.label}
+                        </span>
                       </td>
 
                       {/* 7. Compliance Findings Summary */}
                       <td className="px-4 py-4">
                         {totalClaims === 0 ? (
-                          <span className="text-xs text-muted italic">No claims flagged</span>
+                          <span className="text-xs text-muted italic">No claims extracted</span>
                         ) : (
                           <div className="flex flex-wrap items-center gap-1.5 max-w-xs">
+                            {verifiedCount > 0 && (
+                              <span
+                                title={`${verifiedCount} verified against Tier 1/2 authority`}
+                                className="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800"
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                {verifiedCount} Verified
+                              </span>
+                            )}
                             {violationCount > 0 && (
                               <span
                                 title={`${violationCount} brand truth violations`}
@@ -551,16 +560,7 @@ export function AdminSubmissions() {
                                 className="inline-flex items-center gap-1 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[11px] font-bold text-purple-800"
                               >
                                 <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                                {conflictCount} Conflict
-                              </span>
-                            )}
-                            {verifiedCount > 0 && (
-                              <span
-                                title={`${verifiedCount} verified against Tier 1/2 authority`}
-                                className="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800"
-                              >
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                {verifiedCount} Verified
+                                {conflictCount} Conflict{conflictCount > 1 ? 's' : ''}
                               </span>
                             )}
                           </div>
@@ -590,46 +590,46 @@ export function AdminSubmissions() {
           </div>
         )}
       </section>
-
-      {/* 5. Problem Statement Alignment & Governance Philosophy Callout */}
-      <section className="rounded-2xl border border-line bg-gradient-to-br from-slate-50 to-white p-6 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-          <div className="max-w-2xl">
-            <div className="flex items-center gap-2 mb-2">
-              <Layers size={18} className="text-[#0F766E]" />
-              <h3 className="font-display text-base font-bold text-[#0A1F36]">
-                Deterministic Brand Truth at Scale
-              </h3>
-            </div>
-            <p className="text-xs text-muted leading-relaxed">
-              In enterprise brand governance, content drift occurs when sales and marketing teams quote superseded brochures or regional promotions that conflict with master pricing. ClaimLedger enforces a strict <strong>three-tier authority hierarchy</strong>: Tier 1 Master Catalogues deterministically override lower-tier references.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-4 text-xs">
-              <span className="inline-flex items-center gap-1 font-semibold text-emerald-800">
-                👑 Tier 1: Master Guidelines & Price Catalogues
-              </span>
-              <span className="inline-flex items-center gap-1 font-semibold text-blue-800">
-                📄 Tier 2: Departmental Policies
-              </span>
-              <span className="inline-flex items-center gap-1 font-semibold text-amber-800">
-                ⚠️ Tier 3: Marketing & Regional Brochures
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-line bg-surface p-4 text-xs shrink-0 md:w-72">
-            <div className="flex items-center gap-2 font-bold text-ink mb-1.5">
-              <ShieldCheck size={16} className="text-[#0F766E]" />
-              <span>Admin Role Scope</span>
-            </div>
-            <p className="text-muted leading-relaxed">
-              As Organisation Admin, you oversee submissions across all departments. Decisions remain with Authorised Reviewers to preserve governance accountability and audit trails.
-            </p>
-          </div>
-        </div>
-      </section>
     </div>
   )
+}
+
+function getWorkflowStatusBadge(status: SubmissionStatus): { label: string; cls: string } {
+  switch (status) {
+    case 'APPROVED':
+      return {
+        label: 'Approved',
+        cls: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+      }
+    case 'REJECTED':
+      return {
+        label: 'Rejected',
+        cls: 'bg-rose-50 text-rose-800 border-rose-200',
+      }
+    case 'CHANGES_REQUESTED':
+      return {
+        label: 'Changes Requested',
+        cls: 'bg-orange-50 text-orange-800 border-orange-200',
+      }
+    case 'IN_REVIEW':
+      return {
+        label: 'In Review',
+        cls: 'bg-blue-50 text-blue-800 border-blue-200',
+      }
+    case 'FLAGGED':
+    case 'VERIFIED':
+    case 'ANALYZING':
+      return {
+        label: 'Awaiting Review',
+        cls: 'bg-amber-50 text-amber-800 border-amber-200',
+      }
+    case 'DRAFT':
+    default:
+      return {
+        label: 'Draft',
+        cls: 'bg-slate-100 text-slate-700 border-slate-200',
+      }
+  }
 }
 
 function getDeptBadge(name?: string | null) {
