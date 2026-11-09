@@ -18,8 +18,26 @@ import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { formatWhen } from '../components/AuditTimeline'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
-import { ROLE_LABEL } from '../types'
+import { ROLE_LABEL, type ActionType } from '../types'
 import { CreatorDashboard } from './CreatorDashboard'
+
+const ACTION_LABEL: Partial<Record<ActionType, { label: string; badgeClass: string }>> = {
+  SUBMITTED: { label: 'Submitted', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+  ANALYZED: { label: 'Checked', badgeClass: 'bg-slate-100 text-slate-700 border-slate-200' },
+  CREATOR_REVISED: { label: 'Revised', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200' },
+  REVIEWER_APPROVED: { label: 'Approved', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  REVIEWER_CHANGES_REQUESTED: { label: 'Changes Requested', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
+  REVIEWER_REJECTED: { label: 'Rejected', badgeClass: 'bg-red-50 text-red-700 border-red-200' },
+  KNOWLEDGE_UPLOADED: { label: 'Knowledge Added', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+  KNOWLEDGE_APPROVED: { label: 'Knowledge Approved', badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  KNOWLEDGE_SUPERSEDED: { label: 'Superseded', badgeClass: 'bg-slate-100 text-slate-700 border-slate-200' },
+  KNOWLEDGE_TIER_CHANGED: { label: 'Tier Changed', badgeClass: 'bg-purple-50 text-purple-700 border-purple-200' },
+  KNOWLEDGE_SCOPE_CHANGED: { label: 'Scope Updated', badgeClass: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  KNOWLEDGE_WITHDRAWN: { label: 'Withdrawn', badgeClass: 'bg-red-50 text-red-700 border-red-200' },
+  USER_CREATED: { label: 'User Created', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
+  USER_UPDATED: { label: 'User Updated', badgeClass: 'bg-slate-100 text-slate-700 border-slate-200' },
+  USER_STATUS_TOGGLED: { label: 'Status Changed', badgeClass: 'bg-amber-50 text-amber-700 border-amber-200' },
+}
 
 export function Home() {
   const { user } = useAuth()
@@ -37,23 +55,34 @@ export function Home() {
   const documents = documentsQ.data ?? []
   const audits = auditQ.data ?? []
 
-  // Group 1: Content Governance Metrics
+  // Group 1: Content Governance Metrics (Actual backend-driven data)
   const totalSubmissions = submissions.length
   const awaitingReview = submissions.filter((s) => ['FLAGGED', 'IN_REVIEW'].includes(s.status)).length
   const changesRequested = submissions.filter((s) => s.status === 'CHANGES_REQUESTED').length
   const approvedContent = submissions.filter((s) => s.status === 'APPROVED').length
 
-  // Group 2: Knowledge Governance Metrics
+  // Group 2: Knowledge Governance Metrics (Actual backend-driven data)
   const now = new Date()
   const approvedSources = documents.filter(
     (d) => d.approvalStatus === 'APPROVED' && (!d.expiryDate || new Date(d.expiryDate) >= now)
   ).length
   const pendingDocApprovals = documents.filter((d) => d.approvalStatus === 'DRAFT').length
 
-  // Organisation Monitoring: Submissions Requiring Attention
+  // Organisation Monitoring: Submissions Requiring Attention (Workflow status requiring review or creator revision)
   const submissionsRequiringAttention = submissions.filter((s) =>
     ['FLAGGED', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(s.status)
   )
+
+  // Recent Governance Activity: Filter to relevant content, review, and knowledge events
+  const recentGovernanceEvents = audits
+    .filter(
+      (a) =>
+        a.action.startsWith('KNOWLEDGE_') ||
+        a.action.startsWith('REVIEWER_') ||
+        a.action === 'SUBMITTED' ||
+        a.action === 'CREATOR_REVISED'
+    )
+    .slice(0, 4)
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -102,14 +131,14 @@ export function Home() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-brand/20 blur-3xl" />
       </div>
 
-      {/* 2. Governance Metrics (Organised into 2 Role-Relevant Groups) */}
+      {/* 2. Governance Metrics (Two Clear Role-Relevant Groups) */}
       <div className="space-y-6">
         {/* Group A: Content Governance */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
               <FileText size={14} className="text-[#0A1F36]" />
-              Content Governance Metrics
+              Content Governance
             </h2>
             <span className="text-xs text-muted">Organisation-wide submission monitoring</span>
           </div>
@@ -134,7 +163,7 @@ export function Home() {
                 </span>
               </div>
               <p className="mt-3 font-display text-3xl font-bold text-amber-600">{awaitingReview}</p>
-              <p className="mt-1 text-xs text-muted">In review queue or flagged for verification</p>
+              <p className="mt-1 text-xs text-muted">Workflow in review or awaiting reviewer decision</p>
             </div>
 
             <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm hover:shadow-md transition">
@@ -145,18 +174,18 @@ export function Home() {
                 </span>
               </div>
               <p className="mt-3 font-display text-3xl font-bold text-orange-600">{changesRequested}</p>
-              <p className="mt-1 text-xs text-muted">Returned to creator with revision comments</p>
+              <p className="mt-1 text-xs text-muted">Returned to creator for corrections and resubmission</p>
             </div>
 
             <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm hover:shadow-md transition">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted">Approved Content</span>
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted">Approved</span>
                 <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                   <CheckCircle2 size={18} />
                 </span>
               </div>
               <p className="mt-3 font-display text-3xl font-bold text-emerald-600">{approvedContent}</p>
-              <p className="mt-1 text-xs text-muted">Validated and cleared for release</p>
+              <p className="mt-1 text-xs text-muted">Authorised by reviewer and cleared for publication</p>
             </div>
           </div>
         </div>
@@ -166,7 +195,7 @@ export function Home() {
           <div className="flex items-center justify-between">
             <h2 className="text-xs font-bold uppercase tracking-wider text-muted flex items-center gap-1.5">
               <BookOpen size={14} className="text-[#0A1F36]" />
-              Knowledge Governance Metrics
+              Knowledge Governance
             </h2>
             <span className="text-xs text-muted">Approved master catalogues & authority lifecycle</span>
           </div>
@@ -217,17 +246,17 @@ export function Home() {
         </div>
       </div>
 
-      {/* 3. Organisation Monitoring: Submissions Requiring Attention & Authority Engine */}
+      {/* 3. Organisation Monitoring: Submissions Requiring Attention & Engine Hierarchy */}
       <div className="grid gap-6 lg:grid-cols-[1.8fr_1fr]">
-        {/* Left Column: Submissions Requiring Attention (Monitoring Only) */}
+        {/* Left Column: Submissions Requiring Attention */}
         <section className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-line pb-4">
             <div>
               <h2 className="font-display text-xl font-bold text-[#0A1F36]">Submissions Requiring Attention</h2>
               <p className="text-sm text-muted">
                 {submissionsRequiringAttention.length === 0
-                  ? 'All clear! No submissions currently require reviewer attention or creator revision.'
-                  : `${submissionsRequiringAttention.length} organisational submission(s) currently awaiting review or revision.`}
+                  ? 'All clear! No submissions currently require reviewer review or creator revision.'
+                  : `${submissionsRequiringAttention.length} submission(s) whose workflow status requires review or revision.`}
               </p>
             </div>
             <Link
@@ -243,7 +272,7 @@ export function Home() {
           {submissionsQ.isSuccess && submissionsRequiringAttention.length === 0 && (
             <div className="rounded-xl border border-dashed border-line bg-canvas p-8 text-center">
               <CheckCircle2 size={36} className="mx-auto text-verified" />
-              <p className="mt-2 font-semibold">Organisation is fully compliant</p>
+              <p className="mt-2 font-semibold text-ink">Organisation is fully compliant</p>
               <p className="text-sm text-muted">No unresolved claims or pending review items across departments.</p>
             </div>
           )}
@@ -264,13 +293,15 @@ export function Home() {
                     <p className="text-xs text-muted mt-0.5">
                       {s.departmentName ?? 'General'} · Submitted by {s.submittedByName} · {formatWhen(s.createdAt)}
                     </p>
+                    {/* Separate individual claim verification findings from workflow status */}
                     {violations > 0 && (
                       <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-violation">
-                        <AlertCircle size={14} /> {violations} claim violation(s) detected against Tier 1 catalogue
+                        <AlertCircle size={14} /> {violations} claim violation(s) detected against master catalogue
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
+                    {/* Workflow status chip */}
                     <SubmissionStatusChip status={s.status} />
                     <ArrowRight size={18} className="text-muted transition group-hover:translate-x-1 group-hover:text-brand" />
                   </div>
@@ -282,7 +313,7 @@ export function Home() {
 
         {/* Right Column: Engine Hierarchy, Recent Submissions & Recent Governance Activity */}
         <div className="space-y-6">
-          {/* Deterministic Authority Engine (Accurate Pure Java Resolution Hierarchy) */}
+          {/* 4. Deterministic Authority Engine (Accurate 6-step Pure Java Resolution Logic) */}
           <div className="rounded-2xl border border-line bg-gradient-to-br from-brand-soft/40 to-white p-6 shadow-sm">
             <div className="flex items-center gap-2 text-brand">
               <Sparkles size={20} />
@@ -307,8 +338,8 @@ export function Home() {
                 <span>Matches department, product, region, and channel before ranking. Authorised departmental exceptions apply within scope.</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="font-bold text-brand shrink-0">4. Authority Tier Hierarchy:</span>
-                <span>Ranks candidates (Tier 1 Master &gt; Tier 2 Departmental &gt; Tier 3 Collateral).</span>
+                <span className="font-bold text-brand shrink-0">4. Authority Tier Ranking:</span>
+                <span>Ranks candidates (Tier 1 Master &gt; Tier 2 Departmental &gt; Tier 3 Collateral) for applicable scoped sources.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="font-bold text-brand shrink-0">5. Version Resolution:</span>
@@ -356,7 +387,7 @@ export function Home() {
             </ul>
           </div>
 
-          {/* Recent Governance Activity */}
+          {/* 3. Recent Governance Activity (Audit records for submissions, reviews, and knowledge changes) */}
           <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-display font-bold text-sm text-[#0A1F36] flex items-center gap-1.5">
@@ -370,19 +401,30 @@ export function Home() {
 
             {auditQ.isLoading && <p className="text-xs text-muted py-2">Loading audit trail…</p>}
 
-            {audits.length > 0 ? (
+            {recentGovernanceEvents.length > 0 ? (
               <ul className="divide-y divide-line text-xs">
-                {audits.slice(0, 3).map((a) => (
-                  <li key={a.id} className="py-2.5 space-y-0.5">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-[#0A1F36]">{a.actorName}</span>
-                      <span className="text-[10px] text-muted">{formatWhen(a.createdAt)}</span>
-                    </div>
-                    <p className="text-[11px] text-[#475569] truncate">
-                      {a.comment ?? a.action.replace(/_/g, ' ')}
-                    </p>
-                  </li>
-                ))}
+                {recentGovernanceEvents.map((a) => {
+                  const meta = ACTION_LABEL[a.action] ?? {
+                    label: a.action.replace(/_/g, ' '),
+                    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+                  }
+                  return (
+                    <li key={a.id} className="py-2.5 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="font-semibold text-[#0A1F36] truncate">{a.actorName}</span>
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold border shrink-0 ${meta.badgeClass}`}>
+                            {meta.label}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-muted shrink-0">{formatWhen(a.createdAt)}</span>
+                      </div>
+                      <p className="text-[11px] text-[#475569] truncate">
+                        {a.comment ?? a.resourceName ?? a.action}
+                      </p>
+                    </li>
+                  )
+                })}
               </ul>
             ) : (
               <p className="text-xs text-muted py-2">No recent governance events recorded.</p>
