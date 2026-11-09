@@ -41,3 +41,4 @@ public class UpdateDepartmentRequest {
         this.isActive = isActive;
     }
 }
+

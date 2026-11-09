@@ -113,6 +113,7 @@ export const httpApi: Api = {
   },
   getDocumentChunks: (docId) => request<KnowledgeChunk[]>(`/documents/${docId}/chunks`),
   getDocumentAudit: (docId) => request<AuditEntry[]>(`/documents/${docId}/audit`),
+  getDocumentFileUrl: (docId, download = false) => `${API_BASE}/documents/${docId}/file${download ? '?download=true' : ''}`,
   uploadDocument: (formData) => request<KnowledgeDoc>('/documents/upload', { method: 'POST', body: formData }),
   updateDocumentStatus: (id, status, reason) =>
     request<KnowledgeDoc>(`/documents/${id}/status`, {

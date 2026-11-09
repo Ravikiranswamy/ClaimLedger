@@ -61,6 +61,7 @@ const fallbackApi: Api = {
   listDocuments: (filters) => (isEvaluationMode() ? mockApi.listDocuments(filters) : httpApi.listDocuments(filters).catch(() => mockApi.listDocuments(filters))),
   getDocumentChunks: (docId) => (isEvaluationMode() ? mockApi.getDocumentChunks(docId) : httpApi.getDocumentChunks(docId).catch(() => mockApi.getDocumentChunks(docId))),
   getDocumentAudit: (docId) => (isEvaluationMode() ? mockApi.getDocumentAudit(docId) : httpApi.getDocumentAudit(docId).catch(() => mockApi.getDocumentAudit(docId))),
+  getDocumentFileUrl: (docId, download) => httpApi.getDocumentFileUrl(docId, download),
   uploadDocument: (formData) => (isEvaluationMode() ? mockApi.uploadDocument(formData) : httpApi.uploadDocument(formData).catch(() => mockApi.uploadDocument(formData))),
   updateDocumentStatus: (id, status, reason) => (isEvaluationMode() ? mockApi.updateDocumentStatus(id, status, reason) : httpApi.updateDocumentStatus(id, status, reason).catch(() => mockApi.updateDocumentStatus(id, status, reason))),
   updateDocumentAuthority: (id, req) => (isEvaluationMode() ? mockApi.updateDocumentAuthority(id, req) : httpApi.updateDocumentAuthority(id, req).catch(() => mockApi.updateDocumentAuthority(id, req))),

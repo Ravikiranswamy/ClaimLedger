@@ -7,6 +7,7 @@ import com.claimledger.dto.document.DocumentUploadRequest;
 import com.claimledger.dto.review.ReviewActionResponse;
 import com.claimledger.exception.BadRequestException;
 import com.claimledger.exception.ResourceNotFoundException;
+import com.claimledger.model.DocumentChunk;
 import com.claimledger.model.KnowledgeDocument;
 import com.claimledger.model.ReviewAction;
 import com.claimledger.model.User;
@@ -17,16 +18,31 @@ import com.claimledger.repository.DocumentChunkRepository;
 import com.claimledger.repository.KnowledgeDocumentRepository;
 import com.claimledger.repository.ReviewActionRepository;
 import com.claimledger.repository.UserRepository;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class KnowledgeDocumentService {
@@ -312,5 +328,184 @@ public class KnowledgeDocumentService {
         }
         documentRepository.delete(doc);
         log.info("Deleted document with id: {}", id);
+    }
+
+    public record DocumentFileResult(Resource resource, String filename, String contentType) {}
+
+    @Transactional(readOnly = true)
+    public DocumentFileResult getDocumentFileResource(UUID id) {
+        KnowledgeDocument doc = documentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + id));
+
+        // 1. Check if physical file exists at doc.getFilePath()
+        if (doc.getFilePath() != null && !doc.getFilePath().isBlank()) {
+            Path path = Paths.get(doc.getFilePath());
+            if (Files.exists(path) && Files.isRegularFile(path)) {
+                String contentType = doc.getName().toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+                return new DocumentFileResult(new FileSystemResource(path), doc.getName(), contentType);
+            }
+            Path rootPath = fileStorageService.loadFile(doc.getFilePath());
+            if (Files.exists(rootPath) && Files.isRegularFile(rootPath)) {
+                String contentType = doc.getName().toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+                return new DocumentFileResult(new FileSystemResource(rootPath), doc.getName(), contentType);
+            }
+        }
+
+        // 2. Check if file is stored in default uploads or docs directories
+        Path uploadDir = Paths.get("uploads/documents").toAbsolutePath().normalize();
+        Path candidateInUploads = uploadDir.resolve(doc.getName());
+        if (Files.exists(candidateInUploads) && Files.isRegularFile(candidateInUploads)) {
+            String contentType = doc.getName().toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+            return new DocumentFileResult(new FileSystemResource(candidateInUploads), doc.getName(), contentType);
+        }
+
+        // 3. Synthesize actual PDF from stored vector chunks if not present on disk
+        try {
+            Files.createDirectories(uploadDir);
+            Path generatedPdfPath = uploadDir.resolve(doc.getId().toString() + "_" + doc.getName());
+            if (Files.exists(generatedPdfPath) && Files.isRegularFile(generatedPdfPath)) {
+                return new DocumentFileResult(new FileSystemResource(generatedPdfPath), doc.getName(), "application/pdf");
+            }
+
+            List<DocumentChunk> chunks = chunkRepository.findByDocumentIdOrderByChunkIndexAsc(doc.getId());
+            generatePdfFromDocument(doc, chunks, generatedPdfPath);
+            return new DocumentFileResult(new FileSystemResource(generatedPdfPath), doc.getName(), "application/pdf");
+        } catch (Exception e) {
+            log.error("Failed to generate PDF for document {}: {}", doc.getName(), e.getMessage());
+            throw new ResourceNotFoundException("Physical file not available for document: " + doc.getName());
+        }
+    }
+
+    private void generatePdfFromDocument(KnowledgeDocument doc, List<DocumentChunk> chunks, Path outputPath) throws IOException {
+        try (PDDocument document = new PDDocument()) {
+            PDType1Font fontBold = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
+            PDType1Font fontRegular = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
+            PDType1Font fontOblique = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
+
+            // Group chunks by page number
+            Map<Integer, List<DocumentChunk>> pageMap = chunks.stream()
+                    .collect(Collectors.groupingBy(
+                            c -> c.getPageNumber() != null ? c.getPageNumber() : 1,
+                            TreeMap::new,
+                            Collectors.toList()
+                    ));
+
+            if (pageMap.isEmpty()) {
+                pageMap.put(1, List.of());
+            }
+
+            for (Map.Entry<Integer, List<DocumentChunk>> entry : pageMap.entrySet()) {
+                int pageNum = entry.getKey();
+                PDPage page = new PDPage(PDRectangle.A4);
+                document.addPage(page);
+
+                try (PDPageContentStream cs = new PDPageContentStream(document, page)) {
+                    // ClaimLedger Navy Header Banner (#0A1F36)
+                    cs.setNonStrokingColor(10 / 255f, 31 / 255f, 54 / 255f);
+                    cs.addRect(0, 775, 595.28f, 66.89f);
+                    cs.fill();
+
+                    // Header Document Name
+                    cs.setNonStrokingColor(1f, 1f, 1f);
+                    cs.beginText();
+                    cs.setFont(fontBold, 13);
+                    cs.newLineAtOffset(36, 810);
+                    cs.showText(sanitizeText(doc.getName()));
+                    cs.endText();
+
+                    // Header Metadata Line
+                    cs.beginText();
+                    cs.setFont(fontRegular, 8.5f);
+                    cs.newLineAtOffset(36, 792);
+                    String metaStr = "Tier: " + doc.getAuthorityTier() + " | Version: " + doc.getVersion() +
+                            " | Scope: " + (doc.getProductScope() != null ? doc.getProductScope() : "Universal") +
+                            " | Status: " + doc.getApprovalStatus();
+                    cs.showText(sanitizeText(metaStr));
+                    cs.endText();
+
+                    // Content Body Area
+                    float y = 745;
+                    List<DocumentChunk> pageChunks = entry.getValue();
+                    if (pageChunks.isEmpty()) {
+                        cs.setNonStrokingColor(100 / 255f, 116 / 255f, 139 / 255f);
+                        cs.beginText();
+                        cs.setFont(fontOblique, 11);
+                        cs.newLineAtOffset(36, y);
+                        cs.showText("Official knowledge document record registered in ClaimLedger.");
+                        cs.endText();
+                    } else {
+                        for (DocumentChunk chunk : pageChunks) {
+                            if (y < 90) break;
+
+                            // Chunk header badge in Teal (#0F766E)
+                            cs.setNonStrokingColor(15 / 255f, 118 / 255f, 110 / 255f);
+                            cs.beginText();
+                            cs.setFont(fontBold, 9.5f);
+                            cs.newLineAtOffset(36, y);
+                            int idx = chunk.getChunkIndex() != null ? chunk.getChunkIndex() + 1 : 1;
+                            cs.showText("--- Section / Chunk #" + idx + " (Authoritative Source Chunk) ---");
+                            cs.endText();
+                            y -= 16;
+
+                            // Chunk content lines
+                            cs.setNonStrokingColor(30 / 255f, 41 / 255f, 59 / 255f);
+                            List<String> wrappedLines = wrapText(chunk.getContent(), 80);
+                            for (String line : wrappedLines) {
+                                if (y < 70) break;
+                                cs.beginText();
+                                cs.setFont(fontRegular, 9.5f);
+                                cs.newLineAtOffset(36, y);
+                                cs.showText(sanitizeText(line));
+                                cs.endText();
+                                y -= 14;
+                            }
+                            y -= 12;
+                        }
+                    }
+
+                    // Footer Divider and Metadata
+                    cs.setStrokingColor(226 / 255f, 232 / 255f, 240 / 255f);
+                    cs.moveTo(36, 45);
+                    cs.lineTo(559, 45);
+                    cs.stroke();
+
+                    cs.setNonStrokingColor(148 / 255f, 163 / 255f, 184 / 255f);
+                    cs.beginText();
+                    cs.setFont(fontRegular, 8);
+                    cs.newLineAtOffset(36, 30);
+                    cs.showText("ClaimLedger Brand Governance Document Repository | Page " + pageNum + " of " + pageMap.size());
+                    cs.endText();
+                }
+            }
+            document.save(outputPath.toFile());
+        }
+    }
+
+    private String sanitizeText(String text) {
+        if (text == null) return "";
+        return text.replace("₹", "INR ")
+                .replace("“", "\"")
+                .replace("”", "\"")
+                .replace("‘", "'")
+                .replace("’", "'")
+                .replaceAll("[^\\x00-\\x7F]", " ");
+    }
+
+    private List<String> wrapText(String text, int maxLineLength) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.isBlank()) return lines;
+        String[] words = text.split("\\s+");
+        StringBuilder current = new StringBuilder();
+        for (String word : words) {
+            if (current.length() + word.length() + 1 > maxLineLength) {
+                if (current.length() > 0) lines.add(current.toString());
+                current = new StringBuilder(word);
+            } else {
+                if (current.length() > 0) current.append(" ");
+                current.append(word);
+            }
+        }
+        if (current.length() > 0) lines.add(current.toString());
+        return lines;
     }
 }

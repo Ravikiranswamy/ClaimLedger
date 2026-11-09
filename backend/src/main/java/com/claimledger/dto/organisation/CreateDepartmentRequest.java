@@ -32,3 +32,4 @@ public class CreateDepartmentRequest {
         this.description = description;
     }
 }
+

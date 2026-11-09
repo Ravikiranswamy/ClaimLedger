@@ -80,3 +80,4 @@ public class DepartmentDto {
         this.documentCount = documentCount;
     }
 }
+

@@ -531,6 +531,11 @@ export const mockApi: Api = {
       },
     ]
   },
+  getDocumentFileUrl(id: string, download = false) {
+    const rawUrl = (import.meta.env.VITE_API_URL as string | undefined) || ''
+    const base = rawUrl.endsWith('/api') ? rawUrl : rawUrl ? `${rawUrl.replace(/\/$/, '')}/api` : '/api'
+    return `${base}/documents/${id}/file${download ? '?download=true' : ''}`
+  },
   async uploadDocument(formData: FormData) {
     await wait(500)
     const name = (formData.get('name') as string) || 'New_Document.pdf'

@@ -27,6 +27,7 @@ export interface Api {
   listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }): Promise<KnowledgeDoc[]>
   getDocumentChunks(documentId: string): Promise<KnowledgeChunk[]>
   getDocumentAudit(documentId: string): Promise<AuditEntry[]>
+  getDocumentFileUrl(documentId: string, download?: boolean): string
   uploadDocument(formData: FormData): Promise<KnowledgeDoc>
   updateDocumentStatus(id: string, status: string, reason?: string): Promise<KnowledgeDoc>
   updateDocumentAuthority(

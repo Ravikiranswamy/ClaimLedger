@@ -41,3 +41,4 @@ public class UpdateOrganisationRequest {
         this.contactEmail = contactEmail;
     }
 }
+

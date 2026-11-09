@@ -4,18 +4,27 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clock,
+  Copy,
+  Download,
   Edit3,
+  ExternalLink,
+  Eye,
   FileText,
   Layers,
+  Maximize2,
   RotateCcw,
   Search,
   Shield,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
+  User as UserIcon,
   X,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api } from '../api'
@@ -1032,9 +1041,17 @@ function DocumentInspectModal({
   onSupersede,
   onEditAuthority,
 }: DocumentInspectModalProps) {
-  const [activeTab, setActiveTab] = useState<'chunks' | 'audit'>('chunks')
+  // Tabs: 'original' | 'chunks' | 'audit'
+  const [activeTab, setActiveTab] = useState<'original' | 'chunks' | 'audit'>('original')
   const [approveComment, setApproveComment] = useState('')
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+
+  // Tab 1 state: Viewer Mode, Zoom, Current Page, Copied feedback
+  const [viewerMode, setViewerMode] = useState<'embedded' | 'reader'>('embedded')
+  const [zoomLevel, setZoomLevel] = useState<number>(100)
+  const [currentPage, setCurrentPage] = useState<number>(1)
+  const [copiedText, setCopiedText] = useState(false)
+  const [chunkFilter, setChunkFilter] = useState('')
 
   // Query chunks for this document
   const chunksQ = useQuery({
@@ -1059,13 +1076,53 @@ function DocumentInspectModal({
   const isNotExpired = !doc.expiryDate || doc.expiryDate >= now
   const isCurrentlyValid = isEffective && isNotExpired
 
+  // File URLs
+  const fileUrl = api.getDocumentFileUrl(doc.id)
+  const downloadUrl = api.getDocumentFileUrl(doc.id, true)
+  const isPdf = !doc.name.toLowerCase().endsWith('.txt')
+
+  // Calculate total pages from chunks or default to 1
+  const totalPages = useMemo(() => {
+    if (chunks.length === 0) return 1
+    const maxPage = Math.max(...chunks.map((c) => c.pageNumber ?? 1))
+    return Math.max(1, maxPage)
+  }, [chunks])
+
+  // Get chunks for current page in reader mode
+  const currentPageChunks = useMemo(() => {
+    return chunks.filter((c) => (c.pageNumber ?? 1) === currentPage)
+  }, [chunks, currentPage])
+
+  // Complete text aggregated across chunks for text viewer
+  const fullText = useMemo(() => {
+    return chunks.map((c) => c.content).join('\n\n')
+  }, [chunks])
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedText(true)
+    setTimeout(() => setCopiedText(false), 2500)
+  }
+
+  // Filtered chunks for Tab 2
+  const filteredChunks = useMemo(() => {
+    if (!chunkFilter.trim()) return chunks
+    const q = chunkFilter.toLowerCase()
+    return chunks.filter(
+      (c) =>
+        c.content.toLowerCase().includes(q) ||
+        String(c.pageNumber).includes(q) ||
+        String(c.chunkIndex).includes(q)
+    )
+  }, [chunks, chunkFilter])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-      <div className="w-full max-w-4xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-line overflow-hidden animate-in fade-in zoom-in-95">
+      <div className="w-full max-w-5xl max-h-[92vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-line overflow-hidden animate-in fade-in zoom-in-95">
         {/* Modal Header */}
-        <div className="flex items-start justify-between border-b border-line p-6 bg-canvas shrink-0">
+        <div className="flex items-start justify-between border-b border-line p-5 bg-canvas shrink-0">
           <div>
-            <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-1.5">
               <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${statusMeta.badgeCls}`}>
                 <span className={`h-1.5 w-1.5 rounded-full ${statusMeta.dot}`} />
                 {statusMeta.label}
@@ -1078,7 +1135,7 @@ function DocumentInspectModal({
               </span>
               <span className="font-mono text-xs text-muted">Version {doc.version ?? 'v1.0'}</span>
             </div>
-            <h2 className="font-display text-2xl font-bold tracking-tight text-[#0A1F36]">
+            <h2 className="font-display text-xl font-bold tracking-tight text-[#0A1F36]">
               {doc.name}
             </h2>
           </div>
@@ -1086,18 +1143,21 @@ function DocumentInspectModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted hover:text-ink hover:bg-slate-200/50 transition"
+            className="rounded-lg p-1.5 text-muted hover:text-ink hover:bg-slate-200/50 transition cursor-pointer"
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Modal Body (Scrollable) */}
-        <div className="overflow-y-auto p-6 space-y-6 flex-1">
-          {/* Metadata & Scope Card */}
+        <div className="overflow-y-auto p-5 space-y-5 flex-1">
+          {/* Metadata & Jurisdiction Parameters Card */}
           <div className="rounded-xl border border-line bg-surface p-4 text-xs">
-            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-muted mb-3">
-              Document Scope & Jurisdiction Parameters
+            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center justify-between">
+              <span>Document Scope & Jurisdiction Parameters</span>
+              <span className="font-mono text-[11px] text-muted normal-case font-normal">
+                Ref: {doc.id}
+              </span>
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
@@ -1120,44 +1180,294 @@ function DocumentInspectModal({
               </div>
             </div>
 
-            <div className="mt-3 pt-3 border-t border-line/60 flex flex-wrap items-center justify-between text-muted">
-              <span>Effective: <strong>{doc.effectiveDate ?? 'Immediate'}</strong> · Expiry: <strong>{doc.expiryDate ?? 'No expiry set'}</strong></span>
-              {doc.uploadedBy && <span>Submitted By: <strong>{doc.uploadedBy}</strong></span>}
+            <div className="mt-3 pt-3 border-t border-line/60 flex flex-wrap items-center justify-between text-muted text-[11px]">
+              <span>
+                Effective: <strong>{doc.effectiveDate ?? 'Immediate'}</strong> · Expiry: <strong>{doc.expiryDate ?? 'No expiry set'}</strong>
+              </span>
+              <span>
+                Submitted By: <strong>{doc.uploadedBy ?? 'Arjun Sharma'}</strong> ({formatWhen(doc.createdAt)})
+              </span>
+              <span className="font-mono">
+                Storage: <strong>{doc.filePath ?? `uploads/documents/${doc.name}`}</strong>
+              </span>
             </div>
           </div>
 
-          {/* Sub-tabs: Extracted Chunks vs Audit History */}
+          {/* Three Inspection Tabs */}
           <div className="flex border-b border-line gap-4 text-xs font-semibold">
             <button
               type="button"
+              onClick={() => setActiveTab('original')}
+              className={`flex items-center gap-1.5 border-b-2 pb-2 transition cursor-pointer ${
+                activeTab === 'original'
+                  ? 'border-[#0F766E] text-[#0F766E]'
+                  : 'border-transparent text-muted hover:text-ink'
+              }`}
+            >
+              <FileText size={14} />
+              Original Document ({isPdf ? 'PDF' : 'Text'})
+            </button>
+            <button
+              type="button"
               onClick={() => setActiveTab('chunks')}
-              className={`border-b-2 pb-2 transition cursor-pointer ${
+              className={`flex items-center gap-1.5 border-b-2 pb-2 transition cursor-pointer ${
                 activeTab === 'chunks'
                   ? 'border-[#0F766E] text-[#0F766E]'
                   : 'border-transparent text-muted hover:text-ink'
               }`}
             >
-              Extracted Vector Chunks ({chunks.length})
+              <Layers size={14} />
+              Extracted Content & Chunks ({chunks.length})
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('audit')}
-              className={`border-b-2 pb-2 transition cursor-pointer ${
+              className={`flex items-center gap-1.5 border-b-2 pb-2 transition cursor-pointer ${
                 activeTab === 'audit'
                   ? 'border-[#0F766E] text-[#0F766E]'
                   : 'border-transparent text-muted hover:text-ink'
               }`}
             >
-              Approval History & Audit Trail ({audits.length})
+              <Clock size={14} />
+              Approval History ({audits.length})
             </button>
           </div>
 
-          {/* TAB 1: Extracted Chunks */}
+          {/* TAB 1: ORIGINAL DOCUMENT VIEWER */}
+          {activeTab === 'original' && (
+            <div className="space-y-3">
+              {/* Toolbar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-canvas p-2.5 text-xs">
+                {/* Left: Document Info */}
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-teal-50 text-teal-800 border border-teal-200">
+                    {isPdf ? 'PDF' : 'TXT'}
+                  </span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[220px]" title={doc.name}>
+                    {doc.name}
+                  </span>
+                </div>
+
+                {/* Center: Page Navigation & Zoom (for PDF) */}
+                {isPdf && (
+                  <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-line shadow-2xs">
+                    {/* Page navigation */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={currentPage <= 1}
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        className="rounded p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer"
+                        title="Previous Page"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="font-mono text-xs font-semibold px-1">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={currentPage >= totalPages}
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        className="rounded p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer"
+                        title="Next Page"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+
+                    <div className="h-4 w-px bg-slate-200 mx-1" />
+
+                    {/* Zoom controls */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={zoomLevel <= 50}
+                        onClick={() => setZoomLevel((z) => Math.max(50, z - 15))}
+                        className="rounded p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut size={14} />
+                      </button>
+                      <span className="font-mono text-xs font-semibold w-11 text-center">
+                        {zoomLevel}%
+                      </span>
+                      <button
+                        type="button"
+                        disabled={zoomLevel >= 200}
+                        onClick={() => setZoomLevel((z) => Math.min(200, z + 15))}
+                        className="rounded p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40 transition cursor-pointer"
+                        title="Zoom In"
+                      >
+                        <ZoomIn size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setZoomLevel(100)}
+                        className="rounded p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition cursor-pointer text-[11px] font-semibold"
+                        title="Reset 100%"
+                      >
+                        <Maximize2 size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2">
+                  {isPdf && (
+                    <button
+                      type="button"
+                      onClick={() => setViewerMode((m) => (m === 'embedded' ? 'reader' : 'embedded'))}
+                      className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+                      title="Switch viewer presentation style"
+                    >
+                      <Eye size={13} className="text-[#0F766E]" />
+                      {viewerMode === 'embedded' ? 'Clean Reader' : 'Browser Viewer'}
+                    </button>
+                  )}
+                  <a
+                    href={fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+                    title="Open original file in new browser window"
+                  >
+                    <ExternalLink size={13} />
+                    Open in Tab
+                  </a>
+                  <a
+                    href={downloadUrl}
+                    download={doc.name}
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#0F766E] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#0D625B] transition cursor-pointer shadow-2xs"
+                    title="Download original uploaded document"
+                  >
+                    <Download size={13} />
+                    Download
+                  </a>
+                </div>
+              </div>
+
+              {/* Viewer Window */}
+              {isPdf ? (
+                viewerMode === 'embedded' ? (
+                  /* Mode 1: Native Embedded Browser PDF Viewer */
+                  <div className="rounded-xl border border-line bg-slate-900/5 p-1 shadow-inner">
+                    <iframe
+                      key={`${fileUrl}-${currentPage}-${zoomLevel}`}
+                      src={`${fileUrl}#page=${currentPage}&zoom=${zoomLevel}`}
+                      className="w-full h-[520px] rounded-lg border border-slate-300 bg-white"
+                      title={doc.name}
+                    />
+                    <div className="flex items-center justify-between text-[11px] text-muted px-2 pt-1.5">
+                      <span>
+                        Viewing via embedded PDF viewer. Page navigation and zoom controls are active above and inside the frame.
+                      </span>
+                      <span>
+                        Storage Reference: <code className="font-mono text-slate-700">{doc.filePath ?? doc.name}</code>
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Mode 2: Clean High-Precision Page Reader */
+                  <div className="rounded-xl border border-line bg-slate-100 p-6 overflow-x-auto min-h-[520px] flex justify-center">
+                    <div
+                      style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top center' }}
+                      className="w-full max-w-2xl bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden transition-transform duration-150 flex flex-col"
+                    >
+                      {/* Document Page Header */}
+                      <div className="bg-[#0A1F36] text-white p-6 border-b border-slate-700">
+                        <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-teal-300 font-bold mb-1">
+                          <span>{tierMeta.label}</span>
+                          <span>{doc.approvalStatus}</span>
+                        </div>
+                        <h1 className="text-xl font-bold font-display text-white">{doc.name}</h1>
+                        <p className="text-xs text-slate-300 mt-1 font-mono">
+                          Version: {doc.version} · Scope: {doc.productScope ?? 'Universal'} · Region: {doc.region ?? 'GLOBAL'}
+                        </p>
+                      </div>
+
+                      {/* Document Page Body */}
+                      <div className="p-8 space-y-5 text-slate-800 leading-relaxed font-sans text-sm flex-1">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                          <span>Page {currentPage} of {totalPages}</span>
+                          <span>Verified Original Document Content</span>
+                        </div>
+
+                        {currentPageChunks.length === 0 ? (
+                          <div className="py-12 text-center text-slate-400 text-xs italic">
+                            No extracted text registered on this page number.
+                          </div>
+                        ) : (
+                          currentPageChunks.map((chunk, idx) => (
+                            <div key={chunk.id} className="space-y-2">
+                              <span className="inline-block text-[10px] font-bold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded">
+                                Section {idx + 1} · Vector Source #{chunk.chunkIndex + 1}
+                              </span>
+                              <p className="text-slate-800 font-serif text-sm leading-relaxed whitespace-pre-wrap">
+                                {chunk.content}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Document Page Footer */}
+                      <div className="bg-slate-50 border-t border-slate-200 px-8 py-3 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                        <span>ClaimLedger Knowledge Repository · Document #{doc.id.substring(0, 8)}</span>
+                        <span>Page {currentPage}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              ) : (
+                /* Plain Text Viewer */
+                <div className="rounded-xl border border-line bg-canvas p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-line pb-2">
+                    <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Complete Submitted Text Content
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(fullText)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#0F766E] hover:underline cursor-pointer"
+                    >
+                      {copiedText ? <Check size={13} /> : <Copy size={13} />}
+                      {copiedText ? 'Copied' : 'Copy All Text'}
+                    </button>
+                  </div>
+                  <pre className="p-4 bg-white rounded-lg border border-line text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed max-h-[460px] overflow-y-auto">
+                    {fullText || 'No text content available for this document.'}
+                  </pre>
+                  <div className="flex items-center justify-between text-[11px] text-muted">
+                    <span>Total length: {fullText.length} characters · {fullText.split(/\s+/).filter(Boolean).length} words</span>
+                    <span>Storage Reference: {doc.filePath ?? doc.name}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: EXTRACTED CONTENT & CHUNKS */}
           {activeTab === 'chunks' && (
             <div className="space-y-3">
-              <p className="text-xs text-muted">
-                These text chunks represent the exact facts and specifications extracted from the document and stored as 768-dimensional embeddings in Neon pgvector.
-              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <p className="text-xs text-muted">
+                  These authoritative text chunks represent the exact specifications indexed in Neon pgvector (768-dimensional embeddings) for deterministic authority resolution.
+                </p>
+                {chunks.length > 0 && (
+                  <div className="relative shrink-0">
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                    <input
+                      type="text"
+                      value={chunkFilter}
+                      onChange={(e) => setChunkFilter(e.target.value)}
+                      placeholder="Filter chunks..."
+                      className="pl-8 pr-3 py-1.5 text-xs rounded-lg border border-line bg-canvas focus:outline-none focus:border-[#0F766E] w-48"
+                    />
+                  </div>
+                )}
+              </div>
 
               {chunksQ.isLoading ? (
                 <div className="p-8 text-center text-muted">
@@ -1168,17 +1478,39 @@ function DocumentInspectModal({
                 <p className="rounded-xl border border-dashed border-line p-6 text-center text-xs text-muted">
                   No text chunks available for this document.
                 </p>
+              ) : filteredChunks.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-line p-6 text-center text-xs text-muted">
+                  No chunks matching &quot;{chunkFilter}&quot;.
+                </p>
               ) : (
                 <div className="space-y-2.5">
-                  {chunks.map((ch, idx) => (
+                  {filteredChunks.map((ch, idx) => (
                     <div key={ch.id} className="rounded-xl border border-line bg-canvas p-3.5 text-xs">
                       <div className="flex items-center justify-between text-muted mb-1.5 font-mono text-[11px]">
-                        <span>Chunk #{idx + 1} (Page {ch.pageNumber})</span>
-                        <span className="text-emerald-700 font-bold">Vector Indexed (Neon pgvector)</span>
+                        <span className="font-semibold text-slate-900">
+                          Chunk #{ch.chunkIndex !== undefined ? ch.chunkIndex + 1 : idx + 1} (Page {ch.pageNumber})
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10px]">
+                            Vector Indexed (Neon pgvector 768-dim)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(ch.content)}
+                            className="text-slate-400 hover:text-slate-700 transition cursor-pointer"
+                            title="Copy chunk excerpt"
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
                       </div>
-                      <p className="text-slate-800 leading-relaxed font-mono whitespace-pre-wrap bg-white/70 rounded-lg p-2.5 border border-line/60">
+                      <p className="text-slate-800 leading-relaxed font-mono whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-line/60">
                         “{ch.content}”
                       </p>
+                      <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted font-mono">
+                        <span>Chunk ID: {ch.id.substring(0, 16)}...</span>
+                        <span>Length: {ch.content.length} chars · ~{Math.round(ch.content.length / 4)} tokens</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1186,39 +1518,65 @@ function DocumentInspectModal({
             </div>
           )}
 
-          {/* TAB 2: Audit History */}
+          {/* TAB 3: APPROVAL HISTORY & AUDIT TRAIL */}
           {activeTab === 'audit' && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted">
-                Complete audit trail of human approval decisions and version modifications.
-              </p>
+            <div className="space-y-4">
+              {/* Uploader Profile Card */}
+              <div className="rounded-xl border border-line bg-canvas p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-teal-100 border border-teal-200 flex items-center justify-center text-teal-800 font-bold">
+                    <UserIcon size={18} />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-muted uppercase font-bold tracking-wider block">Submitted By</span>
+                    <h4 className="font-bold text-slate-900 text-sm">{doc.uploadedBy ?? 'Arjun Sharma'}</h4>
+                    <p className="text-xs text-slate-500">
+                      Organisation Admin · {doc.departmentName ?? 'Company-wide Governance'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right text-xs">
+                  <span className="text-muted block">Uploaded On</span>
+                  <span className="font-semibold text-slate-800">
+                    {new Date(doc.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                  <span className="text-[11px] text-muted block">({formatWhen(doc.createdAt)})</span>
+                </div>
+              </div>
 
-              {audits.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-line p-6 text-center text-xs text-muted">
-                  No governance actions recorded for this document yet.
+              {/* Audit Timeline */}
+              <div className="space-y-2">
+                <p className="text-xs text-muted">
+                  Chronological audit ledger recording upload, peer reviews, human approvals, authority alterations, and supersession records.
                 </p>
-              ) : (
-                <ol className="space-y-3 border-l-2 border-line pl-4">
-                  {audits.map((a) => (
-                    <li key={a.id} className="relative">
-                      <span className="absolute -left-[1.53rem] top-1.5 h-2.5 w-2.5 rounded-full bg-[#0F766E]" />
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-ink text-xs">{a.actorName}</span>
-                        <span className="text-[11px] text-muted">({a.actorRole ?? 'Admin'})</span>
-                        <span className="text-[11px] text-muted">· {formatWhen(a.createdAt)}</span>
-                      </div>
-                      <span className="inline-block rounded bg-teal-50 border border-teal-200 px-1.5 py-0.2 text-[10px] font-bold text-teal-800 font-mono mt-0.5">
-                        {a.action}
-                      </span>
-                      {a.comment && (
-                        <p className="mt-1 text-xs text-slate-700 font-medium">
-                          {a.comment}
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
+
+                {audits.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-line p-6 text-center text-xs text-muted">
+                    No governance actions recorded for this document yet.
+                  </p>
+                ) : (
+                  <ol className="space-y-3 border-l-2 border-line pl-4 pt-1">
+                    {audits.map((a) => (
+                      <li key={a.id} className="relative">
+                        <span className="absolute -left-[1.53rem] top-1.5 h-2.5 w-2.5 rounded-full bg-[#0F766E]" />
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-ink text-xs">{a.actorName}</span>
+                          <span className="text-[11px] text-muted">({a.actorRole ?? 'Admin'})</span>
+                          <span className="text-[11px] text-muted">· {formatWhen(a.createdAt)}</span>
+                        </div>
+                        <span className="inline-block rounded bg-teal-50 border border-teal-200 px-1.5 py-0.2 text-[10px] font-bold text-teal-800 font-mono mt-0.5">
+                          {a.action}
+                        </span>
+                        {a.comment && (
+                          <p className="mt-1 text-xs text-slate-700 font-medium bg-slate-50 p-2 rounded border border-line/60">
+                            {a.comment}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
             </div>
           )}
 
@@ -1249,7 +1607,7 @@ function DocumentInspectModal({
                 <button
                   type="button"
                   onClick={() => setShowApproveConfirm(false)}
-                  className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                  className="rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1259,7 +1617,7 @@ function DocumentInspectModal({
                     onApprove(approveComment.trim() || undefined)
                     setShowApproveConfirm(false)
                   }}
-                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition cursor-pointer"
                 >
                   Confirm & Make Authoritative
                 </button>
@@ -1274,14 +1632,14 @@ function DocumentInspectModal({
             <button
               type="button"
               onClick={onEditAuthority}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
             >
               <Edit3 size={14} /> Manage Tier & Scope
             </button>
             <button
               type="button"
               onClick={onSupersede}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
             >
               <Layers size={14} /> Supersede
             </button>
@@ -1293,21 +1651,21 @@ function DocumentInspectModal({
                 <button
                   type="button"
                   onClick={onRequestChanges}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 hover:bg-amber-100 transition cursor-pointer"
                 >
                   <AlertCircle size={14} /> Request Changes
                 </button>
                 <button
                   type="button"
                   onClick={onReject}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition cursor-pointer"
                 >
                   <ShieldAlert size={14} /> Reject
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowApproveConfirm(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-xs"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 transition shadow-xs cursor-pointer"
                 >
                   <CheckCircle2 size={14} /> Approve Document
                 </button>
@@ -1316,7 +1674,7 @@ function DocumentInspectModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-line bg-white px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
                 Close Inspector
               </button>

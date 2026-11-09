@@ -11,6 +11,9 @@ import com.claimledger.service.KnowledgeDocumentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -100,6 +103,21 @@ public class DocumentController {
     public ResponseEntity<ApiResponse<List<com.claimledger.dto.review.ReviewActionResponse>>> getDocumentAudit(@PathVariable UUID id) {
         List<com.claimledger.dto.review.ReviewActionResponse> history = documentService.getDocumentAuditHistory(id);
         return ResponseEntity.ok(ApiResponse.ok(history));
+    }
+
+    @GetMapping("/{id}/file")
+    @Operation(summary = "Stream original uploaded document file for embedded viewer or download")
+    public ResponseEntity<Resource> getDocumentFile(
+            @PathVariable UUID id,
+            @RequestParam(value = "download", defaultValue = "false") boolean download
+    ) {
+        KnowledgeDocumentService.DocumentFileResult fileResult = documentService.getDocumentFileResource(id);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(fileResult.contentType()));
+        String dispositionType = download ? "attachment" : "inline";
+        headers.setContentDisposition(ContentDisposition.builder(dispositionType).filename(fileResult.filename()).build());
+        headers.setCacheControl("max-age=3600");
+        return ResponseEntity.ok().headers(headers).body(fileResult.resource());
     }
 
     @PutMapping("/{id}/status")

@@ -58,3 +58,4 @@ public class AuthorityRulesConfig {
         this.flagNumericContradictions = flagNumericContradictions;
     }
 }
+

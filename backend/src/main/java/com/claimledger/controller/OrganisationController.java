@@ -205,3 +205,4 @@ public class OrganisationController {
         return ResponseEntity.ok(authorityRulesConfig);
     }
 }
+
