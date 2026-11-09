@@ -1,5 +1,6 @@
 import { History, Home, LibraryBig, LogOut, PenSquare, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
+import markImg from '../assets/claimledger-mark.png'
 import { NAV_BY_ROLE, useAuth } from '../auth/AuthContext'
 import { ROLE_LABEL } from '../types'
 
@@ -21,7 +22,7 @@ export function AppShell() {
       <aside className="flex shrink-0 flex-col bg-navy text-white md:w-64">
         <div className="flex items-center gap-3 px-6 py-5">
           <img
-            src="/claimledger-mark.png"
+            src={markImg}
             alt="ClaimLedger"
             className="h-10 w-10 object-contain rounded-xl p-0.5 bg-white/10"
           />

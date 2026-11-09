@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate } from 'react-router-dom'
 import { z } from 'zod'
+import logoImg from '../assets/claimledger-logo.png'
 import { useAuth } from '../auth/AuthContext'
 import { ROLE_LABEL, type Role } from '../types'
 
@@ -123,7 +124,7 @@ export function Login() {
       <div className="w-full max-w-md">
         <div className="mb-6">
           <img
-            src="/claimledger-logo.png"
+            src={logoImg}
             alt="ClaimLedger - Brand Governance Platform"
             className="h-14 sm:h-16 w-auto object-contain"
           />
