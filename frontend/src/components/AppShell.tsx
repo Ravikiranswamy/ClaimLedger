@@ -45,7 +45,7 @@ const ITEMS: Record<string, NavItemConfig> = {
   // Admin Workspace: 7 core sections + Organisation Settings
   'admin-overview': { to: '/', label: 'Overview', number: '01', Icon: LayoutDashboard },
   'admin-knowledge': { to: '/knowledge-base', label: 'Knowledge Base', number: '02', Icon: BookOpen },
-  'admin-submissions': { to: '/review', label: 'Content & Submissions', number: '03', Icon: FileText },
+  'admin-submissions': { to: '/admin/submissions', label: 'Content & Submissions', number: '03', Icon: FileText },
   'admin-users': { to: '/admin/users', label: 'User Management', number: '04', Icon: Users },
   'admin-approvals': { to: '/admin/approvals', label: 'Approval Management', number: '05', Icon: CheckSquare },
   'admin-audit': { to: '/history', label: 'Audit & Activity', number: '06', Icon: History },

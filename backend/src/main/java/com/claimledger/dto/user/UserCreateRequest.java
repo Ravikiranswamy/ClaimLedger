@@ -73,3 +73,4 @@ public class UserCreateRequest {
         this.password = password;
     }
 }
+

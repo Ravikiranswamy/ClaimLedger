@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AppShell } from './components/AppShell'
 import { AdminModulePlaceholder } from './pages/AdminModulePlaceholder'
+import { AdminSubmissionDetail } from './pages/AdminSubmissionDetail'
+import { AdminSubmissions } from './pages/AdminSubmissions'
 import { History } from './pages/History'
 import { Home } from './pages/Home'
 import { KnowledgeBase } from './pages/KnowledgeBase'
@@ -36,6 +38,8 @@ export default function App() {
               <Route path="review/:id" element={<ReviewDetail />} />
               <Route path="knowledge-base" element={<KnowledgeBase />} />
               <Route path="history" element={<History />} />
+              <Route path="admin/submissions" element={<AdminSubmissions />} />
+              <Route path="admin/submissions/:id" element={<AdminSubmissionDetail />} />
               <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/approvals" element={<AdminModulePlaceholder />} />
               <Route path="admin/insights" element={<AdminModulePlaceholder />} />

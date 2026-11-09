@@ -45,3 +45,4 @@ public class UserUpdateRequest {
         this.canApproveKnowledge = canApproveKnowledge;
     }
 }
+

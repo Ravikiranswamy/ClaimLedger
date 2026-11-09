@@ -69,7 +69,14 @@ export function Home() {
                 <PlusCircle size={18} aria-hidden /> Check New Content
               </Link>
             ) : null}
-            {user?.role === 'REVIEWER' || user?.role === 'DEPT_MANAGER' || user?.role === 'ADMIN' ? (
+            {user?.role === 'ADMIN' ? (
+              <Link
+                to="/admin/submissions"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 font-semibold text-white backdrop-blur transition hover:bg-white/20"
+              >
+                <FileCheck2 size={18} aria-hidden /> All Submissions ({submissions.length})
+              </Link>
+            ) : user?.role === 'REVIEWER' || user?.role === 'DEPT_MANAGER' ? (
               <Link
                 to="/review"
                 className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 font-semibold text-white backdrop-blur transition hover:bg-white/20"
@@ -274,7 +281,10 @@ export function Home() {
             <ul className="mt-3 divide-y divide-line text-sm">
               {submissions.slice(0, 3).map((s) => (
                 <li key={s.id} className="py-2.5">
-                  <Link to={`/review/${s.id}`} className="block hover:text-brand">
+                  <Link
+                    to={user?.role === 'ADMIN' ? `/admin/submissions/${s.id}` : `/review/${s.id}`}
+                    className="block hover:text-brand"
+                  >
                     <p className="truncate font-medium">{s.title}</p>
                     <div className="mt-0.5 flex items-center justify-between text-xs text-muted">
                       <span>{s.submittedByName}</span>
@@ -284,8 +294,11 @@ export function Home() {
                 </li>
               ))}
             </ul>
-            <Link to="/history" className="mt-3 block text-xs font-semibold text-brand hover:underline">
-              View Governance Audit Ledger →
+            <Link
+              to={user?.role === 'ADMIN' ? '/admin/submissions' : '/history'}
+              className="mt-3 block text-xs font-semibold text-brand hover:underline"
+            >
+              {user?.role === 'ADMIN' ? 'View All Organisational Submissions →' : 'View Governance Audit Ledger →'}
             </Link>
           </div>
         </div>

@@ -20,6 +20,180 @@ let seq = 100
 const subs = new Map<string, Submission>()
 const audits = new Map<string, AuditEntry[]>()
 
+// Seed canonical Nexora submissions so Admin and Reviewers always have live data
+const SEED_SUB_1_ID = '8a8c985f-f0a4-48d1-aab6-857df2933431'
+const SEED_SUB_2_ID = '5cdb154d-26a7-4d37-af36-a742d37ac163'
+const SEED_SUB_3_ID = 'a839d9ad-2758-4695-bd64-3ff3166953db'
+const SEED_SUB_4_ID = 'b457e102-1234-4567-8901-abcdef123456'
+const SEED_SUB_5_ID = 'c789f203-5678-4321-9876-fedcba654321'
+
+subs.set(SEED_SUB_1_ID, {
+  id: SEED_SUB_1_ID,
+  title: 'Nexora Pro Q4 Promotional Campaign',
+  content: 'Nexora Pro costs ₹999 per month and delivers 99.99% uptime with enterprise governance.',
+  contentType: 'TEXT',
+  departmentId: MKT.id,
+  departmentName: 'Marketing',
+  submittedBy: 'u2',
+  submittedByName: 'Kiran Mehta',
+  status: 'VERIFIED',
+  revisionNumber: 1,
+  createdAt: '2026-11-08T07:00:25Z',
+  claims: [
+    {
+      id: 'c-seed-1',
+      claimText: '₹999 per month',
+      claimType: 'PRICE',
+      verificationStatus: 'VERIFIED',
+      explanation: 'Matches the current approved Nexora Pro price in Product Master Catalogue v4.2.',
+      suggestedCorrection: null,
+      aiConfidence: 0.98,
+      evidence: evidenceFor('c-seed-1'),
+    },
+  ],
+})
+
+subs.set(SEED_SUB_2_ID, {
+  id: SEED_SUB_2_ID,
+  title: 'Nexora Pro Social Campaign Q4',
+  content: 'Scale your organisation with Nexora Pro at ₹999 per month with full compliance.',
+  contentType: 'TEXT',
+  departmentId: MKT.id,
+  departmentName: 'Marketing',
+  submittedBy: 'u2',
+  submittedByName: 'Kiran Mehta',
+  status: 'APPROVED',
+  revisionNumber: 2,
+  createdAt: '2026-11-08T07:27:48Z',
+  claims: [
+    {
+      id: 'c-seed-2',
+      claimText: '₹999 per month',
+      claimType: 'PRICE',
+      verificationStatus: 'VERIFIED',
+      explanation: 'Grounded in Tier 1 Product Master Catalogue.',
+      suggestedCorrection: null,
+      aiConfidence: 0.99,
+      evidence: evidenceFor('c-seed-2'),
+    },
+  ],
+})
+
+subs.set(SEED_SUB_3_ID, {
+  id: SEED_SUB_3_ID,
+  title: 'Nexora Pro Q4 Price Validation Test',
+  content: 'Great news! Nexora Pro starts at ₹799 per month. It is the fastest platform around.',
+  contentType: 'TEXT',
+  departmentId: MKT.id,
+  departmentName: 'Marketing',
+  submittedBy: 'u2',
+  submittedByName: 'Kiran Mehta',
+  status: 'FLAGGED',
+  revisionNumber: 1,
+  createdAt: '2026-11-08T07:03:56Z',
+  claims: [
+    {
+      id: 'c-seed-3a',
+      claimText: '₹799 per month',
+      claimType: 'PRICE',
+      verificationStatus: 'VIOLATION',
+      explanation: 'The approved Nexora Pro price is ₹999/month in Product Master Catalogue v4.2 (Tier 1). The ₹799/month quote comes from an outdated superseded brochure (Tier 3).',
+      suggestedCorrection: '₹999 per month',
+      aiConfidence: 0.97,
+      evidence: evidenceFor('c-seed-3a'),
+    },
+    {
+      id: 'c-seed-3b',
+      claimText: 'fastest',
+      claimType: 'PROMOTION',
+      verificationStatus: 'UNVERIFIED',
+      explanation: 'No approved brand guideline or technical benchmark supports this superlative promotional statement.',
+      suggestedCorrection: null,
+      aiConfidence: 0.72,
+      evidence: [],
+    },
+  ],
+})
+
+subs.set(SEED_SUB_4_ID, {
+  id: SEED_SUB_4_ID,
+  title: 'Nexora Enterprise Proposal – APAC Expansion',
+  content: 'Nexora Enterprise is offered at ₹899 per user per month for regional sales teams.',
+  contentType: 'TEXT',
+  departmentId: SALES.id,
+  departmentName: 'Sales',
+  submittedBy: 'u2',
+  submittedByName: 'Kiran Mehta',
+  status: 'CHANGES_REQUESTED',
+  revisionNumber: 1,
+  createdAt: '2026-11-07T14:15:00Z',
+  claims: [
+    {
+      id: 'c-seed-4',
+      claimText: '₹899 per user per month',
+      claimType: 'PRICE',
+      verificationStatus: 'VIOLATION',
+      explanation: 'Sales proposal Tier 2 reference does not override Master Tier 1 without executive exception approval.',
+      suggestedCorrection: '₹999 per user per month',
+      aiConfidence: 0.91,
+      evidence: evidenceFor('c-seed-4'),
+    },
+  ],
+})
+
+subs.set(SEED_SUB_5_ID, {
+  id: SEED_SUB_5_ID,
+  title: 'Nexora Global Talent Acquisition Brochure',
+  content: 'Nexora guarantees 100% remote compensation parity across all hiring regions worldwide.',
+  contentType: 'TEXT',
+  departmentId: DEPARTMENTS[2].id,
+  departmentName: 'HR',
+  submittedBy: 'u2',
+  submittedByName: 'Kiran Mehta',
+  status: 'REJECTED',
+  revisionNumber: 1,
+  createdAt: '2026-11-06T10:30:00Z',
+  claims: [
+    {
+      id: 'c-seed-5',
+      claimText: 'guarantees 100% remote compensation parity',
+      claimType: 'FACTUAL',
+      verificationStatus: 'VIOLATION',
+      explanation: 'Directly violates Nexora Regional Compensation Policy v2.0 requiring cost-of-living adjustments.',
+      suggestedCorrection: 'competitive, region-adjusted remote compensation',
+      aiConfidence: 0.95,
+      evidence: [],
+    },
+  ],
+})
+
+// Seed audit logs
+audits.set(SEED_SUB_1_ID, [
+  { id: 'a1', submissionId: SEED_SUB_1_ID, actorName: 'Kiran Mehta', actorEmail: 'creator@nexora.com', actorRole: 'CREATOR', action: 'SUBMITTED', comment: 'Initial campaign draft submitted for checking', createdAt: '2026-11-08T07:00:25Z' },
+  { id: 'a2', submissionId: SEED_SUB_1_ID, actorName: 'ClaimLedger AI', actorEmail: 'system@claimledger.internal', actorRole: 'SYSTEM', action: 'ANALYZED', comment: '1 claim verified against Tier 1 Product Master Catalogue v4.2', createdAt: '2026-11-08T07:00:28Z' },
+])
+
+audits.set(SEED_SUB_2_ID, [
+  { id: 'a3', submissionId: SEED_SUB_2_ID, actorName: 'Kiran Mehta', actorEmail: 'creator@nexora.com', actorRole: 'CREATOR', action: 'SUBMITTED', comment: 'Initial submission created', createdAt: '2026-11-08T06:30:00Z' },
+  { id: 'a4', submissionId: SEED_SUB_2_ID, actorName: 'Kiran Mehta', actorEmail: 'creator@nexora.com', actorRole: 'CREATOR', action: 'CREATOR_REVISED', comment: 'Updated outdated price to ₹999 as recommended by evidence', createdAt: '2026-11-08T07:15:00Z' },
+  { id: 'a5', submissionId: SEED_SUB_2_ID, actorName: 'Dev Sharma', actorEmail: 'reviewer@nexora.com', actorRole: 'REVIEWER', action: 'REVIEWER_APPROVED', comment: 'Verified against Master Catalogue v4.2. Approved for Q4 publication.', createdAt: '2026-11-08T07:27:48Z' },
+])
+
+audits.set(SEED_SUB_3_ID, [
+  { id: 'a6', submissionId: SEED_SUB_3_ID, actorName: 'Kiran Mehta', actorEmail: 'creator@nexora.com', actorRole: 'CREATOR', action: 'SUBMITTED', comment: 'Test submission with outdated price', createdAt: '2026-11-08T07:03:56Z' },
+  { id: 'a7', submissionId: SEED_SUB_3_ID, actorName: 'ClaimLedger AI', actorEmail: 'system@claimledger.internal', actorRole: 'SYSTEM', action: 'ANALYZED', comment: '2 claims checked: 1 VIOLATION, 1 UNVERIFIED', createdAt: '2026-11-08T07:04:00Z' },
+])
+
+audits.set(SEED_SUB_4_ID, [
+  { id: 'a8', submissionId: SEED_SUB_4_ID, actorName: 'Kiran Mehta', actorEmail: 'creator@nexora.com', actorRole: 'CREATOR', action: 'SUBMITTED', comment: 'Enterprise proposal draft', createdAt: '2026-11-07T14:15:00Z' },
+  { id: 'a9', submissionId: SEED_SUB_4_ID, actorName: 'Dev Sharma', actorEmail: 'reviewer@nexora.com', actorRole: 'REVIEWER', action: 'REVIEWER_CHANGES_REQUESTED', comment: 'Please attach executive exception approval for the ₹899 rate or revise to standard ₹999.', createdAt: '2026-11-07T15:00:00Z' },
+])
+
+audits.set(SEED_SUB_5_ID, [
+  { id: 'a10', submissionId: SEED_SUB_5_ID, actorName: 'Kiran Mehta', actorEmail: 'creator@nexora.com', actorRole: 'CREATOR', action: 'SUBMITTED', comment: 'Recruitment brochure copy', createdAt: '2026-11-06T10:30:00Z' },
+  { id: 'a11', submissionId: SEED_SUB_5_ID, actorName: 'Dev Sharma', actorEmail: 'reviewer@nexora.com', actorRole: 'REVIEWER', action: 'REVIEWER_REJECTED', comment: 'Violates regional compensation policy. Cannot publish unapproved wage parity promises.', createdAt: '2026-11-06T11:20:00Z' },
+])
+
 const strip = ({ password, ...u }: User & { password: string }): User => { void password; return u }
 const deptName = (id?: string | null) => DEPARTMENTS.find((d) => d.id === id)?.name ?? null
 
