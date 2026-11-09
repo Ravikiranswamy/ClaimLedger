@@ -261,11 +261,30 @@ async function create(title: string, content: string, type: 'TEXT' | 'PDF', depa
   return structuredClone(s)
 }
 
+const docAudits = new Map<string, AuditEntry[]>()
+
+// Pre-seed document audit logs
+docAudits.set('dc000005-0000-0000-0000-000000000005', [
+  { id: 'da1', submissionId: undefined, actorName: 'Priya Menon', actorEmail: 'creator@nexora.com', actorRole: 'HR Specialist', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded regional compensation addendum v1.2 for departmental review.', createdAt: '2026-11-07T11:00:00Z' },
+])
+
+docAudits.set('dc000006-0000-0000-0000-000000000006', [
+  { id: 'da2', submissionId: undefined, actorName: 'Kiran Mehta', actorEmail: 'creator@nexora.com', actorRole: 'Marketing Copywriter', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded Q4 social media copywriting guide for APAC campaigns.', createdAt: '2026-11-08T09:30:00Z' },
+])
+
+docAudits.set('dc000007-0000-0000-0000-000000000007', [
+  { id: 'da3', submissionId: undefined, actorName: 'Rahul Verma', actorEmail: 'manager@nexora.com', actorRole: 'Sales Manager', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded partner discount scheme copy.', createdAt: '2026-11-04T14:00:00Z' },
+  { id: 'da4', submissionId: undefined, actorName: 'Arjun Sharma', actorEmail: 'admin@nexora.com', actorRole: 'ADMIN', action: 'KNOWLEDGE_WITHDRAWN', comment: 'Rejected by Admin: Contains outdated promotional discount rate conflicting with Tier 1 Master Catalogue pricing.', createdAt: '2026-11-06T16:20:00Z' },
+])
+
 let MOCK_DOCS: KnowledgeDoc[] = [
-  { id: 'dc000003-0000-0000-0000-000000000003', name: 'Product_Master_Catalogue_v4.2.pdf', category: 'PRODUCTS', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '4.2', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2026-11-01', expiryDate: '2027-10-31', chunkCount: 3, createdAt: new Date().toISOString() },
-  { id: 'dc000004-0000-0000-0000-000000000004', name: 'Brand_Guidelines_v2.pdf', category: 'BRAND', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '2.0', productScope: 'ALL', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2026-06-01', expiryDate: '2027-06-30', chunkCount: 2, createdAt: new Date().toISOString() },
-  { id: 'dc000002-0000-0000-0000-000000000002', name: 'Nexora_Sales_Proposal_v2.pdf', category: 'DEPARTMENTAL', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: '2.1', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2026-01-01', expiryDate: '2026-12-31', chunkCount: 2, createdAt: new Date().toISOString() },
-  { id: 'dc000001-0000-0000-0000-000000000001', name: 'Nexora_Old_Brochure_v1.pdf', category: 'ASSETS', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: '1.0', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2025-01-01', expiryDate: '2026-06-30', chunkCount: 1, createdAt: new Date().toISOString() },
+  { id: 'dc000005-0000-0000-0000-000000000005', name: 'Nexora_Regional_Compensation_Addendum_2026.pdf', category: 'DEPARTMENTAL', approvalStatus: 'DRAFT' as const, authorityTier: 'TIER_2' as const, version: '1.2', productScope: 'HR & Compensation', region: 'GLOBAL', channel: 'INTERNAL', departmentId: DEPARTMENTS[2].id, departmentName: 'HR', effectiveDate: '2026-11-01', expiryDate: '2027-10-31', uploadedBy: 'Priya Menon', chunkCount: 2, createdAt: '2026-11-07T11:00:00Z' },
+  { id: 'dc000006-0000-0000-0000-000000000006', name: 'Nexora_Q4_Social_Media_Copywriting_Kit.pdf', category: 'BRAND', approvalStatus: 'DRAFT' as const, authorityTier: 'TIER_3' as const, version: '1.0', productScope: 'Nexora Pro', region: 'APAC', channel: 'SOCIAL', departmentId: MKT.id, departmentName: 'Marketing', effectiveDate: '2026-11-01', expiryDate: '2027-03-31', uploadedBy: 'Kiran Mehta', chunkCount: 1, createdAt: '2026-11-08T09:30:00Z' },
+  { id: 'dc000007-0000-0000-0000-000000000007', name: 'Nexora_APAC_Promotional_Discount_Scheme_Outdated.pdf', category: 'ASSETS', approvalStatus: 'REJECTED' as const, authorityTier: 'TIER_3' as const, version: '0.9', productScope: 'Nexora Pro', region: 'APAC', channel: 'PARTNER', departmentId: SALES.id, departmentName: 'Sales', effectiveDate: '2025-06-01', expiryDate: '2025-12-31', uploadedBy: 'Rahul Verma', chunkCount: 1, createdAt: '2026-11-04T14:00:00Z' },
+  { id: 'dc000003-0000-0000-0000-000000000003', name: 'Product_Master_Catalogue_v4.2.pdf', category: 'PRODUCTS', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '4.2', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', departmentId: SALES.id, departmentName: 'Sales', effectiveDate: '2026-11-01', expiryDate: '2027-10-31', uploadedBy: 'Arjun Sharma', chunkCount: 3, createdAt: '2026-11-01T08:00:00Z' },
+  { id: 'dc000004-0000-0000-0000-000000000004', name: 'Brand_Guidelines_v2.pdf', category: 'BRAND', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '2.0', productScope: 'ALL', region: 'GLOBAL', channel: 'ALL', departmentId: MKT.id, departmentName: 'Marketing', effectiveDate: '2026-06-01', expiryDate: '2027-06-30', uploadedBy: 'Arjun Sharma', chunkCount: 2, createdAt: '2026-06-01T10:00:00Z' },
+  { id: 'dc000002-0000-0000-0000-000000000002', name: 'Nexora_Sales_Proposal_v2.pdf', category: 'DEPARTMENTAL', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: '2.1', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', departmentId: SALES.id, departmentName: 'Sales', effectiveDate: '2026-01-01', expiryDate: '2026-12-31', uploadedBy: 'Rahul Verma', chunkCount: 2, createdAt: '2026-01-15T12:00:00Z' },
+  { id: 'dc000001-0000-0000-0000-000000000001', name: 'Nexora_Old_Brochure_v1.pdf', category: 'ASSETS', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: '1.0', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', departmentId: MKT.id, departmentName: 'Marketing', effectiveDate: '2025-01-01', expiryDate: '2026-06-30', uploadedBy: 'Kiran Mehta', chunkCount: 1, createdAt: '2025-01-01T09:00:00Z' },
 ]
 
 export const mockApi: Api = {
@@ -390,9 +409,39 @@ export const mockApi: Api = {
   },
   async getDocumentChunks(id) {
     await wait(150)
+    if (id === 'dc000005-0000-0000-0000-000000000005') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Regional Remote Work and Compensation Addendum (2026): Base salaries are calibrated according to local economic tier indices. Remote employees in Tier A metro locations receive benchmark compensation, while satellite regional roles are subject to approved geographic parity factors.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Mandatory Adjustment Clauses: Compensation bands must reflect documented cost-of-living differentials approved by the executive remuneration committee.', pageNumber: 2, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000006-0000-0000-0000-000000000006') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Q4 Social Media & APAC Influencer Copywriting Guide: For short-form social posts, refer to Nexora Pro as an enterprise AI governance engine. Any mention of price must state the official ₹999/month rate.', pageNumber: 1, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000007-0000-0000-0000-000000000007') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora APAC Promotional Partner Discount Scheme (2025 - Outdated): Regional resellers may quote an introductory discounted tier of ₹699/user/month upon executive signoff.', pageNumber: 1, hasEmbedding: true },
+      ]
+    }
     return [
       { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Pro delivers 99.99% uptime with enterprise governance.', pageNumber: 1, hasEmbedding: true },
-      { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Nexora Pro costs ₹999 per user per month billed annually.', pageNumber: 2, hasEmbedding: true },
+      { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Nexora Pro costs ₹999 per user per month billed annually as certified in Product Master Catalogue v4.2.', pageNumber: 2, hasEmbedding: true },
+    ]
+  },
+  async getDocumentAudit(id) {
+    await wait(150)
+    return docAudits.get(id) ?? [
+      {
+        id: `aud-${id}`,
+        actorName: 'Arjun Sharma',
+        actorEmail: 'admin@nexora.com',
+        actorRole: 'ADMIN',
+        action: 'KNOWLEDGE_UPLOADED',
+        comment: 'Initial document upload and indexing.',
+        createdAt: new Date().toISOString(),
+      },
     ]
   },
   async uploadDocument(formData: FormData) {
@@ -416,11 +465,26 @@ export const mockApi: Api = {
     MOCK_DOCS.unshift(doc)
     return structuredClone(doc)
   },
-  async updateDocumentStatus(id, status) {
+  async updateDocumentStatus(id, status, reason) {
     await wait(200)
     const doc = MOCK_DOCS.find((d) => d.id === id)
     if (doc) {
+      const prevStatus = doc.approvalStatus
       doc.approvalStatus = status as any
+
+      // Record audit
+      const list = docAudits.get(id) ?? []
+      list.push({
+        id: `aud-${Date.now()}`,
+        actorName: 'Asha Rao',
+        actorEmail: 'admin@nexora.com',
+        actorRole: 'ADMIN',
+        action: status === 'APPROVED' ? 'KNOWLEDGE_APPROVED' : status === 'SUPERSEDED' ? 'KNOWLEDGE_SUPERSEDED' : 'KNOWLEDGE_WITHDRAWN',
+        comment: reason || `Document status changed from ${prevStatus} to ${status}.`,
+        createdAt: new Date().toISOString(),
+      })
+      docAudits.set(id, list)
+
       return structuredClone(doc)
     }
     return { id, name: 'Document.pdf', approvalStatus: status as any, authorityTier: 'TIER_2' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
@@ -438,15 +502,40 @@ export const mockApi: Api = {
       if (req.expiryDate !== undefined) doc.expiryDate = req.expiryDate
       if (req.region !== undefined) doc.region = req.region
       if (req.channel !== undefined) doc.channel = req.channel
+
+      const list = docAudits.get(id) ?? []
+      list.push({
+        id: `aud-${Date.now()}`,
+        actorName: 'Asha Rao',
+        actorEmail: 'admin@nexora.com',
+        actorRole: 'ADMIN',
+        action: 'KNOWLEDGE_TIER_CHANGED',
+        comment: `Updated authority tier to ${req.authorityTier || doc.authorityTier} and scope parameters.`,
+        createdAt: new Date().toISOString(),
+      })
+      docAudits.set(id, list)
+
       return structuredClone(doc)
     }
     return { id, name: 'Document.pdf', approvalStatus: 'APPROVED' as const, authorityTier: (req.authorityTier as any) || 'TIER_1', version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
   },
-  async supersedeDocument(oldDocId, _supersededByDocId) {
+  async supersedeDocument(oldDocId, supersededByDocId) {
     await wait(200)
     const oldDoc = MOCK_DOCS.find((d) => d.id === oldDocId)
+    const newDoc = MOCK_DOCS.find((d) => d.id === supersededByDocId)
     if (oldDoc) {
       oldDoc.approvalStatus = 'SUPERSEDED'
+      const list = docAudits.get(oldDocId) ?? []
+      list.push({
+        id: `aud-${Date.now()}`,
+        actorName: 'Asha Rao',
+        actorEmail: 'admin@nexora.com',
+        actorRole: 'ADMIN',
+        action: 'KNOWLEDGE_SUPERSEDED',
+        comment: `Superseded by active version '${newDoc?.name ?? supersededByDocId}' (${newDoc?.version ?? 'new'}).`,
+        createdAt: new Date().toISOString(),
+      })
+      docAudits.set(oldDocId, list)
       return structuredClone(oldDoc)
     }
     return { id: oldDocId, name: 'Document.pdf', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }

@@ -4,16 +4,19 @@ import com.claimledger.dto.document.DocumentAuthorityUpdateRequest;
 import com.claimledger.dto.document.DocumentResponse;
 import com.claimledger.dto.document.DocumentStatusUpdateRequest;
 import com.claimledger.dto.document.DocumentUploadRequest;
+import com.claimledger.dto.review.ReviewActionResponse;
 import com.claimledger.exception.BadRequestException;
 import com.claimledger.exception.ResourceNotFoundException;
 import com.claimledger.model.KnowledgeDocument;
 import com.claimledger.model.ReviewAction;
+import com.claimledger.model.User;
 import com.claimledger.model.enums.ActionType;
 import com.claimledger.model.enums.ApprovalStatus;
 import com.claimledger.model.enums.AuthorityTier;
 import com.claimledger.repository.DocumentChunkRepository;
 import com.claimledger.repository.KnowledgeDocumentRepository;
 import com.claimledger.repository.ReviewActionRepository;
+import com.claimledger.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -33,6 +36,7 @@ public class KnowledgeDocumentService {
     private final KnowledgeDocumentRepository documentRepository;
     private final DocumentChunkRepository chunkRepository;
     private final ReviewActionRepository reviewActionRepository;
+    private final UserRepository userRepository;
     private final PdfExtractionService pdfExtractionService;
     private final DocumentChunkingService chunkingService;
     private final EmbeddingService embeddingService;
@@ -42,6 +46,7 @@ public class KnowledgeDocumentService {
             KnowledgeDocumentRepository documentRepository,
             DocumentChunkRepository chunkRepository,
             ReviewActionRepository reviewActionRepository,
+            UserRepository userRepository,
             PdfExtractionService pdfExtractionService,
             DocumentChunkingService chunkingService,
             EmbeddingService embeddingService,
@@ -50,6 +55,7 @@ public class KnowledgeDocumentService {
         this.documentRepository = documentRepository;
         this.chunkRepository = chunkRepository;
         this.reviewActionRepository = reviewActionRepository;
+        this.userRepository = userRepository;
         this.pdfExtractionService = pdfExtractionService;
         this.chunkingService = chunkingService;
         this.embeddingService = embeddingService;
@@ -184,17 +190,42 @@ public class KnowledgeDocumentService {
             default -> ActionType.KNOWLEDGE_APPROVED;
         };
 
+        String commentText = (request.getReason() != null && !request.getReason().isBlank())
+                ? request.getReason()
+                : "Document '" + doc.getName() + "' status changed from " + previousStatus + " to " + updated.getApprovalStatus();
+
         reviewActionRepository.save(new ReviewAction(
                 UUID.randomUUID(),
                 null,
                 updated.getId(),
                 actorId != null ? actorId : doc.getUploadedBy(),
                 actionType,
-                "Document '" + doc.getName() + "' status changed from " + previousStatus + " to " + updated.getApprovalStatus()
+                commentText
         ));
 
         long chunkCount = chunkRepository.countByDocumentId(updated.getId());
         return DocumentResponse.fromEntity(updated, chunkCount);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewActionResponse> getDocumentAuditHistory(UUID documentId) {
+        List<ReviewAction> actions = reviewActionRepository.findByDocumentIdOrderByCreatedAtAsc(documentId);
+        return actions.stream()
+                .map(ra -> {
+                    String actorName = "Admin";
+                    String actorEmail = "admin@nexora.com";
+                    String actorRole = "ADMIN";
+                    if (ra.getActorId() != null) {
+                        User u = userRepository.findById(ra.getActorId()).orElse(null);
+                        if (u != null) {
+                            actorName = u.getFullName();
+                            actorEmail = u.getEmail();
+                            actorRole = u.getRole() != null ? u.getRole().name() : "ADMIN";
+                        }
+                    }
+                    return ReviewActionResponse.fromEntity(ra, actorName, actorEmail, actorRole);
+                })
+                .toList();
     }
 
     @Transactional

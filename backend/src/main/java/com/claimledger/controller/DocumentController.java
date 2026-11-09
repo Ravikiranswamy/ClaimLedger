@@ -95,6 +95,13 @@ public class DocumentController {
         return ResponseEntity.ok(ApiResponse.ok(chunks));
     }
 
+    @GetMapping("/{id}/audit")
+    @Operation(summary = "Get chronological governance approval and change history for a document")
+    public ResponseEntity<ApiResponse<List<com.claimledger.dto.review.ReviewActionResponse>>> getDocumentAudit(@PathVariable UUID id) {
+        List<com.claimledger.dto.review.ReviewActionResponse> history = documentService.getDocumentAuditHistory(id);
+        return ResponseEntity.ok(ApiResponse.ok(history));
+    }
+
     @PutMapping("/{id}/status")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Update approval status of a knowledge document")

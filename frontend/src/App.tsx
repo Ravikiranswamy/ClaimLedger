@@ -5,6 +5,7 @@ import { AppShell } from './components/AppShell'
 import { AdminModulePlaceholder } from './pages/AdminModulePlaceholder'
 import { AdminSubmissionDetail } from './pages/AdminSubmissionDetail'
 import { AdminSubmissions } from './pages/AdminSubmissions'
+import { ApprovalManagement } from './pages/ApprovalManagement'
 import { History } from './pages/History'
 import { Home } from './pages/Home'
 import { KnowledgeBase } from './pages/KnowledgeBase'
@@ -41,7 +42,7 @@ export default function App() {
               <Route path="admin/submissions" element={<AdminSubmissions />} />
               <Route path="admin/submissions/:id" element={<AdminSubmissionDetail />} />
               <Route path="admin/users" element={<UserManagement />} />
-              <Route path="admin/approvals" element={<AdminModulePlaceholder />} />
+              <Route path="admin/approvals" element={<ApprovalManagement />} />
               <Route path="admin/insights" element={<AdminModulePlaceholder />} />
               <Route path="admin/settings" element={<AdminModulePlaceholder />} />
             </Route>

@@ -109,7 +109,7 @@ export interface AuditEntry {
   createdAt: string
 }
 
-export type ApprovalStatus = 'APPROVED' | 'SUPERSEDED' | 'DRAFT' | 'REJECTED'
+export type ApprovalStatus = 'APPROVED' | 'SUPERSEDED' | 'DRAFT' | 'REJECTED' | 'EXPIRED' | 'WITHDRAWN'
 
 export interface KnowledgeChunk {
   id: string

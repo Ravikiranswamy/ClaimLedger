@@ -101,11 +101,12 @@ export const httpApi: Api = {
     return request<KnowledgeDoc[]>(`/documents${qs}`)
   },
   getDocumentChunks: (docId) => request<KnowledgeChunk[]>(`/documents/${docId}/chunks`),
+  getDocumentAudit: (docId) => request<AuditEntry[]>(`/documents/${docId}/audit`),
   uploadDocument: (formData) => request<KnowledgeDoc>('/documents/upload', { method: 'POST', body: formData }),
-  updateDocumentStatus: (id, status) =>
+  updateDocumentStatus: (id, status, reason) =>
     request<KnowledgeDoc>(`/documents/${id}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ approvalStatus: status }),
+      body: JSON.stringify({ approvalStatus: status, reason }),
     }),
   updateDocumentAuthority: (id, req) =>
     request<KnowledgeDoc>(`/documents/${id}/authority`, {
