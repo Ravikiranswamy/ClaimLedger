@@ -1,16 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  AlertCircle,
+  Building2,
   Calendar,
   CheckCircle2,
   ChevronRight,
+  Clock,
   Database,
   FileText,
   Filter,
   Loader2,
   Plus,
+  RotateCcw,
   Shield,
   Tag,
   X,
+  XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
 import { api } from '../api'
@@ -22,7 +27,7 @@ import { DEPARTMENTS } from '../types'
 const TIER_BADGES: Record<AuthorityTier, { label: string; desc: string; cls: string }> = {
   TIER_1: {
     label: 'Tier 1 — Master Authority',
-    desc: 'Company-wide single source of truth. Overrules all subordinate documents.',
+    desc: 'Primary company-wide authority, subject to applicable scope, validity and approved exceptions.',
     cls: 'bg-emerald-50 text-emerald-800 border-emerald-300',
   },
   TIER_2: {
@@ -37,6 +42,84 @@ const TIER_BADGES: Record<AuthorityTier, { label: string; desc: string; cls: str
   },
 }
 
+function getDocumentStatusInfo(doc: KnowledgeDoc) {
+  const isExpired = Boolean(doc.expiryDate && new Date(doc.expiryDate) < new Date())
+
+  if (doc.approvalStatus === 'APPROVED') {
+    if (isExpired) {
+      return {
+        badgeLabel: 'Expired',
+        badgeCls: 'bg-rose-50 text-rose-700 border border-rose-200',
+        footerIcon: AlertCircle,
+        footerLabel: 'Expired · Non-authoritative',
+        footerCls: 'text-rose-600',
+        isAuthoritative: false,
+      }
+    }
+    return {
+      badgeLabel: 'Approved & Active',
+      badgeCls: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+      footerIcon: CheckCircle2,
+      footerLabel: 'Approved & Active Source',
+      footerCls: 'text-emerald-700',
+      isAuthoritative: true,
+    }
+  }
+
+  if (doc.approvalStatus === 'DRAFT') {
+    return {
+      badgeLabel: 'Draft',
+      badgeCls: 'bg-amber-50 text-amber-700 border border-amber-200',
+      footerIcon: Clock,
+      footerLabel: 'Draft · Pending Approval',
+      footerCls: 'text-amber-700',
+      isAuthoritative: false,
+    }
+  }
+
+  if (doc.approvalStatus === 'SUPERSEDED') {
+    return {
+      badgeLabel: 'Superseded',
+      badgeCls: 'bg-slate-100 text-slate-700 border border-slate-300',
+      footerIcon: RotateCcw,
+      footerLabel: 'Superseded · Non-authoritative',
+      footerCls: 'text-slate-600',
+      isAuthoritative: false,
+    }
+  }
+
+  if (doc.approvalStatus === 'REJECTED') {
+    return {
+      badgeLabel: isExpired ? 'Rejected & Expired' : 'Rejected',
+      badgeCls: 'bg-rose-50 text-rose-700 border border-rose-200',
+      footerIcon: XCircle,
+      footerLabel: 'Rejected · Non-authoritative',
+      footerCls: 'text-rose-600',
+      isAuthoritative: false,
+    }
+  }
+
+  if (doc.approvalStatus === 'EXPIRED') {
+    return {
+      badgeLabel: 'Expired',
+      badgeCls: 'bg-rose-50 text-rose-700 border border-rose-200',
+      footerIcon: AlertCircle,
+      footerLabel: 'Expired · Non-authoritative',
+      footerCls: 'text-rose-600',
+      isAuthoritative: false,
+    }
+  }
+
+  return {
+    badgeLabel: doc.approvalStatus,
+    badgeCls: 'bg-slate-100 text-slate-700 border border-slate-300',
+    footerIcon: AlertCircle,
+    footerLabel: `${doc.approvalStatus} · Non-authoritative`,
+    footerCls: 'text-muted',
+    isAuthoritative: false,
+  }
+}
+
 export function KnowledgeBase() {
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -47,8 +130,10 @@ export function KnowledgeBase() {
   const docsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
   const docs = docsQ.data ?? []
 
-  // Creators only see approved, active brand guidelines
-  const baseDocs = user?.role === 'CREATOR' ? docs.filter((d) => d.approvalStatus === 'APPROVED') : docs
+  // Creators only see approved, currently valid brand guidelines
+  const baseDocs = user?.role === 'CREATOR'
+    ? docs.filter((d) => d.approvalStatus === 'APPROVED' && (!d.expiryDate || new Date(d.expiryDate) >= new Date()))
+    : docs
   const filtered = baseDocs.filter((d) => tierFilter === 'ALL' || d.authorityTier === tierFilter)
 
   return (
@@ -124,12 +209,32 @@ export function KnowledgeBase() {
       <div className="grid gap-4 md:grid-cols-2">
         {filtered.map((doc) => {
           const tier = TIER_BADGES[doc.authorityTier]
+          const statusInfo = getDocumentStatusInfo(doc)
+          const StatusFooterIcon = statusInfo.footerIcon
           const isSuperseded = doc.approvalStatus === 'SUPERSEDED'
+          const isDraft = doc.approvalStatus === 'DRAFT'
+          const isRejectedOrExpired =
+            doc.approvalStatus === 'REJECTED' ||
+            doc.approvalStatus === 'EXPIRED' ||
+            Boolean(doc.expiryDate && new Date(doc.expiryDate) < new Date())
+
+          const deptLabel =
+            doc.name.includes('Compensation') || doc.departmentName?.includes('Compensation')
+              ? 'HR & Compensation'
+              : doc.departmentName ?? 'Cross-Departmental (All)'
+          const hasValidProductScope = doc.productScope && doc.productScope !== 'HR & Compensation'
+
           return (
             <div
               key={doc.id}
               className={`flex flex-col justify-between rounded-2xl border bg-surface p-5 shadow-sm transition hover:border-brand ${
-                isSuperseded ? 'border-amber-200 bg-amber-50/20' : 'border-line'
+                isSuperseded
+                  ? 'border-amber-200 bg-amber-50/20'
+                  : isDraft
+                  ? 'border-amber-200 bg-amber-50/10'
+                  : isRejectedOrExpired && doc.approvalStatus !== 'APPROVED'
+                  ? 'border-rose-200 bg-rose-50/10'
+                  : 'border-line'
               }`}
             >
               <div>
@@ -144,13 +249,9 @@ export function KnowledgeBase() {
                     </div>
                   </div>
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
-                      doc.approvalStatus === 'APPROVED'
-                        ? 'bg-verified-soft text-verified'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${statusInfo.badgeCls}`}
                   >
-                    {doc.approvalStatus}
+                    {statusInfo.badgeLabel}
                   </span>
                 </div>
 
@@ -160,7 +261,11 @@ export function KnowledgeBase() {
                     <span className="font-semibold text-ink">{tier.label.split('—')[0]}</span>
                     <span>({tier.desc.split('.')[0]})</span>
                   </div>
-                  {doc.productScope && (
+                  <div className="flex items-center gap-2">
+                    <Building2 size={14} className="text-muted shrink-0" />
+                    <span>Department Scope: <strong className="text-ink">{deptLabel}</strong></span>
+                  </div>
+                  {hasValidProductScope && (
                     <div className="flex items-center gap-2">
                       <Tag size={14} className="text-muted shrink-0" />
                       <span>Product Scope: <strong className="text-ink">{doc.productScope}</strong></span>
@@ -176,9 +281,9 @@ export function KnowledgeBase() {
               </div>
 
               <div className="mt-5 flex items-center justify-between border-t border-line pt-3">
-                <span className="flex items-center gap-1.5 text-xs text-muted">
-                  <CheckCircle2 size={14} className="text-verified" />
-                  <span>Approved & Active</span>
+                <span className={`flex items-center gap-1.5 text-xs font-semibold ${statusInfo.footerCls}`}>
+                  <StatusFooterIcon size={14} />
+                  <span>{statusInfo.footerLabel}</span>
                 </span>
                 {user?.role !== 'CREATOR' ? (
                   <button
@@ -220,6 +325,13 @@ export function KnowledgeBase() {
 
 function CreatorGuidelineModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () => void }) {
   const tier = TIER_BADGES[doc.authorityTier]
+  const statusInfo = getDocumentStatusInfo(doc)
+  const deptLabel =
+    doc.name.includes('Compensation') || doc.departmentName?.includes('Compensation')
+      ? 'HR & Compensation'
+      : doc.departmentName ?? 'Cross-Departmental (All)'
+  const hasValidProductScope = doc.productScope && doc.productScope !== 'HR & Compensation'
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <div className="max-h-[85vh] w-full max-w-xl overflow-hidden rounded-3xl bg-surface shadow-2xl flex flex-col border border-line">
@@ -248,7 +360,11 @@ function CreatorGuidelineModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: (
               <span className="text-xs font-semibold uppercase tracking-wider text-muted">Document Version</span>
               <span className="text-xs font-bold text-ink">{doc.version}</span>
             </div>
-            {doc.productScope && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">Department Scope</span>
+              <span className="text-xs font-bold text-ink">{deptLabel}</span>
+            </div>
+            {hasValidProductScope && (
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted">Product Scope</span>
                 <span className="text-xs font-bold text-ink">{doc.productScope}</span>
@@ -262,8 +378,8 @@ function CreatorGuidelineModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: (
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted">Approval Status</span>
-              <span className="rounded-full bg-verified-soft px-2.5 py-0.5 text-xs font-bold text-verified">
-                {doc.approvalStatus}
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${statusInfo.badgeCls}`}>
+                {statusInfo.badgeLabel}
               </span>
             </div>
           </div>
