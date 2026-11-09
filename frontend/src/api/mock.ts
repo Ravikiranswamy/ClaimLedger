@@ -277,6 +277,42 @@ docAudits.set('dc000007-0000-0000-0000-000000000007', [
   { id: 'da4', submissionId: undefined, actorName: 'Arjun Sharma', actorEmail: 'admin@nexora.com', actorRole: 'ADMIN', action: 'KNOWLEDGE_WITHDRAWN', comment: 'Rejected by Admin: Contains outdated promotional discount rate conflicting with Tier 1 Master Catalogue pricing.', createdAt: '2026-11-06T16:20:00Z' },
 ])
 
+const userAudits: AuditEntry[] = [
+  {
+    id: 'ua1',
+    actorName: 'Asha Rao',
+    actorEmail: 'admin@nexora.com',
+    actorRole: 'ADMIN',
+    action: 'USER_CREATED',
+    resourceName: 'Priya Menon (creator@nexora.com)',
+    departmentName: 'HR',
+    comment: 'Invited new user Priya Menon with Content Creator role in HR department.',
+    createdAt: '2026-11-06T09:15:00Z',
+  },
+  {
+    id: 'ua2',
+    actorName: 'Asha Rao',
+    actorEmail: 'admin@nexora.com',
+    actorRole: 'ADMIN',
+    action: 'USER_UPDATED',
+    resourceName: 'Dev Sharma (reviewer@nexora.com)',
+    departmentName: 'Marketing',
+    comment: 'Granted Knowledge Approver authority permission.',
+    createdAt: '2026-11-07T10:00:00Z',
+  },
+  {
+    id: 'ua3',
+    actorName: 'Asha Rao',
+    actorEmail: 'admin@nexora.com',
+    actorRole: 'ADMIN',
+    action: 'USER_STATUS_TOGGLED',
+    resourceName: 'Rahul Verma (manager@nexora.com)',
+    departmentName: 'Sales',
+    comment: 'User account status set to ACTIVE.',
+    createdAt: '2026-11-07T14:30:00Z',
+  },
+]
+
 let MOCK_DOCS: KnowledgeDoc[] = [
   { id: 'dc000005-0000-0000-0000-000000000005', name: 'Nexora_Regional_Compensation_Addendum_2026.pdf', category: 'DEPARTMENTAL', approvalStatus: 'DRAFT' as const, authorityTier: 'TIER_2' as const, version: '1.2', productScope: 'HR & Compensation', region: 'GLOBAL', channel: 'INTERNAL', departmentId: DEPARTMENTS[2].id, departmentName: 'HR', effectiveDate: '2026-11-01', expiryDate: '2027-10-31', uploadedBy: 'Priya Menon', chunkCount: 2, createdAt: '2026-11-07T11:00:00Z' },
   { id: 'dc000006-0000-0000-0000-000000000006', name: 'Nexora_Q4_Social_Media_Copywriting_Kit.pdf', category: 'BRAND', approvalStatus: 'DRAFT' as const, authorityTier: 'TIER_3' as const, version: '1.0', productScope: 'Nexora Pro', region: 'APAC', channel: 'SOCIAL', departmentId: MKT.id, departmentName: 'Marketing', effectiveDate: '2026-11-01', expiryDate: '2027-03-31', uploadedBy: 'Kiran Mehta', chunkCount: 1, createdAt: '2026-11-08T09:30:00Z' },
@@ -384,13 +420,40 @@ export const mockApi: Api = {
     await wait(150)
     const user = me()
     const all: AuditEntry[] = []
+
+    // 1. Content & Submissions audit actions
     audits.forEach((list, subId) => {
       const sub = subs.get(subId)
       if (user.role === 'CREATOR' && sub && sub.submittedBy !== user.id) {
         return
       }
-      all.push(...list)
+      list.forEach((entry) => {
+        all.push({
+          ...entry,
+          resourceName: sub?.title ?? 'Content Submission',
+          departmentName: sub?.departmentName ?? 'Marketing',
+        })
+      })
     })
+
+    // 2. Knowledge Document governance audit actions (for Admins, Reviewers, Managers)
+    if (user.role !== 'CREATOR') {
+      docAudits.forEach((list, docId) => {
+        const doc = MOCK_DOCS.find((d) => d.id === docId)
+        list.forEach((entry) => {
+          all.push({
+            ...entry,
+            documentId: docId,
+            resourceName: doc?.name ?? 'Knowledge Document',
+            departmentName: doc?.departmentName ?? 'Organisation-wide',
+          })
+        })
+      })
+
+      // 3. User & Permission audit actions
+      all.push(...userAudits)
+    }
+
     return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   },
   async listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }) {
@@ -559,6 +622,17 @@ export const mockApi: Api = {
       password: 'Demo@1234',
     }
     USERS.push(newUser)
+    userAudits.push({
+      id: `ua-${Date.now()}`,
+      actorName: 'Asha Rao',
+      actorEmail: 'admin@nexora.com',
+      actorRole: 'ADMIN',
+      action: 'USER_CREATED',
+      resourceName: `${newUser.fullName} (${newUser.email})`,
+      departmentName: newUser.departmentName ?? 'Organisation-wide',
+      comment: `Created user ${newUser.fullName} with ${newUser.role} role.`,
+      createdAt: new Date().toISOString(),
+    })
     return strip(newUser)
   },
   async updateUser(id, req) {
@@ -572,6 +646,19 @@ export const mockApi: Api = {
       }
       if (req.isActive !== undefined) u.isActive = req.isActive
       if (req.canApproveKnowledge !== undefined) u.canApproveKnowledge = req.canApproveKnowledge
+
+      userAudits.push({
+        id: `ua-${Date.now()}`,
+        actorName: 'Asha Rao',
+        actorEmail: 'admin@nexora.com',
+        actorRole: 'ADMIN',
+        action: 'USER_UPDATED',
+        resourceName: `${u.fullName} (${u.email})`,
+        departmentName: u.departmentName ?? 'Organisation-wide',
+        comment: `Updated user permissions (Role: ${u.role}, Knowledge Approver: ${u.canApproveKnowledge}).`,
+        createdAt: new Date().toISOString(),
+      })
+
       return strip(u)
     }
     throw new ApiError('User not found', 404)
@@ -581,6 +668,17 @@ export const mockApi: Api = {
     const u = USERS.find((x) => x.id === id)
     if (u) {
       u.isActive = !u.isActive
+      userAudits.push({
+        id: `ua-${Date.now()}`,
+        actorName: 'Asha Rao',
+        actorEmail: 'admin@nexora.com',
+        actorRole: 'ADMIN',
+        action: 'USER_STATUS_TOGGLED',
+        resourceName: `${u.fullName} (${u.email})`,
+        departmentName: u.departmentName ?? 'Organisation-wide',
+        comment: `User account status set to ${u.isActive ? 'ACTIVE' : 'SUSPENDED'}.`,
+        createdAt: new Date().toISOString(),
+      })
       return strip(u)
     }
     throw new ApiError('User not found', 404)

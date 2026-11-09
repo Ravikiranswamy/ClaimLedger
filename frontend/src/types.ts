@@ -33,6 +33,9 @@ export type ActionType =
   | 'KNOWLEDGE_TIER_CHANGED'
   | 'KNOWLEDGE_SCOPE_CHANGED'
   | 'KNOWLEDGE_REPLACED'
+  | 'USER_CREATED'
+  | 'USER_UPDATED'
+  | 'USER_STATUS_TOGGLED'
 export type ReviewAction = Extract<ActionType, 'REVIEWER_APPROVED' | 'REVIEWER_CHANGES_REQUESTED' | 'REVIEWER_REJECTED'>
 
 export interface User {
@@ -101,10 +104,14 @@ export interface Submission {
 export interface AuditEntry {
   id: string
   submissionId?: string
+  documentId?: string
+  actorId?: string
   actorName: string
   actorEmail?: string
   actorRole?: string
   action: ActionType
+  resourceName?: string
+  departmentName?: string
   comment?: string | null
   createdAt: string
 }

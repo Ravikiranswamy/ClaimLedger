@@ -16,6 +16,9 @@ const LABEL: Record<ActionType, string> = {
   KNOWLEDGE_TIER_CHANGED: 'Authority tier changed',
   KNOWLEDGE_SCOPE_CHANGED: 'Scope updated',
   KNOWLEDGE_REPLACED: 'Version replaced',
+  USER_CREATED: 'User account created',
+  USER_UPDATED: 'User profile updated',
+  USER_STATUS_TOGGLED: 'Account status changed',
 }
 
 export const formatWhen = (iso: string) =>

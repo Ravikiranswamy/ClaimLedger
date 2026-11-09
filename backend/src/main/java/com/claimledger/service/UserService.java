@@ -87,7 +87,7 @@ public class UserService {
                 null,
                 null,
                 actorId,
-                ActionType.SUBMITTED,
+                ActionType.USER_CREATED,
                 "New user invited/created: " + saved.getEmail() + " (" + saved.getRole() + ")"
         );
         reviewActionRepository.save(audit);
@@ -131,7 +131,7 @@ public class UserService {
                 null,
                 null,
                 actorId,
-                ActionType.CREATOR_REVISED,
+                ActionType.USER_UPDATED,
                 changes.toString()
         );
         reviewActionRepository.save(audit);
@@ -154,7 +154,7 @@ public class UserService {
                 null,
                 null,
                 actorId,
-                ActionType.CREATOR_REVISED,
+                ActionType.USER_STATUS_TOGGLED,
                 "User " + user.getEmail() + " status set to: " + (newStatus ? "ACTIVE" : "SUSPENDED")
         );
         reviewActionRepository.save(audit);

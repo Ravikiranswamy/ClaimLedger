@@ -17,6 +17,8 @@ public class ReviewActionResponse {
     private String actorRole;
     private ActionType action;
     private String comment;
+    private String resourceName;
+    private String departmentName;
     private LocalDateTime createdAt;
 
     public ReviewActionResponse() {
@@ -108,6 +110,22 @@ public class ReviewActionResponse {
 
     public void setComment(String comment) {
         this.comment = comment;
+    }
+
+    public String getResourceName() {
+        return resourceName;
+    }
+
+    public void setResourceName(String resourceName) {
+        this.resourceName = resourceName;
+    }
+
+    public String getDepartmentName() {
+        return departmentName;
+    }
+
+    public void setDepartmentName(String departmentName) {
+        this.departmentName = departmentName;
     }
 
     public LocalDateTime getCreatedAt() {

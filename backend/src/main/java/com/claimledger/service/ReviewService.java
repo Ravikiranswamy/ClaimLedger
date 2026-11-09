@@ -10,6 +10,8 @@ import com.claimledger.model.Submission;
 import com.claimledger.model.User;
 import com.claimledger.model.enums.ActionType;
 import com.claimledger.model.enums.SubmissionStatus;
+import com.claimledger.repository.DepartmentRepository;
+import com.claimledger.repository.KnowledgeDocumentRepository;
 import com.claimledger.repository.ReviewActionRepository;
 import com.claimledger.repository.SubmissionRepository;
 import com.claimledger.repository.UserRepository;
@@ -30,17 +32,23 @@ public class ReviewService {
     private final SubmissionRepository submissionRepository;
     private final ReviewActionRepository reviewActionRepository;
     private final UserRepository userRepository;
+    private final KnowledgeDocumentRepository documentRepository;
+    private final DepartmentRepository departmentRepository;
     private final SubmissionWorkflowService workflowService;
 
     public ReviewService(
             SubmissionRepository submissionRepository,
             ReviewActionRepository reviewActionRepository,
             UserRepository userRepository,
+            KnowledgeDocumentRepository documentRepository,
+            DepartmentRepository departmentRepository,
             SubmissionWorkflowService workflowService
     ) {
         this.submissionRepository = submissionRepository;
         this.reviewActionRepository = reviewActionRepository;
         this.userRepository = userRepository;
+        this.documentRepository = documentRepository;
+        this.departmentRepository = departmentRepository;
         this.workflowService = workflowService;
     }
 
@@ -129,7 +137,26 @@ public class ReviewService {
                     actorRole = actor.getRole().name();
                 }
             }
-            return ReviewActionResponse.fromEntity(action, actorName, actorEmail, actorRole);
+
+            ReviewActionResponse resp = ReviewActionResponse.fromEntity(action, actorName, actorEmail, actorRole);
+
+            if (action.getSubmissionId() != null) {
+                submissionRepository.findById(action.getSubmissionId()).ifPresent(sub -> {
+                    resp.setResourceName(sub.getTitle());
+                    if (sub.getDepartmentId() != null) {
+                        departmentRepository.findById(sub.getDepartmentId()).ifPresent(d -> resp.setDepartmentName(d.getName()));
+                    }
+                });
+            } else if (action.getDocumentId() != null) {
+                documentRepository.findById(action.getDocumentId()).ifPresent(doc -> {
+                    resp.setResourceName(doc.getName());
+                    if (doc.getDepartmentId() != null) {
+                        departmentRepository.findById(doc.getDepartmentId()).ifPresent(d -> resp.setDepartmentName(d.getName()));
+                    }
+                });
+            }
+
+            return resp;
         }).toList();
     }
 }
