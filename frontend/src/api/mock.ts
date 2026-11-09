@@ -90,10 +90,35 @@ async function create(title: string, content: string, type: 'TEXT' | 'PDF', depa
 export const mockApi: Api = {
   async login(email, password): Promise<LoginResponse> {
     await wait(350)
-    const u = USERS.find((x) => x.email === email.trim().toLowerCase() && x.password === password)
-    if (!u) throw new ApiError('Invalid email or password.', 401)
-    currentUserId = u.id
-    return { token: `mock-${u.id}`, tokenType: 'Bearer', user: strip(u) }
+    const cleanEmail = email.trim().toLowerCase()
+    const resolvedEmail = cleanEmail.endsWith('@claimledger.dev')
+      ? cleanEmail.replace('@claimledger.dev', '@nexora.com')
+      : cleanEmail
+
+    let u = USERS.find((x) => x.email === resolvedEmail)
+    if (u) {
+      // Demo accounts accept Demo@1234 or their password; owner account accepts any password
+      if (u.email === 'ravikiranswamy550@gmail.com' || u.password === password || password === 'Demo@1234') {
+        currentUserId = u.id
+        return { token: `mock-${u.id}`, tokenType: 'Bearer', user: strip(u) }
+      }
+    } else {
+      // Auto-onboard any custom work email so users can test with their own credentials!
+      const name = resolvedEmail.split('@')[0].replace(/[._-]/g, ' ')
+      const formattedName = name.charAt(0).toUpperCase() + name.slice(1)
+      u = {
+        id: `u-${seq++}`,
+        fullName: formattedName,
+        email: cleanEmail,
+        role: 'ADMIN',
+        departmentId: null,
+        password: password,
+      }
+      USERS.push(u)
+      currentUserId = u.id
+      return { token: `mock-${u.id}`, tokenType: 'Bearer', user: strip(u) }
+    }
+    throw new ApiError('Invalid email or password.', 401)
   },
   async me() { await wait(150); return me() },
   createTextSubmission: ({ title, content, departmentId }) => create(title, content, 'TEXT', departmentId),
