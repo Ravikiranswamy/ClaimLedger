@@ -116,7 +116,8 @@ public class SubmissionWorkflowService {
     /**
      * Lists submissions with role-based scoping:
      * - ADMIN and REVIEWER see all submissions.
-     * - CREATOR and DEPT_MANAGER only see submissions belonging to their department.
+     * - CREATOR strictly sees only their own submissions.
+     * - DEPT_MANAGER sees submissions belonging to their department.
      */
     @Transactional(readOnly = true)
     public List<SubmissionResponse> listSubmissions(UserPrincipal currentUser) {
@@ -124,6 +125,8 @@ public class SubmissionWorkflowService {
 
         if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.REVIEWER) {
             submissions = submissionRepository.findAllByOrderByCreatedAtDesc();
+        } else if (currentUser.getRole() == Role.CREATOR) {
+            submissions = submissionRepository.findBySubmittedByOrderByCreatedAtDesc(currentUser.getId());
         } else {
             if (currentUser.getDepartmentId() != null) {
                 submissions = submissionRepository.findByDepartmentIdOrderByCreatedAtDesc(currentUser.getDepartmentId());
@@ -299,14 +302,34 @@ public class SubmissionWorkflowService {
         return findings;
     }
 
+    @Transactional(readOnly = true)
+    public List<FindingDto> getSubmissionFindings(UUID submissionId, UserPrincipal currentUser) {
+        if (currentUser != null) {
+            validateSubmissionAccess(submissionId, currentUser);
+        }
+        return getSubmissionFindings(submissionId);
+    }
+
+    public void validateSubmissionAccess(UUID submissionId, UserPrincipal currentUser) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+        validateAccess(submission, currentUser);
+    }
+
     private void validateAccess(Submission submission, UserPrincipal currentUser) {
         if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.REVIEWER) {
             return;
         }
+        if (currentUser.getRole() == Role.CREATOR) {
+            if (submission.getSubmittedBy() != null && submission.getSubmittedBy().equals(currentUser.getId())) {
+                return;
+            }
+            throw new AccessDeniedException("Creators are only permitted to access their own submissions.");
+        }
         if (submission.getDepartmentId() != null && submission.getDepartmentId().equals(currentUser.getDepartmentId())) {
             return;
         }
-        if (submission.getSubmittedBy().equals(currentUser.getId())) {
+        if (submission.getSubmittedBy() != null && submission.getSubmittedBy().equals(currentUser.getId())) {
             return;
         }
         throw new AccessDeniedException("You do not have permission to access submissions from this department.");

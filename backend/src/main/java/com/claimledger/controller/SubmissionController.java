@@ -98,8 +98,11 @@ public class SubmissionController {
 
     @GetMapping("/{id}/findings")
     @Operation(summary = "Get structured claim findings for the interactive frontend inspector")
-    public ResponseEntity<ApiResponse<List<FindingDto>>> getSubmissionFindings(@PathVariable UUID id) {
-        List<FindingDto> findings = workflowService.getSubmissionFindings(id);
+    public ResponseEntity<ApiResponse<List<FindingDto>>> getSubmissionFindings(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        List<FindingDto> findings = workflowService.getSubmissionFindings(id, principal);
         return ResponseEntity.ok(ApiResponse.ok(findings));
     }
 

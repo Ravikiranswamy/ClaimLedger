@@ -18,9 +18,16 @@ import { useAuth } from '../auth/AuthContext'
 import { formatWhen } from '../components/AuditTimeline'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { ROLE_LABEL } from '../types'
+import { CreatorDashboard } from './CreatorDashboard'
 
 export function Home() {
   const { user } = useAuth()
+
+  // Content Creator Dashboard is strictly scoped to the creator persona
+  if (user?.role === 'CREATOR') {
+    return <CreatorDashboard />
+  }
+
   const submissionsQ = useQuery({ queryKey: ['submissions'], queryFn: api.listSubmissions })
   const documentsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
 
@@ -36,10 +43,7 @@ export function Home() {
   )
   const approvedDocs = documents.filter((d) => d.approvalStatus === 'APPROVED').length
 
-  const myActionItems =
-    user?.role === 'CREATOR'
-      ? submissions.filter((s) => ['FLAGGED', 'CHANGES_REQUESTED'].includes(s.status))
-      : submissions.filter((s) => ['FLAGGED', 'VERIFIED', 'IN_REVIEW'].includes(s.status))
+  const myActionItems = submissions.filter((s) => ['FLAGGED', 'VERIFIED', 'IN_REVIEW'].includes(s.status))
 
   return (
     <div className="space-y-8">
@@ -57,7 +61,7 @@ export function Home() {
             ClaimLedger guarantees organisational brand truth through deterministic authority hierarchies. Every claim is verified against your master knowledge sources.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            {user?.role === 'CREATOR' || user?.role === 'ADMIN' ? (
+            {user?.role === 'ADMIN' ? (
               <Link
                 to="/submit"
                 className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 font-semibold text-white transition hover:bg-brand-strong"
@@ -176,9 +180,7 @@ export function Home() {
         <section className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-line pb-4">
             <div>
-              <h2 className="font-display text-xl font-bold">
-                {user?.role === 'CREATOR' ? 'Submissions Needing Your Revision' : 'Decision Inbox'}
-              </h2>
+              <h2 className="font-display text-xl font-bold">Decision Inbox</h2>
               <p className="text-sm text-muted">
                 {myActionItems.length === 0
                   ? 'All clear! No pending decisions require your immediate attention.'

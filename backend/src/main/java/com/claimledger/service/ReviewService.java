@@ -89,29 +89,33 @@ public class ReviewService {
         }
 
         List<ReviewAction> actions = reviewActionRepository.findBySubmissionIdOrderByCreatedAtAsc(submissionId);
-        return actions.stream().map(action -> {
-            String actorName = "System";
-            String actorEmail = "";
-            String actorRole = "SYSTEM";
-
-            if (action.getActorId() != null) {
-                User actor = userRepository.findById(action.getActorId()).orElse(null);
-                if (actor != null) {
-                    actorName = actor.getFullName();
-                    actorEmail = actor.getEmail();
-                    actorRole = actor.getRole().name();
-                }
-            }
-            return ReviewActionResponse.fromEntity(action, actorName, actorEmail, actorRole);
-        }).toList();
+        return mapReviewActions(actions);
     }
 
     /**
-     * Returns global chronological audit history across all submissions.
+     * Returns personal chronological audit history strictly scoped to a creator's own submissions.
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewActionResponse> getAuditHistoryForCreator(UUID creatorId) {
+        List<Submission> userSubmissions = submissionRepository.findBySubmittedByOrderByCreatedAtDesc(creatorId);
+        if (userSubmissions == null || userSubmissions.isEmpty()) {
+            return List.of();
+        }
+        List<UUID> submissionIds = userSubmissions.stream().map(Submission::getId).toList();
+        List<ReviewAction> actions = reviewActionRepository.findBySubmissionIdInOrderByCreatedAtDesc(submissionIds);
+        return mapReviewActions(actions);
+    }
+
+    /**
+     * Returns global chronological audit history across all submissions (Admin / Reviewer / Manager).
      */
     @Transactional(readOnly = true)
     public List<ReviewActionResponse> getAllAuditHistory() {
         List<ReviewAction> actions = reviewActionRepository.findAllByOrderByCreatedAtDesc();
+        return mapReviewActions(actions);
+    }
+
+    private List<ReviewActionResponse> mapReviewActions(List<ReviewAction> actions) {
         return actions.stream().map(action -> {
             String actorName = "System";
             String actorEmail = "";

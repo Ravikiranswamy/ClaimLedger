@@ -12,5 +12,7 @@ public interface ReviewActionRepository extends JpaRepository<ReviewAction, UUID
 
     List<ReviewAction> findBySubmissionIdOrderByCreatedAtAsc(UUID submissionId);
 
+    List<ReviewAction> findBySubmissionIdInOrderByCreatedAtDesc(List<UUID> submissionIds);
+
     List<ReviewAction> findAllByOrderByCreatedAtDesc();
 }

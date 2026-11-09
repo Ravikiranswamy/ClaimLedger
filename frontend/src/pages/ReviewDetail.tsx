@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Lightbulb, Loader2, Printer, Wand2 } from 'lucide-react'
+import { ArrowLeft, Lightbulb, Loader2, Wand2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
@@ -49,7 +49,9 @@ export function ReviewDetail() {
     return (
       <div role="alert" className="rounded-2xl bg-violation-soft p-6 text-violation">
         {q.error instanceof Error ? q.error.message : 'We couldn’t load this submission.'}{' '}
-        <Link to="/review" className="font-semibold underline">Back to Review</Link>
+        <Link to={user?.role === 'CREATOR' ? '/#my-content' : '/review'} className="font-semibold underline">
+          {user?.role === 'CREATOR' ? 'Back to My Content' : 'Back to Review'}
+        </Link>
       </div>
     )
   }
@@ -57,29 +59,29 @@ export function ReviewDetail() {
   const claim = s.claims.find((c) => c.id === selected) ?? null
   const unresolved = s.claims.filter((c) => c.verificationStatus !== 'VERIFIED').length
   const canDecide = !!user && REVIEWER_ROLES.includes(user.role) && !CLOSED.includes(s.status)
-  const canRevise = user?.role === 'CREATOR' && ['FLAGGED', 'CHANGES_REQUESTED'].includes(s.status)
+  const canRevise = user?.role === 'CREATOR' && ['FLAGGED', 'CHANGES_REQUESTED', 'DRAFT'].includes(s.status)
 
   return (
     <>
-      <Link to={user?.role === 'CREATOR' ? '/submit' : '/review'} className="mb-4 inline-flex items-center gap-1.5 text-muted hover:text-ink">
-        <ArrowLeft size={18} aria-hidden /> {user?.role === 'CREATOR' ? 'Check something else' : 'All submissions'}
+      <Link
+        to={user?.role === 'CREATOR' ? '/#my-content' : '/review'}
+        className="mb-4 inline-flex items-center gap-1.5 text-muted hover:text-ink font-medium"
+      >
+        <ArrowLeft size={18} aria-hidden /> {user?.role === 'CREATOR' ? 'Back to My Content' : 'All submissions'}
       </Link>
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
+          {user?.role === 'CREATOR' && (
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-1">
+              Submission Details & Revision
+            </p>
+          )}
           <h1 className="font-display text-3xl font-semibold tracking-tight">{s.title}</h1>
           <p className="mt-1 text-muted">
             {s.departmentName ?? 'No department'} · {s.submittedByName}{s.revisionNumber > 1 ? ` · revision ${s.revisionNumber}` : ''}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => window.print()}
-            title="Print Brand Governance Clearance Certificate"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-ink shadow-2xs hover:bg-canvas print:hidden"
-          >
-            <Printer size={15} /> Print Certificate
-          </button>
           <SubmissionStatusChip status={s.status} />
         </div>
       </header>

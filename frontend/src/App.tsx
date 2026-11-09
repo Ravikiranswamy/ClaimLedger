@@ -29,6 +29,7 @@ export default function App() {
             <Route element={<Protected />}>
               <Route index element={<Home />} />
               <Route path="submit" element={<Submit />} />
+              <Route path="submissions/:id" element={<ReviewDetail />} />
               <Route path="review" element={<ReviewList />} />
               <Route path="review/:id" element={<ReviewDetail />} />
               <Route path="knowledge-base" element={<KnowledgeBase />} />

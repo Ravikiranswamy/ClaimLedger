@@ -126,15 +126,24 @@ export const mockApi: Api = {
     create(title, 'Great news! Nexora Pro is now available at ₹799 per month. It is the fastest platform around.', 'PDF', departmentId),
   async getSubmission(id) {
     await wait(150)
+    const user = me()
     const s = subs.get(id)
     if (!s) throw new ApiError('Submission not found', 404)
+    if (user.role === 'CREATOR' && s.submittedBy !== user.id) {
+      throw new ApiError('Creators are only permitted to access their own submissions.', 403)
+    }
     return structuredClone(s)
   },
   async listSubmissions() {
     await wait(200)
     const user = me()
     const all = [...subs.values()].reverse()
-    const visible = user.role === 'ADMIN' || user.role === 'REVIEWER' ? all : all.filter((s) => s.departmentId === user.departmentId)
+    let visible = all
+    if (user.role === 'CREATOR') {
+      visible = all.filter((s) => s.submittedBy === user.id)
+    } else if (user.role !== 'ADMIN' && user.role !== 'REVIEWER') {
+      visible = all.filter((s) => s.departmentId === user.departmentId)
+    }
     return structuredClone(visible)
   },
   async reviewSubmission(id, action, comment) {
@@ -153,6 +162,9 @@ export const mockApi: Api = {
     const user = me()
     const s = subs.get(id)
     if (!s) throw new ApiError('Submission not found', 404)
+    if (user.role === 'CREATOR' && s.submittedBy !== user.id) {
+      throw new ApiError('Creators are only permitted to revise their own submissions.', 403)
+    }
     const { claims, status } = analyse(content)
     Object.assign(s, { content, claims, status, revisionNumber: s.revisionNumber + 1, updatedAt: new Date().toISOString() })
     log(id, user, 'CREATOR_REVISED', comment || 'Content revised')
@@ -161,12 +173,24 @@ export const mockApi: Api = {
   },
   async getAudit(id) {
     await wait(150)
+    const user = me()
+    const s = subs.get(id)
+    if (user.role === 'CREATOR' && s && s.submittedBy !== user.id) {
+      throw new ApiError('Creators are only permitted to access their own audit history.', 403)
+    }
     return structuredClone(audits.get(id) ?? [])
   },
   async listGlobalAudit() {
     await wait(150)
+    const user = me()
     const all: AuditEntry[] = []
-    audits.forEach((list) => all.push(...list))
+    audits.forEach((list, subId) => {
+      const sub = subs.get(subId)
+      if (user.role === 'CREATOR' && sub && sub.submittedBy !== user.id) {
+        return
+      }
+      all.push(...list)
+    })
     return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   },
   async listDocuments() {

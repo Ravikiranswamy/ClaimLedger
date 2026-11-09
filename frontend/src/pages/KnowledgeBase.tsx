@@ -47,16 +47,22 @@ export function KnowledgeBase() {
   const docsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
   const docs = docsQ.data ?? []
 
-  const filtered = docs.filter((d) => tierFilter === 'ALL' || d.authorityTier === tierFilter)
+  // Creators only see approved, active brand guidelines
+  const baseDocs = user?.role === 'CREATOR' ? docs.filter((d) => d.approvalStatus === 'APPROVED') : docs
+  const filtered = baseDocs.filter((d) => tierFilter === 'ALL' || d.authorityTier === tierFilter)
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <PageHeader
-          title="Authoritative Knowledge Base"
-          subtitle="Document repository backing ClaimLedger’s 6-step deterministic hierarchy and pgvector semantic retrieval."
+          title={user?.role === 'CREATOR' ? 'Brand Guidelines & Product Truth' : 'Authoritative Knowledge Base'}
+          subtitle={
+            user?.role === 'CREATOR'
+              ? 'Approved company brand guidelines, product facts, and authoritative terminology in read-only mode.'
+              : 'Document repository backing ClaimLedger’s 6-step deterministic hierarchy and pgvector semantic retrieval.'
+          }
         />
-        {(user?.role === 'ADMIN' || true) && (
+        {user?.role === 'ADMIN' && (
           <button
             onClick={() => setShowUploadModal(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 font-semibold text-white shadow-sm transition hover:bg-brand-strong"
@@ -81,7 +87,7 @@ export function KnowledgeBase() {
               <div className="flex items-center justify-between">
                 <span className="font-bold text-sm">{badge.label}</span>
                 <span className="text-xs font-semibold uppercase tracking-wider">
-                  {docs.filter((d) => d.authorityTier === tier).length} doc(s)
+                  {baseDocs.filter((d) => d.authorityTier === tier).length} doc(s)
                 </span>
               </div>
               <p className="mt-1 text-xs opacity-90">{badge.desc}</p>
@@ -171,26 +177,112 @@ export function KnowledgeBase() {
 
               <div className="mt-5 flex items-center justify-between border-t border-line pt-3">
                 <span className="flex items-center gap-1.5 text-xs text-muted">
-                  <Database size={14} />
-                  <span>{doc.chunkCount ?? 0} indexed chunk(s)</span>
+                  <CheckCircle2 size={14} className="text-verified" />
+                  <span>Approved & Active</span>
                 </span>
-                <button
-                  onClick={() => setSelectedDoc(doc)}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline"
-                >
-                  Inspect Chunks & Vectors <ChevronRight size={14} />
-                </button>
+                {user?.role !== 'CREATOR' ? (
+                  <button
+                    onClick={() => setSelectedDoc(doc)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline"
+                  >
+                    Inspect Chunks & Vectors <ChevronRight size={14} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setSelectedDoc(doc)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline"
+                  >
+                    View Guidelines <ChevronRight size={14} />
+                  </button>
+                )}
               </div>
             </div>
           )
         })}
       </div>
 
-      {/* Chunk Inspector Modal */}
-      {selectedDoc && <ChunkInspectorModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />}
+      {/* Chunk / Guideline Inspector Modal */}
+      {selectedDoc && (
+        user?.role === 'CREATOR' ? (
+          <CreatorGuidelineModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+        ) : (
+          <ChunkInspectorModal doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+        )
+      )}
 
-      {/* Upload Modal */}
-      {showUploadModal && <UploadDocModal onClose={() => setShowUploadModal(false)} onUploaded={() => qc.invalidateQueries({ queryKey: ['documents'] })} />}
+      {/* Upload Modal - Only for ADMIN */}
+      {showUploadModal && user?.role === 'ADMIN' && (
+        <UploadDocModal onClose={() => setShowUploadModal(false)} onUploaded={() => qc.invalidateQueries({ queryKey: ['documents'] })} />
+      )}
+    </div>
+  )
+}
+
+function CreatorGuidelineModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () => void }) {
+  const tier = TIER_BADGES[doc.authorityTier]
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+      <div className="max-h-[85vh] w-full max-w-xl overflow-hidden rounded-3xl bg-surface shadow-2xl flex flex-col border border-line">
+        <div className="flex items-center justify-between border-b border-line px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
+              <FileText size={20} />
+            </span>
+            <div>
+              <h2 className="font-display font-bold text-lg">{doc.name}</h2>
+              <p className="text-xs text-muted">Brand Guideline & Reference (Read-Only)</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-xl p-1.5 text-muted hover:bg-canvas hover:text-ink">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-6 space-y-4 flex-1 text-sm">
+          <div className="rounded-2xl border border-line bg-canvas p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">Authority Tier</span>
+              <span className="text-xs font-bold text-brand">{tier.label}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">Document Version</span>
+              <span className="text-xs font-bold text-ink">{doc.version}</span>
+            </div>
+            {doc.productScope && (
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted">Product Scope</span>
+                <span className="text-xs font-bold text-ink">{doc.productScope}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">Validity</span>
+              <span className="text-xs font-bold text-ink">
+                {doc.effectiveDate ?? 'Current'} {doc.expiryDate ? `to ${doc.expiryDate}` : '(Ongoing)'}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted">Approval Status</span>
+              <span className="rounded-full bg-verified-soft px-2.5 py-0.5 text-xs font-bold text-verified">
+                {doc.approvalStatus}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-line bg-brand-soft/40 p-4 text-xs text-ink space-y-1">
+            <p className="font-bold text-brand">Creator Notice</p>
+            <p className="text-muted leading-relaxed">
+              This document is part of the approved single source of truth. Any marketing or communication claims
+              you write will be automatically verified against this standard before publication.
+            </p>
+          </div>
+        </div>
+
+        <div className="border-t border-line px-6 py-4 bg-canvas flex justify-end">
+          <button onClick={onClose} className="rounded-xl bg-navy px-5 py-2 text-sm font-semibold text-white hover:bg-navy-soft">
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
