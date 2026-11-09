@@ -10,6 +10,7 @@ import { Login } from './pages/Login'
 import { ReviewDetail } from './pages/ReviewDetail'
 import { ReviewList } from './pages/ReviewList'
 import { Submit } from './pages/Submit'
+import { UserManagement } from './pages/UserManagement'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
 
@@ -35,7 +36,7 @@ export default function App() {
               <Route path="review/:id" element={<ReviewDetail />} />
               <Route path="knowledge-base" element={<KnowledgeBase />} />
               <Route path="history" element={<History />} />
-              <Route path="admin/users" element={<AdminModulePlaceholder />} />
+              <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/approvals" element={<AdminModulePlaceholder />} />
               <Route path="admin/insights" element={<AdminModulePlaceholder />} />
               <Route path="admin/settings" element={<AdminModulePlaceholder />} />

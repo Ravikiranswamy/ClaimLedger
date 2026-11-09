@@ -41,7 +41,11 @@ export interface User {
   fullName: string
   role: Role
   departmentId?: string | null
+  departmentName?: string | null
   organisationId?: string
+  isActive?: boolean
+  canApproveKnowledge?: boolean
+  createdAt?: string
 }
 
 export interface LoginResponse {

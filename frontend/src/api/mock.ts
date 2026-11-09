@@ -8,11 +8,11 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const [MKT, SALES] = [DEPARTMENTS[0], DEPARTMENTS[1]]
 
 const USERS: (User & { password: string })[] = [
-  { id: 'u1', fullName: 'Asha Rao', email: 'admin@nexora.com', role: 'ADMIN', departmentId: null, password: 'Demo@1234' },
-  { id: 'u2', fullName: 'Kiran Mehta', email: 'creator@nexora.com', role: 'CREATOR', departmentId: MKT.id, password: 'Demo@1234' },
-  { id: 'u3', fullName: 'Priya Nair', email: 'manager@nexora.com', role: 'DEPT_MANAGER', departmentId: MKT.id, password: 'Demo@1234' },
-  { id: 'u4', fullName: 'Dev Sharma', email: 'reviewer@nexora.com', role: 'REVIEWER', departmentId: null, password: 'Demo@1234' },
-  { id: 'u5', fullName: 'Ravikiran Swamy', email: 'ravikiranswamy550@gmail.com', role: 'ADMIN', departmentId: null, password: 'Demo@1234' },
+  { id: 'u1', fullName: 'Asha Rao', email: 'admin@nexora.com', role: 'ADMIN', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-01T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u2', fullName: 'Kiran Mehta', email: 'creator@nexora.com', role: 'CREATOR', departmentId: MKT.id, departmentName: 'Marketing', isActive: true, canApproveKnowledge: false, createdAt: '2026-02-15T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u3', fullName: 'Priya Nair', email: 'manager@nexora.com', role: 'DEPT_MANAGER', departmentId: MKT.id, departmentName: 'Marketing', isActive: true, canApproveKnowledge: false, createdAt: '2026-01-20T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u4', fullName: 'Dev Sharma', email: 'reviewer@nexora.com', role: 'REVIEWER', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-10T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u5', fullName: 'Ravikiran Swamy', email: 'ravikiranswamy550@gmail.com', role: 'ADMIN', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-01T00:00:00Z', password: 'Demo@1234' },
 ]
 
 let currentUserId: string | null = null
@@ -276,5 +276,50 @@ export const mockApi: Api = {
       return structuredClone(oldDoc)
     }
     return { id: oldDocId, name: 'Document.pdf', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
+  },
+  async listUsers() {
+    await wait(200)
+    return USERS.map(strip)
+  },
+  async createUser(req) {
+    await wait(350)
+    const newUser: User & { password: string } = {
+      id: `u-${seq++}`,
+      email: req.email.trim().toLowerCase(),
+      fullName: req.fullName,
+      role: req.role as any,
+      departmentId: req.departmentId ?? null,
+      departmentName: deptName(req.departmentId),
+      isActive: true,
+      canApproveKnowledge: req.canApproveKnowledge ?? (req.role === 'ADMIN'),
+      createdAt: new Date().toISOString(),
+      password: 'Demo@1234',
+    }
+    USERS.push(newUser)
+    return strip(newUser)
+  },
+  async updateUser(id, req) {
+    await wait(250)
+    const u = USERS.find((x) => x.id === id)
+    if (u) {
+      if (req.role) u.role = req.role as any
+      if (req.departmentId !== undefined) {
+        u.departmentId = req.departmentId
+        u.departmentName = deptName(req.departmentId)
+      }
+      if (req.isActive !== undefined) u.isActive = req.isActive
+      if (req.canApproveKnowledge !== undefined) u.canApproveKnowledge = req.canApproveKnowledge
+      return strip(u)
+    }
+    throw new ApiError('User not found', 404)
+  },
+  async toggleUserStatus(id) {
+    await wait(200)
+    const u = USERS.find((x) => x.id === id)
+    if (u) {
+      u.isActive = !u.isActive
+      return strip(u)
+    }
+    throw new ApiError('User not found', 404)
   },
 }

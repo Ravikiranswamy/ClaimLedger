@@ -64,6 +64,10 @@ const fallbackApi: Api = {
   updateDocumentStatus: (id, status) => (isEvaluationMode() ? mockApi.updateDocumentStatus(id, status) : httpApi.updateDocumentStatus(id, status).catch(() => mockApi.updateDocumentStatus(id, status))),
   updateDocumentAuthority: (id, req) => (isEvaluationMode() ? mockApi.updateDocumentAuthority(id, req) : httpApi.updateDocumentAuthority(id, req).catch(() => mockApi.updateDocumentAuthority(id, req))),
   supersedeDocument: (oldDocId, supersededByDocId) => (isEvaluationMode() ? mockApi.supersedeDocument(oldDocId, supersededByDocId) : httpApi.supersedeDocument(oldDocId, supersededByDocId).catch(() => mockApi.supersedeDocument(oldDocId, supersededByDocId))),
+  listUsers: () => (isEvaluationMode() ? mockApi.listUsers() : httpApi.listUsers().catch(() => mockApi.listUsers())),
+  createUser: (req) => (isEvaluationMode() ? mockApi.createUser(req) : httpApi.createUser(req).catch(() => mockApi.createUser(req))),
+  updateUser: (id, req) => (isEvaluationMode() ? mockApi.updateUser(id, req) : httpApi.updateUser(id, req).catch(() => mockApi.updateUser(id, req))),
+  toggleUserStatus: (id) => (isEvaluationMode() ? mockApi.toggleUserStatus(id) : httpApi.toggleUserStatus(id).catch(() => mockApi.toggleUserStatus(id))),
 }
 
 export const api: Api = fallbackApi

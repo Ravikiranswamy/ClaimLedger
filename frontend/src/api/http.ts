@@ -116,4 +116,19 @@ export const httpApi: Api = {
     request<KnowledgeDoc>(`/documents/${oldDocId}/supersede?supersededByDocId=${supersededByDocId}`, {
       method: 'POST',
     }),
+  listUsers: () => request<User[]>('/users'),
+  createUser: (req) =>
+    request<User>('/users', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  updateUser: (id, req) =>
+    request<User>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    }),
+  toggleUserStatus: (id) =>
+    request<User>(`/users/${id}/toggle-status`, {
+      method: 'PATCH',
+    }),
 }

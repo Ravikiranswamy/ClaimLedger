@@ -31,6 +31,10 @@ export interface Api {
     }
   ): Promise<KnowledgeDoc>
   supersedeDocument(oldDocId: string, supersededByDocId: string): Promise<KnowledgeDoc>
+  listUsers(): Promise<User[]>
+  createUser(req: { email: string; fullName: string; role: string; departmentId?: string | null; canApproveKnowledge?: boolean }): Promise<User>
+  updateUser(id: string, req: { role?: string; departmentId?: string | null; isActive?: boolean; canApproveKnowledge?: boolean }): Promise<User>
+  toggleUserStatus(id: string): Promise<User>
 }
 
 export class ApiError extends Error {

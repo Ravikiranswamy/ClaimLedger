@@ -32,6 +32,12 @@ public class User {
     @Column(name = "organisation_id", nullable = false)
     private UUID organisationId;
 
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
+    @Column(name = "can_approve_knowledge", nullable = false)
+    private Boolean canApproveKnowledge = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -114,6 +120,22 @@ public class User {
 
     public void setOrganisationId(UUID organisationId) {
         this.organisationId = organisationId;
+    }
+
+    public Boolean getIsActive() {
+        return isActive != null ? isActive : true;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    public Boolean getCanApproveKnowledge() {
+        return canApproveKnowledge != null ? canApproveKnowledge : false;
+    }
+
+    public void setCanApproveKnowledge(Boolean canApproveKnowledge) {
+        this.canApproveKnowledge = canApproveKnowledge;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -16,6 +16,8 @@ public class UserResponse {
     private String department;
     private UUID departmentId;
     private UUID organisationId;
+    private Boolean isActive = true;
+    private Boolean canApproveKnowledge = false;
     private LocalDateTime createdAt;
 
     public UserResponse() {
@@ -51,11 +53,29 @@ public class UserResponse {
 
         response.setDepartmentId(user.getDepartmentId());
         response.setOrganisationId(user.getOrganisationId());
+        response.setIsActive(user.getIsActive());
+        response.setCanApproveKnowledge(user.getCanApproveKnowledge());
         response.setCreatedAt(user.getCreatedAt());
         return response;
     }
 
     // Getters and Setters
+    public Boolean getIsActive() {
+        return isActive != null ? isActive : true;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
+    }
+
+    public Boolean getCanApproveKnowledge() {
+        return canApproveKnowledge != null ? canApproveKnowledge : false;
+    }
+
+    public void setCanApproveKnowledge(Boolean canApproveKnowledge) {
+        this.canApproveKnowledge = canApproveKnowledge;
+    }
+
     public UUID getId() {
         return id;
     }
