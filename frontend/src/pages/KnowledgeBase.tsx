@@ -4,6 +4,7 @@ import {
   Building2,
   Calendar,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Clock,
   Database,
@@ -13,6 +14,7 @@ import {
   Plus,
   RotateCcw,
   Shield,
+  Sparkles,
   Tag,
   X,
   XCircle,
@@ -126,6 +128,7 @@ export function KnowledgeBase() {
   const [tierFilter, setTierFilter] = useState<string>('ALL')
   const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [showEngineGuide, setShowEngineGuide] = useState(false)
 
   const docsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
   const docs = docsQ.data ?? []
@@ -180,6 +183,103 @@ export function KnowledgeBase() {
           )
         })}
       </div>
+
+      {/* 6-Step Deterministic Authority Engine Guide for Admins & Reviewers */}
+      {user?.role !== 'CREATOR' && (
+        <div className="rounded-2xl border border-line bg-gradient-to-br from-brand-soft/30 via-white to-canvas p-5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 text-brand">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                <Sparkles size={18} />
+              </span>
+              <div>
+                <h3 className="font-display font-bold text-sm text-[#0A1F36]">
+                  Deterministic Authority Engine — 6-Step Resolution Hierarchy
+                </h3>
+                <p className="text-xs text-muted">
+                  How ClaimLedger evaluates document authority, scopes, and validity before rendering compliance verdicts.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowEngineGuide((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-brand shadow-xs hover:bg-canvas transition"
+            >
+              {showEngineGuide ? 'Hide Hierarchy Details' : 'View 6-Step Hierarchy Details'}
+              <ChevronDown size={14} className={`transition-transform duration-200 ${showEngineGuide ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {showEngineGuide && (
+            <div className="mt-4 pt-4 border-t border-line/70">
+              <p className="text-xs text-muted mb-3 leading-relaxed">
+                ClaimLedger implements a strict <strong>6-Step Pure Java Authority Resolution Hierarchy</strong> before rendering compliance verdicts on extracted claims:
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="rounded-xl border border-line bg-surface p-3.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-brand font-bold text-xs">1</span>
+                    <span className="font-bold text-xs text-[#0A1F36]">Approval Status</span>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Only approved documents establish authoritative truth. Draft, superseded, and rejected sources are excluded from verdicts.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-line bg-surface p-3.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-brand font-bold text-xs">2</span>
+                    <span className="font-bold text-xs text-[#0A1F36]">Temporal Validity</span>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Evaluates effective and expiry dates. Expired documents are strictly distinguished from superseded ones.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-line bg-surface p-3.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-brand font-bold text-xs">3</span>
+                    <span className="font-bold text-xs text-[#0A1F36]">Scope Applicability</span>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Matches department, product, region, and channel before ranking. Authorised departmental exceptions apply within scope.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-line bg-surface p-3.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-brand font-bold text-xs">4</span>
+                    <span className="font-bold text-xs text-[#0A1F36]">Authority Tier Ranking</span>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Ranks candidates (Tier 1 Master &gt; Tier 2 Departmental &gt; Tier 3 Collateral) for applicable scoped sources.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-line bg-surface p-3.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-brand font-bold text-xs">5</span>
+                    <span className="font-bold text-xs text-[#0A1F36]">Version Resolution</span>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Among same-tier documents within the applicable scope, selects the highest applicable semantic version.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-line bg-surface p-3.5 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-brand font-bold text-xs">6</span>
+                    <span className="font-bold text-xs text-[#0A1F36]">Contradiction Detection</span>
+                  </div>
+                  <p className="text-xs text-muted leading-relaxed">
+                    Performs explicit numeric/arithmetic matching; flags conflicting authoritative rules as CONFLICT.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 border-b border-line pb-3">

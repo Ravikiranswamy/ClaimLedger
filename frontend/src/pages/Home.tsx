@@ -11,7 +11,6 @@ import {
   Layers,
   RotateCcw,
   ShieldCheck,
-  Sparkles,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
@@ -246,8 +245,8 @@ export function Home() {
         </div>
       </div>
 
-      {/* 3. Organisation Monitoring: Submissions Requiring Attention & Engine Hierarchy */}
-      <div className="grid gap-6 lg:grid-cols-[1.8fr_1fr]">
+      {/* 3. Organisation Monitoring: Submissions Requiring Attention & Recent Governance Activity */}
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         {/* Left Column: Submissions Requiring Attention */}
         <section className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-line pb-4">
@@ -311,53 +310,8 @@ export function Home() {
           </div>
         </section>
 
-        {/* Right Column: Engine Hierarchy, Recent Submissions & Recent Governance Activity */}
+        {/* Right Column: Recent Submissions & Recent Governance Activity */}
         <div className="space-y-6">
-          {/* 4. Deterministic Authority Engine (Accurate 6-step Pure Java Resolution Logic) */}
-          <div className="rounded-2xl border border-line bg-gradient-to-br from-brand-soft/40 to-white p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-brand">
-              <Sparkles size={20} />
-              <h3 className="font-display font-bold text-[#0A1F36]">Deterministic Authority Engine</h3>
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted">
-              ClaimLedger implements a strict <strong>6-Step Pure Java Authority Resolution Hierarchy</strong> before
-              rendering compliance verdicts:
-            </p>
-
-            <ul className="mt-3 space-y-2.5 text-xs text-ink">
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-brand shrink-0">1. Approval Status:</span>
-                <span>Only approved documents establish authoritative truth (drafts & rejected sources excluded).</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-brand shrink-0">2. Temporal Validity:</span>
-                <span>Evaluates effective and expiry dates. Expired documents are strictly distinguished from superseded ones.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-brand shrink-0">3. Scope Applicability:</span>
-                <span>Matches department, product, region, and channel before ranking. Authorised departmental exceptions apply within scope.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-brand shrink-0">4. Authority Tier Ranking:</span>
-                <span>Ranks candidates (Tier 1 Master &gt; Tier 2 Departmental &gt; Tier 3 Collateral) for applicable scoped sources.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-brand shrink-0">5. Version Resolution:</span>
-                <span>Among same-tier documents, selects the highest applicable semantic version.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-brand shrink-0">6. Contradiction Detection:</span>
-                <span>Performs explicit numeric/arithmetic matching; flags conflicting authoritative rules as CONFLICT.</span>
-              </li>
-            </ul>
-
-            <div className="mt-4 border-t border-line pt-3">
-              <Link to="/knowledge-base" className="text-xs font-bold text-brand hover:underline flex items-center gap-1">
-                Explore Knowledge Base Tiers <ArrowRight size={13} />
-              </Link>
-            </div>
-          </div>
-
           {/* Recent Submissions */}
           <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
