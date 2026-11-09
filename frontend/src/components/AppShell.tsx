@@ -1,4 +1,5 @@
 import { BookOpen, FileText, History, Home, LibraryBig, LogOut, PenSquare, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { NAV_BY_ROLE, useAuth } from '../auth/AuthContext'
 import { ClaimLedgerLogo } from './ClaimLedgerLogo'
@@ -18,6 +19,15 @@ const ITEMS: Record<string, { to: string; label: string; Icon: LucideIcon }> = {
 export function AppShell() {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const mainRef = useRef<HTMLElement>(null)
+
+  // Reset scroll to top on page transitions (except when navigating with anchor hash like #my-content)
+  useEffect(() => {
+    if (!location.hash && mainRef.current) {
+      mainRef.current.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }, [location.pathname, location.hash])
+
   if (!user) return null
   const nav = NAV_BY_ROLE[user.role].map((k) => ({
     ...ITEMS[k],
@@ -34,16 +44,20 @@ export function AppShell() {
   }
 
   return (
-    <div className="flex min-h-full flex-col md:flex-row">
-      <aside className="flex shrink-0 flex-col bg-navy text-white md:w-64">
-        <div className="flex items-center gap-3 px-6 py-5">
+    <div className="flex h-screen w-full overflow-hidden bg-canvas">
+      {/* Permanent Full-Height Left Navigation Sidebar */}
+      <aside className="flex h-full w-64 shrink-0 flex-col bg-navy text-white select-none">
+        {/* Pinned Top Section: Brand Logo */}
+        <div className="flex items-center gap-3 px-6 py-5 shrink-0">
           <ClaimLedgerLogo size={38} />
           <div>
             <p className="font-display text-xl font-semibold leading-none">ClaimLedger</p>
             <p className="mt-1 text-sm text-[#A9BED2]">Every claim, accounted for.</p>
           </div>
         </div>
-        <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:pb-0">
+
+        {/* Scrollable Navigation Items */}
+        <nav aria-label="Main" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-2">
           {nav.map(({ to, label, Icon }) => {
             const isMyContent = to === '/#my-content'
             const isActive = isMyContent
@@ -68,9 +82,10 @@ export function AppShell() {
             )
           })}
         </nav>
+
         {/* System Architecture Health - Hidden for Content Creators */}
         {user.role !== 'CREATOR' && (
-          <div className="mx-3 my-2 rounded-xl bg-navy-soft/60 border border-white/10 p-3 text-xs hidden md:block">
+          <div className="mx-3 my-2 shrink-0 rounded-xl bg-navy-soft/60 border border-white/10 p-3 text-xs">
             <div className="flex items-center gap-2 font-bold text-[#5EEAD4] uppercase tracking-wider text-[10px]">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -83,7 +98,9 @@ export function AppShell() {
             </p>
           </div>
         )}
-        <div className="border-t border-navy-soft px-6 py-4">
+
+        {/* Pinned Bottom Section: User Profile, Role and Sign Out */}
+        <div className="shrink-0 border-t border-navy-soft px-6 py-4 mt-auto">
           <p className="font-semibold">{user.fullName}</p>
           <p className="text-sm text-[#A9BED2]">{ROLE_LABEL[user.role]}</p>
           <button
@@ -94,7 +111,9 @@ export function AppShell() {
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 px-5 py-8 md:px-12 md:py-10">
+
+      {/* Independently Scrollable Main Content Area */}
+      <main ref={mainRef} className="min-w-0 flex-1 h-full overflow-y-auto px-5 py-8 md:px-12 md:py-10">
         <div className="mx-auto max-w-5xl">
           <Outlet />
         </div>
