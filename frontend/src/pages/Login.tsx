@@ -1,5 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Server } from 'lucide-react'
+import {
+  Layers,
+  Loader2,
+  Server,
+  Settings,
+  ShieldCheck,
+  UserPen,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate } from 'react-router-dom'
@@ -16,12 +25,17 @@ const schema = z.object({
 })
 type Form = z.infer<typeof schema>
 
-// Demo convenience only. The backend must still enforce every permission.
-const DEMO: { role: Role; email: string }[] = [
-  { role: 'CREATOR', email: 'creator@nexora.com' },
-  { role: 'DEPT_MANAGER', email: 'manager@nexora.com' },
-  { role: 'REVIEWER', email: 'reviewer@nexora.com' },
-  { role: 'ADMIN', email: 'admin@nexora.com' },
+interface DemoAccount {
+  role: Role
+  email: string
+  Icon: LucideIcon
+}
+
+const DEMO: DemoAccount[] = [
+  { role: 'CREATOR', email: 'creator@nexora.com', Icon: UserPen },
+  { role: 'REVIEWER', email: 'reviewer@nexora.com', Icon: ShieldCheck },
+  { role: 'DEPT_MANAGER', email: 'manager@nexora.com', Icon: Users },
+  { role: 'ADMIN', email: 'admin@nexora.com', Icon: Settings },
 ]
 
 // Messages shown while server is waking up
@@ -56,7 +70,7 @@ function WakeupBanner({ elapsed, onSwitchMock }: { elapsed: number; onSwitchMock
           <button
             type="button"
             onClick={onSwitchMock}
-            className="font-semibold underline hover:text-amber-900"
+            className="font-semibold underline hover:text-amber-900 cursor-pointer"
           >
             ⚡ Switch to Instant Mode →
           </button>
@@ -82,11 +96,13 @@ export function Login() {
   useEffect(() => {
     if (isWakingUp) {
       setElapsed(0)
-      timerRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000)
     } else {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
   }, [isWakingUp])
 
   if (user) return <Navigate to="/" replace />
@@ -122,55 +138,120 @@ export function Login() {
   return (
     <div className="flex min-h-full items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
+        {/* Brand Header */}
         <div className="flex items-center gap-3.5">
-          <ClaimLedgerLogo size={46} />
+          <ClaimLedgerLogo size={44} />
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight text-[#0A1F36]">ClaimLedger</h1>
-            <p className="mt-0.5 text-sm text-muted">Every claim, accounted for.</p>
+            <p className="mt-0.5 text-xs text-muted">Every claim, accounted for.</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit((v) => attempt(v.email, v.password))} className="mt-6 space-y-4 rounded-2xl border border-line bg-surface p-7" noValidate>
+        {/* Welcome Back Heading */}
+        <div className="mt-6 mb-1">
+          <h2 className="text-xl font-semibold text-[#0A1F36]">Welcome back</h2>
+          <p className="mt-0.5 text-xs text-muted">Sign in to your brand governance workspace.</p>
+        </div>
+
+        {/* Primary Sign-In Form */}
+        <form
+          onSubmit={handleSubmit((v) => attempt(v.email, v.password))}
+          className="mt-3 space-y-4 rounded-2xl border border-line bg-surface p-7 shadow-xs"
+          noValidate
+        >
           <div>
-            <label htmlFor="email" className="mb-1.5 block font-medium">Work email</label>
-            <input id="email" type="email" autoComplete="username" {...register('email')}
+            <label htmlFor="email" className="mb-1.5 block text-xs font-semibold text-[#0A1F36]">
+              Work email
+            </label>
+            <input
+              id="email"
+              type="email"
+              autoComplete="username"
+              {...register('email')}
               placeholder="e.g. admin@nexora.com"
               aria-invalid={!!errors.email}
-              className="w-full rounded-xl border border-line bg-white px-4 py-3 text-base" />
-            {errors.email && <p className="mt-1.5 text-sm text-violation">{errors.email.message}</p>}
+              className="w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-[#0A1F36] placeholder:text-[#94A3B8] transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+            />
+            {errors.email && <p className="mt-1 text-xs text-violation">{errors.email.message}</p>}
           </div>
+
           <div>
-            <label htmlFor="password" className="mb-1.5 block font-medium">Password</label>
-            <input id="password" type="password" autoComplete="current-password" {...register('password')}
-              placeholder="Demo@1234"
+            <label htmlFor="password" className="mb-1.5 block text-xs font-semibold text-[#0A1F36]">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              {...register('password')}
+              placeholder="••••••••"
               aria-invalid={!!errors.password}
-              className="w-full rounded-xl border border-line bg-white px-4 py-3 text-base" />
-            {errors.password && <p className="mt-1.5 text-sm text-violation">{errors.password.message}</p>}
+              className="w-full rounded-xl border border-line bg-white px-4 py-2.5 text-sm text-[#0A1F36] placeholder:text-[#94A3B8] transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
+            />
+            {errors.password && <p className="mt-1 text-xs text-violation">{errors.password.message}</p>}
           </div>
-          {error && <p role="alert" className="rounded-lg bg-violation-soft px-4 py-3 text-sm text-violation">{error}</p>}
-          <button disabled={isLoading} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-3 text-base font-semibold text-white hover:bg-brand-strong disabled:opacity-60 cursor-pointer">
-            {submittingRole === 'form' && <Loader2 size={18} className="animate-spin" aria-hidden />} Sign in
+
+          {error && (
+            <p role="alert" className="rounded-lg bg-violation-soft px-4 py-2.5 text-xs text-violation">
+              {error}
+            </p>
+          )}
+
+          <button
+            disabled={isLoading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-strong disabled:opacity-60 cursor-pointer transition shadow-xs"
+          >
+            {submittingRole === 'form' && <Loader2 size={16} className="animate-spin" aria-hidden />}
+            Sign in
           </button>
+
           {isWakingUp && <WakeupBanner elapsed={elapsed} onSwitchMock={handleInstantBypass} />}
         </form>
 
-        <section className="mt-6 rounded-2xl border border-line bg-surface p-6" aria-labelledby="demo-h">
-          <div>
-            <h2 id="demo-h" className="font-semibold text-base text-[#0A1F36]">
-              Evaluation workspace <span className="font-normal text-muted text-sm">(Demo: Nexora Technologies)</span>
-            </h2>
-            <p className="mt-1 text-muted text-xs leading-relaxed">
-              Pre-configured sample enterprise for testing governance workflows across roles. Tap any profile to sign in.
-            </p>
+        {/* Centered 'or' Divider */}
+        <div className="relative my-6 text-center">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-[#DDE5EE]" />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <span className="relative rounded-full border border-[#DDE5EE] bg-white px-3 py-0.5 text-xs font-medium text-muted shadow-2xs">
+            or
+          </span>
+        </div>
+
+        {/* Demo Workspace Section (Matching Reference Layout) */}
+        <section className="rounded-2xl border border-line bg-surface p-5 shadow-xs" aria-labelledby="demo-h">
+          {/* Top Info Banner */}
+          <div className="flex items-center gap-3.5 rounded-xl border border-[#D1FAE5] bg-[#E8F7F2] p-3.5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#A7F3D0] bg-white text-[#0F766E] shadow-2xs">
+              <Layers size={20} />
+            </div>
+            <div className="h-7 w-px shrink-0 bg-[#A7F3D0]/70" />
+            <div>
+              <h2 id="demo-h" className="text-sm font-bold text-[#0A1F36] leading-tight">
+                Explore demo workspace
+              </h2>
+              <p className="mt-0.5 text-xs text-[#55677A]">
+                Nexora Technologies · Sample organisation
+              </p>
+            </div>
+          </div>
+
+          {/* 2x2 Interactive Roles Grid */}
+          <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {DEMO.map((d) => (
-              <button key={d.role} type="button"
+              <button
+                key={d.role}
+                type="button"
                 disabled={isLoading}
                 onClick={() => attempt(d.email, DEMO_PASSWORD, d.role)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 py-2.5 text-sm font-medium hover:border-brand hover:bg-brand-soft disabled:opacity-50 cursor-pointer transition">
-                {submittingRole === d.role && <Loader2 size={14} className="animate-spin text-brand" />}
-                {ROLE_LABEL[d.role]}
+                className="group flex items-center justify-start gap-2.5 rounded-xl border border-line bg-white px-3.5 py-3 text-left text-xs font-semibold text-[#0A1F36] hover:border-brand hover:bg-brand-soft/40 disabled:opacity-50 cursor-pointer transition shadow-2xs"
+              >
+                {submittingRole === d.role ? (
+                  <Loader2 size={17} className="animate-spin text-brand shrink-0" />
+                ) : (
+                  <d.Icon size={17} className="text-[#0F766E] shrink-0 transition-transform group-hover:scale-110" />
+                )}
+                <span>{ROLE_LABEL[d.role]}</span>
               </button>
             ))}
           </div>
