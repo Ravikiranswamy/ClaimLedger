@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AppShell } from './components/AppShell'
-import { AdminModulePlaceholder } from './pages/AdminModulePlaceholder'
+import { OrganisationSettings } from './pages/OrganisationSettings'
 import { AdminSubmissionDetail } from './pages/AdminSubmissionDetail'
 import { AdminSubmissions } from './pages/AdminSubmissions'
 import { ApprovalManagement } from './pages/ApprovalManagement'
@@ -45,7 +45,7 @@ export default function App() {
               <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/approvals" element={<ApprovalManagement />} />
               <Route path="admin/insights" element={<Insights />} />
-              <Route path="admin/settings" element={<AdminModulePlaceholder />} />
+              <Route path="admin/settings" element={<OrganisationSettings />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

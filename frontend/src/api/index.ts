@@ -70,6 +70,13 @@ const fallbackApi: Api = {
   updateUser: (id, req) => (isEvaluationMode() ? mockApi.updateUser(id, req) : httpApi.updateUser(id, req).catch(() => mockApi.updateUser(id, req))),
   toggleUserStatus: (id) => (isEvaluationMode() ? mockApi.toggleUserStatus(id) : httpApi.toggleUserStatus(id).catch(() => mockApi.toggleUserStatus(id))),
   getInsights: (filters) => (isEvaluationMode() ? mockApi.getInsights(filters) : httpApi.getInsights(filters).catch(() => mockApi.getInsights(filters))),
+  getOrganisation: () => (isEvaluationMode() ? mockApi.getOrganisation() : httpApi.getOrganisation().catch(() => mockApi.getOrganisation())),
+  updateOrganisation: (req) => (isEvaluationMode() ? mockApi.updateOrganisation(req) : httpApi.updateOrganisation(req).catch(() => mockApi.updateOrganisation(req))),
+  listDepartments: () => (isEvaluationMode() ? mockApi.listDepartments() : httpApi.listDepartments().catch(() => mockApi.listDepartments())),
+  createDepartment: (req) => (isEvaluationMode() ? mockApi.createDepartment(req) : httpApi.createDepartment(req).catch(() => mockApi.createDepartment(req))),
+  updateDepartment: (id, req) => (isEvaluationMode() ? mockApi.updateDepartment(id, req) : httpApi.updateDepartment(id, req).catch(() => mockApi.updateDepartment(id, req))),
+  getAuthorityRules: () => (isEvaluationMode() ? mockApi.getAuthorityRules() : httpApi.getAuthorityRules().catch(() => mockApi.getAuthorityRules())),
+  updateAuthorityRules: (req) => (isEvaluationMode() ? mockApi.updateAuthorityRules(req) : httpApi.updateAuthorityRules(req).catch(() => mockApi.updateAuthorityRules(req))),
 }
 
 export const api: Api = fallbackApi

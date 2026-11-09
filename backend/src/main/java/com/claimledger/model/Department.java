@@ -14,6 +14,15 @@ public class Department {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "code")
+    private String code;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
     @Column(name = "organisation_id", nullable = false)
     private UUID organisationId;
 
@@ -48,6 +57,30 @@ public class Department {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public Boolean getIsActive() {
+        return isActive != null ? isActive : true;
+    }
+
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
     }
 
     public UUID getOrganisationId() {

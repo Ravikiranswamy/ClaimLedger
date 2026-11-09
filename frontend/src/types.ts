@@ -253,3 +253,32 @@ export interface GovernanceInsights {
   recommendations: ActionableRecommendation[]
 }
 
+export interface OrganisationProfile {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  website?: string
+  contactEmail?: string
+  createdAt?: string
+}
+
+export interface DepartmentItem {
+  id: string
+  name: string
+  code: string
+  description?: string
+  isActive: boolean
+  userCount: number
+  documentCount: number
+}
+
+export interface AuthorityEngineConfig {
+  requireExplicitApproval: boolean
+  strictDateValidity: boolean
+  allowScopedTier2Exceptions: boolean
+  tier1OverridesSubordinate: boolean
+  flagNumericContradictions: boolean
+}
+
+

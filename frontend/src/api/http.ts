@@ -1,5 +1,16 @@
 import { ApiError, type Api } from './types'
-import type { AuditEntry, GovernanceInsights, KnowledgeChunk, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
+import type {
+  AuditEntry,
+  AuthorityEngineConfig,
+  DepartmentItem,
+  GovernanceInsights,
+  KnowledgeChunk,
+  KnowledgeDoc,
+  LoginResponse,
+  OrganisationProfile,
+  Submission,
+  User,
+} from '../types'
 
 const TOKEN_KEY = 'claimledger.token'
 export const tokenStore = {
@@ -139,4 +150,27 @@ export const httpApi: Api = {
     const qs = params.toString() ? `?${params.toString()}` : ''
     return request<GovernanceInsights>(`/insights${qs}`)
   },
+  getOrganisation: () => request<OrganisationProfile>('/organisation'),
+  updateOrganisation: (req) =>
+    request<OrganisationProfile>('/organisation', {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    }),
+  listDepartments: () => request<DepartmentItem[]>('/departments'),
+  createDepartment: (req) =>
+    request<DepartmentItem>('/departments', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  updateDepartment: (id, req) =>
+    request<DepartmentItem>(`/departments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    }),
+  getAuthorityRules: () => request<AuthorityEngineConfig>('/organisation/authority-rules'),
+  updateAuthorityRules: (req) =>
+    request<AuthorityEngineConfig>('/organisation/authority-rules', {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    }),
 }

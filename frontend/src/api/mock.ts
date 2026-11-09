@@ -1,6 +1,6 @@
 // Development-only mock backend that mirrors the REAL API shapes. All data is synthetic (Nexora).
 // Delete this file and set VITE_USE_MOCK=false to use the live backend.
-import type { ActionType, AuditEntry, Claim, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
+import type { ActionType, AuditEntry, AuthorityEngineConfig, Claim, DepartmentItem, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, OrganisationProfile, Submission, User } from '../types'
 import { DEPARTMENTS } from '../types'
 import { ApiError, type Api } from './types'
 
@@ -14,6 +14,30 @@ const USERS: (User & { password: string })[] = [
   { id: 'u4', fullName: 'Dev Sharma', email: 'reviewer@nexora.com', role: 'REVIEWER', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-10T00:00:00Z', password: 'Demo@1234' },
   { id: 'u5', fullName: 'Ravikiran Swamy', email: 'ravikiranswamy550@gmail.com', role: 'ADMIN', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-01T00:00:00Z', password: 'Demo@1234' },
 ]
+
+let orgProfile: OrganisationProfile = {
+  id: 'a1b2c3d4-0000-0000-0000-000000000001',
+  name: 'Nexora Technologies',
+  slug: 'nexora',
+  description: 'Enterprise brand truth, automated claim verification, and continuous guideline governance platform.',
+  website: 'https://nexora.tech',
+  contactEmail: 'governance@nexora.tech',
+  createdAt: '2026-01-01T00:00:00Z',
+}
+
+let mockDepartments: DepartmentItem[] = [
+  { id: 'd0000001-0000-0000-0000-000000000001', name: 'Marketing', code: 'MKT', description: 'Brand campaigns, PR, social media, and digital advertisements.', isActive: true, userCount: 2, documentCount: 4 },
+  { id: 'd0000002-0000-0000-0000-000000000002', name: 'Sales', code: 'SLS', description: 'Commercial proposals, sales decks, customer quotes, and collateral.', isActive: true, userCount: 1, documentCount: 2 },
+  { id: 'd0000003-0000-0000-0000-000000000003', name: 'Human Resources', code: 'HR', description: 'Talent recruitment, employee policies, and regional compensation.', isActive: true, userCount: 1, documentCount: 2 },
+]
+
+let mockAuthorityRules: AuthorityEngineConfig = {
+  requireExplicitApproval: true,
+  strictDateValidity: true,
+  allowScopedTier2Exceptions: true,
+  tier1OverridesSubordinate: true,
+  flagNumericContradictions: true,
+}
 
 let currentUserId: string | null = null
 let seq = 100
@@ -987,5 +1011,54 @@ export const mockApi: Api = {
       guidelineHealthIssues,
       recommendations,
     }
+  },
+  getOrganisation: async () => {
+    await wait(100)
+    return { ...orgProfile }
+  },
+  updateOrganisation: async (req) => {
+    await wait(150)
+    orgProfile = { ...orgProfile, ...req }
+    return { ...orgProfile }
+  },
+  listDepartments: async () => {
+    await wait(100)
+    return [...mockDepartments]
+  },
+  createDepartment: async (req) => {
+    await wait(150)
+    const newDept: DepartmentItem = {
+      id: `dept-${Date.now()}`,
+      name: req.name,
+      code: (req.code || req.name.substring(0, 3)).toUpperCase(),
+      description: req.description || '',
+      isActive: true,
+      userCount: 0,
+      documentCount: 0,
+    }
+    mockDepartments.push(newDept)
+    return newDept
+  },
+  updateDepartment: async (id, req) => {
+    await wait(150)
+    const idx = mockDepartments.findIndex((d) => d.id === id)
+    if (idx === -1) throw new ApiError('Department not found', 404)
+    mockDepartments[idx] = {
+      ...mockDepartments[idx],
+      name: req.name !== undefined ? req.name : mockDepartments[idx].name,
+      code: req.code !== undefined ? req.code : mockDepartments[idx].code,
+      description: req.description !== undefined ? req.description : mockDepartments[idx].description,
+      isActive: req.isActive !== undefined ? req.isActive : mockDepartments[idx].isActive,
+    }
+    return { ...mockDepartments[idx] }
+  },
+  getAuthorityRules: async () => {
+    await wait(100)
+    return { ...mockAuthorityRules }
+  },
+  updateAuthorityRules: async (req) => {
+    await wait(150)
+    mockAuthorityRules = { ...req }
+    return { ...mockAuthorityRules }
   },
 }

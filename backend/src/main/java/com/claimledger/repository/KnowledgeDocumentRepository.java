@@ -18,6 +18,8 @@ public interface KnowledgeDocumentRepository extends JpaRepository<KnowledgeDocu
 
     List<KnowledgeDocument> findByDepartmentId(UUID departmentId);
 
+    long countByDepartmentId(UUID departmentId);
+
     List<KnowledgeDocument> findByApprovalStatus(ApprovalStatus approvalStatus);
 
     List<KnowledgeDocument> findByApprovalStatusAndAuthorityTier(ApprovalStatus approvalStatus, AuthorityTier authorityTier);

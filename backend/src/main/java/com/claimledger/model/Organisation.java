@@ -18,6 +18,15 @@ public class Organisation {
     @Column(name = "slug", nullable = false, unique = true)
     private String slug;
 
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "website")
+    private String website;
+
+    @Column(name = "contact_email")
+    private String contactEmail;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -64,6 +73,30 @@ public class Organisation {
 
     public void setSlug(String slug) {
         this.slug = slug;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getWebsite() {
+        return website;
+    }
+
+    public void setWebsite(String website) {
+        this.website = website;
+    }
+
+    public String getContactEmail() {
+        return contactEmail;
+    }
+
+    public void setContactEmail(String contactEmail) {
+        this.contactEmail = contactEmail;
     }
 
     public LocalDateTime getCreatedAt() {
