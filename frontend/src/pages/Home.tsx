@@ -1,12 +1,9 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Clock,
   FileCheck2,
   FileText,
@@ -26,7 +23,6 @@ import { CreatorDashboard } from './CreatorDashboard'
 
 export function Home() {
   const { user } = useAuth()
-  const [demoGuideOpen, setDemoGuideOpen] = useState(false)
 
   // Content Creator Dashboard is strictly scoped to the creator persona
   if (user?.role === 'CREATOR') {
@@ -54,11 +50,14 @@ export function Home() {
   ).length
   const pendingDocApprovals = documents.filter((d) => d.approvalStatus === 'DRAFT').length
 
-  const myActionItems = submissions.filter((s) => ['FLAGGED', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(s.status))
+  // Organisation Monitoring: Submissions Requiring Attention
+  const submissionsRequiringAttention = submissions.filter((s) =>
+    ['FLAGGED', 'IN_REVIEW', 'CHANGES_REQUESTED'].includes(s.status)
+  )
 
   return (
     <div className="space-y-8 animate-fade-in">
-      {/* 1. Welcome Banner */}
+      {/* 1. Welcome Banner (Role-Tailored for Organisation Admin) */}
       <div className="relative overflow-hidden rounded-3xl bg-navy p-8 text-white shadow-xl md:p-10 border border-white/10">
         <div className="relative z-10 max-w-2xl">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-navy-soft px-3.5 py-1 text-xs font-semibold text-[#5EEAD4] border border-white/10">
@@ -103,87 +102,7 @@ export function Home() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-brand/20 blur-3xl" />
       </div>
 
-      {/* 2. Compact Collapsible Demo Guide (formerly Judge Quickstart) */}
-      <section className="rounded-2xl border border-brand/25 bg-gradient-to-r from-brand-soft/30 via-white to-canvas p-5 shadow-xs transition-all">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-brand text-white text-xs font-bold">
-              ★
-            </span>
-            <div>
-              <h2 className="font-display font-bold text-sm text-ink">
-                Quickstart Demo Guide — Test the Full Workflow in 60 Seconds
-              </h2>
-              <p className="text-xs text-muted">
-                Step-by-step walkthrough of automated ingestion, deterministic checks, and human sign-off
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:inline-flex text-[11px] font-semibold text-brand bg-brand-soft px-2.5 py-0.5 rounded-full">
-              Inkloom AI Challenge
-            </span>
-            <button
-              type="button"
-              onClick={() => setDemoGuideOpen(!demoGuideOpen)}
-              className="inline-flex items-center gap-1 rounded-lg border border-line bg-white px-3 py-1 text-xs font-semibold text-ink hover:bg-canvas transition cursor-pointer"
-              aria-expanded={demoGuideOpen}
-            >
-              {demoGuideOpen ? 'Collapse' : 'Expand Guide'}
-              {demoGuideOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-          </div>
-        </div>
-
-        {demoGuideOpen && (
-          <div className="mt-4 pt-4 border-t border-brand/15 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 animate-fade-in">
-            <Link
-              to="/submit"
-              className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs"
-            >
-              <span className="text-xs font-bold text-brand">STEP 1</span>
-              <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">1-Click Submission</p>
-              <p className="mt-0.5 text-xs text-muted">
-                Use Scenario 1 to test an outdated ₹799 price claim against master documents.
-              </p>
-            </Link>
-
-            <Link
-              to="/review"
-              className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs"
-            >
-              <span className="text-xs font-bold text-brand">STEP 2</span>
-              <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">Deterministic Engine</p>
-              <p className="mt-0.5 text-xs text-muted">
-                Watch the pure Java engine flag a VIOLATION against the Tier 1 catalogue.
-              </p>
-            </Link>
-
-            <Link
-              to="/review"
-              className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs"
-            >
-              <span className="text-xs font-bold text-brand">STEP 3</span>
-              <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">Creator Fix & Resubmit</p>
-              <p className="mt-0.5 text-xs text-muted">
-                Creators revise and resubmit content, while final approval remains with an authorised reviewer.
-              </p>
-            </Link>
-
-            <Link
-              to="/knowledge-base"
-              className="group rounded-xl border border-line bg-surface p-3.5 transition hover:border-brand hover:shadow-xs"
-            >
-              <span className="text-xs font-bold text-brand">STEP 4</span>
-              <p className="mt-1 font-semibold text-sm text-ink group-hover:text-brand">Vector Chunk Inspector</p>
-              <p className="mt-0.5 text-xs text-muted">Inspect real 768-dim embeddings in Neon pgvector.</p>
-            </Link>
-          </div>
-        )}
-      </section>
-
-      {/* 3. Governance Metrics (Organised into 2 Groups) */}
+      {/* 2. Governance Metrics (Organised into 2 Role-Relevant Groups) */}
       <div className="space-y-6">
         {/* Group A: Content Governance */}
         <div className="space-y-3">
@@ -192,7 +111,7 @@ export function Home() {
               <FileText size={14} className="text-[#0A1F36]" />
               Content Governance Metrics
             </h2>
-            <span className="text-xs text-muted">Live organisational submission pipeline</span>
+            <span className="text-xs text-muted">Organisation-wide submission monitoring</span>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -215,7 +134,7 @@ export function Home() {
                 </span>
               </div>
               <p className="mt-3 font-display text-3xl font-bold text-amber-600">{awaitingReview}</p>
-              <p className="mt-1 text-xs text-muted">In review queue or flagged for check</p>
+              <p className="mt-1 text-xs text-muted">In review queue or flagged for verification</p>
             </div>
 
             <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm hover:shadow-md transition">
@@ -226,7 +145,7 @@ export function Home() {
                 </span>
               </div>
               <p className="mt-3 font-display text-3xl font-bold text-orange-600">{changesRequested}</p>
-              <p className="mt-1 text-xs text-muted">Returned to creator with reviewer notes</p>
+              <p className="mt-1 text-xs text-muted">Returned to creator with revision comments</p>
             </div>
 
             <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm hover:shadow-md transition">
@@ -237,7 +156,7 @@ export function Home() {
                 </span>
               </div>
               <p className="mt-3 font-display text-3xl font-bold text-emerald-600">{approvedContent}</p>
-              <p className="mt-1 text-xs text-muted">Validated and cleared for publication</p>
+              <p className="mt-1 text-xs text-muted">Validated and cleared for release</p>
             </div>
           </div>
         </div>
@@ -298,17 +217,17 @@ export function Home() {
         </div>
       </div>
 
-      {/* 4. Decision Inbox & Engine Core */}
+      {/* 3. Organisation Monitoring: Submissions Requiring Attention & Authority Engine */}
       <div className="grid gap-6 lg:grid-cols-[1.8fr_1fr]">
-        {/* Main Inbox */}
+        {/* Left Column: Submissions Requiring Attention (Monitoring Only) */}
         <section className="space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-line pb-4">
             <div>
-              <h2 className="font-display text-xl font-bold text-[#0A1F36]">Decision Inbox</h2>
+              <h2 className="font-display text-xl font-bold text-[#0A1F36]">Submissions Requiring Attention</h2>
               <p className="text-sm text-muted">
-                {myActionItems.length === 0
-                  ? 'All clear! No pending decisions require immediate attention.'
-                  : `${myActionItems.length} submission(s) currently requiring attention.`}
+                {submissionsRequiringAttention.length === 0
+                  ? 'All clear! No submissions currently require reviewer attention or creator revision.'
+                  : `${submissionsRequiringAttention.length} organisational submission(s) currently awaiting review or revision.`}
               </p>
             </div>
             <Link
@@ -319,18 +238,18 @@ export function Home() {
             </Link>
           </div>
 
-          {submissionsQ.isLoading && <p className="py-6 text-center text-muted">Loading inbox…</p>}
+          {submissionsQ.isLoading && <p className="py-6 text-center text-muted">Loading submissions…</p>}
 
-          {submissionsQ.isSuccess && myActionItems.length === 0 && (
+          {submissionsQ.isSuccess && submissionsRequiringAttention.length === 0 && (
             <div className="rounded-xl border border-dashed border-line bg-canvas p-8 text-center">
               <CheckCircle2 size={36} className="mx-auto text-verified" />
-              <p className="mt-2 font-semibold">You’re completely caught up</p>
-              <p className="text-sm text-muted">No unresolved claims or actions are pending right now.</p>
+              <p className="mt-2 font-semibold">Organisation is fully compliant</p>
+              <p className="text-sm text-muted">No unresolved claims or pending review items across departments.</p>
             </div>
           )}
 
           <div className="space-y-3">
-            {myActionItems.slice(0, 5).map((s) => {
+            {submissionsRequiringAttention.slice(0, 5).map((s) => {
               const violations = s.claims.filter((c) => c.verificationStatus === 'VIOLATION').length
               const detailUrl = user?.role === 'ADMIN' ? `/admin/submissions/${s.id}` : `/review/${s.id}`
 
@@ -361,9 +280,9 @@ export function Home() {
           </div>
         </section>
 
-        {/* Side Panel: Engine Core & Activity */}
+        {/* Right Column: Engine Hierarchy, Recent Submissions & Recent Governance Activity */}
         <div className="space-y-6">
-          {/* 6. Deterministic Authority Engine (Refined with accurate 6-step Java resolution) */}
+          {/* Deterministic Authority Engine (Accurate Pure Java Resolution Hierarchy) */}
           <div className="rounded-2xl border border-line bg-gradient-to-br from-brand-soft/40 to-white p-6 shadow-sm">
             <div className="flex items-center gap-2 text-brand">
               <Sparkles size={20} />
@@ -437,7 +356,7 @@ export function Home() {
             </ul>
           </div>
 
-          {/* 5. Recent Governance Activity (Audit records) */}
+          {/* Recent Governance Activity */}
           <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-display font-bold text-sm text-[#0A1F36] flex items-center gap-1.5">
