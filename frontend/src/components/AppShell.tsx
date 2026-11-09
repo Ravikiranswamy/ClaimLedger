@@ -1,4 +1,4 @@
-import { FileText, History, Home, LibraryBig, LogOut, PenSquare, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { History, Home, LibraryBig, LogOut, PenSquare, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { NAV_BY_ROLE, useAuth } from '../auth/AuthContext'
 import { ROLE_LABEL } from '../types'
@@ -20,12 +20,14 @@ export function AppShell() {
     <div className="flex min-h-full flex-col md:flex-row">
       <aside className="flex shrink-0 flex-col bg-navy text-white md:w-64">
         <div className="flex items-center gap-3 px-6 py-5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white">
-            <FileText size={22} aria-hidden />
-          </span>
+          <img
+            src="/claimledger-mark.png"
+            alt="ClaimLedger"
+            className="h-10 w-10 object-contain rounded-xl p-0.5 bg-white/10"
+          />
           <div>
-            <p className="font-display text-xl font-semibold leading-none">ClaimLedger</p>
-            <p className="mt-1 text-sm text-[#A9BED2]">Every claim, accounted for.</p>
+            <p className="font-display text-xl font-semibold leading-none text-white">ClaimLedger</p>
+            <p className="mt-1 text-xs text-[#A9BED2]">Brand Governance</p>
           </div>
         </div>
         <nav aria-label="Main" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:pb-0">

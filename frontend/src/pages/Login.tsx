@@ -121,9 +121,13 @@ export function Login() {
   return (
     <div className="flex min-h-full items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
-        <div>
-          <h1 className="font-display text-4xl font-semibold tracking-tight">ClaimLedger</h1>
-          <p className="mt-1 text-base text-muted">Every claim, accounted for.</p>
+        <div className="mb-6">
+          <img
+            src="/claimledger-logo.png"
+            alt="ClaimLedger - Brand Governance Platform"
+            className="h-14 sm:h-16 w-auto object-contain"
+          />
+          <p className="mt-2 text-sm text-muted">Every claim, accounted for.</p>
         </div>
 
         <form onSubmit={handleSubmit((v) => attempt(v.email, v.password))} className="mt-6 space-y-4 rounded-2xl border border-line bg-surface p-7" noValidate>
