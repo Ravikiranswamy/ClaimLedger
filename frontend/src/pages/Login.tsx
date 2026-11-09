@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate } from 'react-router-dom'
 import { z } from 'zod'
-import logoImg from '../assets/claimledger-logo.png'
 import { useAuth } from '../auth/AuthContext'
+import { ClaimLedgerLogo } from '../components/ClaimLedgerLogo'
 import { ROLE_LABEL, type Role } from '../types'
 
 const DEMO_PASSWORD = 'Demo@1234'
@@ -122,13 +122,12 @@ export function Login() {
   return (
     <div className="flex min-h-full items-center justify-center px-5 py-10">
       <div className="w-full max-w-md">
-        <div className="mb-6">
-          <img
-            src={logoImg}
-            alt="ClaimLedger - Brand Governance Platform"
-            className="h-14 sm:h-16 w-auto object-contain"
-          />
-          <p className="mt-2 text-sm text-muted">Every claim, accounted for.</p>
+        <div className="flex items-center gap-3.5">
+          <ClaimLedgerLogo size={46} />
+          <div>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-[#0A1F36]">ClaimLedger</h1>
+            <p className="mt-0.5 text-sm text-muted">Every claim, accounted for.</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit((v) => attempt(v.email, v.password))} className="mt-6 space-y-4 rounded-2xl border border-line bg-surface p-7" noValidate>
