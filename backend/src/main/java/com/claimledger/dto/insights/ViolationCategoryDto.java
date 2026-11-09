@@ -43,3 +43,4 @@ public class ViolationCategoryDto {
     public String getSampleClaim() { return sampleClaim; }
     public void setSampleClaim(String sampleClaim) { this.sampleClaim = sampleClaim; }
 }
+

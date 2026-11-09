@@ -33,3 +33,4 @@ public class TrendDataPointDto {
     public long getApproved() { return approved; }
     public void setApproved(long approved) { this.approved = approved; }
 }
+

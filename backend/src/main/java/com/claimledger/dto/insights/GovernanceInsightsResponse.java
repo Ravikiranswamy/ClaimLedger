@@ -36,3 +36,4 @@ public class GovernanceInsightsResponse {
     public List<ActionableRecommendationDto> getRecommendations() { return recommendations; }
     public void setRecommendations(List<ActionableRecommendationDto> recommendations) { this.recommendations = recommendations; }
 }
+

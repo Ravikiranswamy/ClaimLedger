@@ -53,3 +53,4 @@ public class GovernanceOverviewDto {
     public long getExpiringSoonDocuments() { return expiringSoonDocuments; }
     public void setExpiringSoonDocuments(long expiringSoonDocuments) { this.expiringSoonDocuments = expiringSoonDocuments; }
 }
+

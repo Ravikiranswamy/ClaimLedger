@@ -43,3 +43,4 @@ public class RepeatedIssueDto {
     public String getRuleReference() { return ruleReference; }
     public void setRuleReference(String ruleReference) { this.ruleReference = ruleReference; }
 }
+

@@ -335,3 +335,4 @@ public class InsightsService {
         return response;
     }
 }
+

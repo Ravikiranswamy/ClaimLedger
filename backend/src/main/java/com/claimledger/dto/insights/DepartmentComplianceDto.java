@@ -45,3 +45,4 @@ public class DepartmentComplianceDto {
     public String getPrimaryFrictionPoint() { return primaryFrictionPoint; }
     public void setPrimaryFrictionPoint(String primaryFrictionPoint) { this.primaryFrictionPoint = primaryFrictionPoint; }
 }
+

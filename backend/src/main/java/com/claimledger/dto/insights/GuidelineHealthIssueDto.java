@@ -52,3 +52,4 @@ public class GuidelineHealthIssueDto {
     public String getRecommendedAction() { return recommendedAction; }
     public void setRecommendedAction(String recommendedAction) { this.recommendedAction = recommendedAction; }
 }
+
