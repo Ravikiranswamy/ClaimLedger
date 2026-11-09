@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import {
   BarChart3,
   BookOpen,
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { api } from '../api'
 import { NAV_BY_ROLE, useAuth } from '../auth/AuthContext'
 import { ClaimLedgerLogo } from './ClaimLedgerLogo'
 import { ROLE_LABEL } from '../types'
@@ -28,7 +26,6 @@ interface NavItemConfig {
   to: string
   label: string
   Icon: LucideIcon
-  number?: string
   isSettings?: boolean
 }
 
@@ -43,13 +40,13 @@ const ITEMS: Record<string, NavItemConfig> = {
   history: { to: '/history', label: 'Activity & History', Icon: History },
 
   // Admin Workspace: 7 core sections + Organisation Settings
-  'admin-overview': { to: '/', label: 'Overview', number: '01', Icon: LayoutDashboard },
-  'admin-knowledge': { to: '/knowledge-base', label: 'Knowledge Base', number: '02', Icon: BookOpen },
-  'admin-submissions': { to: '/admin/submissions', label: 'Content & Submissions', number: '03', Icon: FileText },
-  'admin-users': { to: '/admin/users', label: 'User Management', number: '04', Icon: Users },
-  'admin-approvals': { to: '/admin/approvals', label: 'Approval Management', number: '05', Icon: CheckSquare },
-  'admin-audit': { to: '/history', label: 'Audit & Activity', number: '06', Icon: History },
-  'admin-insights': { to: '/admin/insights', label: 'Insights & Guideline Health', number: '07', Icon: BarChart3 },
+  'admin-overview': { to: '/', label: 'Overview', Icon: LayoutDashboard },
+  'admin-knowledge': { to: '/knowledge-base', label: 'Knowledge Base', Icon: BookOpen },
+  'admin-submissions': { to: '/admin/submissions', label: 'Content & Submissions', Icon: FileText },
+  'admin-users': { to: '/admin/users', label: 'User Management', Icon: Users },
+  'admin-approvals': { to: '/admin/approvals', label: 'Approval Management', Icon: CheckSquare },
+  'admin-audit': { to: '/history', label: 'Audit & Activity', Icon: History },
+  'admin-insights': { to: '/admin/insights', label: 'Insights & Guideline Health', Icon: BarChart3 },
   'admin-settings': { to: '/admin/settings', label: 'Organisation Settings', Icon: Settings, isSettings: true },
 }
 
@@ -58,13 +55,6 @@ export function AppShell() {
   const location = useLocation()
   const mainRef = useRef<HTMLElement>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
-
-  // Query live document count for actual, non-fabricated Knowledge Base status
-  const docsQ = useQuery({
-    queryKey: ['documents-status-summary'],
-    queryFn: () => api.listDocuments(),
-    staleTime: 30000,
-  })
 
   // Close mobile drawer on route changes and reset scroll position
   useEffect(() => {
@@ -92,8 +82,6 @@ export function AppShell() {
   }
 
   const isAdmin = user.role === 'ADMIN'
-  const approvedDocs = docsQ.data?.filter((d) => d.approvalStatus === 'APPROVED').length ?? 0
-  const totalDocs = docsQ.data?.length ?? 0
 
   return (
     <div className="flex h-screen w-full flex-col lg:flex-row overflow-hidden bg-canvas">
@@ -155,14 +143,14 @@ export function AppShell() {
         </div>
 
         {/* Scrollable Navigation Items */}
-        <nav aria-label="Main" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3.5 py-3">
+        <nav aria-label="Main" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3.5 py-4">
           {isAdmin && (
-            <div className="px-3 pb-1 pt-1 text-[10px] font-bold uppercase tracking-wider text-[#8EA5BC]">
+            <div className="px-3.5 pb-2 pt-1 text-[11px] font-bold uppercase tracking-wider text-[#8EA5BC]">
               Governance Navigation
             </div>
           )}
 
-          {nav.map(({ to, label, Icon, number, isSettings }) => {
+          {nav.map(({ to, label, Icon, isSettings }) => {
             const isMyContent = to === '/#my-content'
             const isActive = isMyContent
               ? location.pathname === '/' && location.hash === '#my-content'
@@ -171,8 +159,8 @@ export function AppShell() {
             return (
               <div key={to} className="contents">
                 {isSettings && (
-                  <div className="my-2 border-t border-white/10 px-3 pt-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#8EA5BC]">
+                  <div className="my-2.5 border-t border-white/10 px-3.5 pt-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-[#8EA5BC]">
                       Settings
                     </p>
                   </div>
@@ -182,74 +170,39 @@ export function AppShell() {
                   end={to === '/'}
                   onClick={() => handleNavClick(to)}
                   className={() =>
-                    `group flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4] ${
+                    `group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4] ${
                       isActive
                         ? 'bg-[#133558] text-[#5EEAD4] font-semibold shadow-xs'
-                        : 'text-[#D6E3EF] hover:bg-navy-soft/80 hover:text-white'
+                        : 'text-[#D6E3EF] hover:bg-white/5 hover:text-white'
                     }`
                   }
                 >
-                  {isAdmin && number ? (
-                    <span
-                      className={`font-mono text-xs w-5 shrink-0 transition-colors ${
-                        isActive ? 'text-[#5EEAD4] font-bold' : 'text-[#8EA5BC] group-hover:text-[#5EEAD4]'
-                      }`}
-                    >
-                      {number}
-                    </span>
-                  ) : (
-                    <Icon size={17} className="shrink-0 transition-colors" aria-hidden />
-                  )}
-                  {isAdmin && number && (
-                    <Icon
-                      size={16}
-                      className={`shrink-0 transition-colors ${
-                        isActive ? 'text-[#5EEAD4]' : 'text-[#8EA5BC] group-hover:text-white'
-                      }`}
-                      aria-hidden
-                    />
-                  )}
-                  <span className="whitespace-nowrap leading-tight">{label}</span>
+                  <Icon
+                    size={18}
+                    className={`shrink-0 transition-colors ${
+                      isActive ? 'text-[#5EEAD4]' : 'text-[#8EA5BC] group-hover:text-white'
+                    }`}
+                    aria-hidden
+                  />
+                  <span className="whitespace-nowrap leading-tight tracking-normal">{label}</span>
                 </NavLink>
               </div>
             )
           })}
         </nav>
 
-        {/* Clean Organisation-Facing System Status Card (Hidden for Content Creators) */}
-        {user.role !== 'CREATOR' && (
-          <div className="mx-3.5 my-2 shrink-0 rounded-xl bg-navy-soft/50 border border-white/10 p-3 text-xs">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 font-bold text-[#5EEAD4] uppercase tracking-wider text-[10px]">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                Governance System
-              </div>
-              <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 px-1.5 py-0.5 rounded">
-                Operational
-              </span>
-            </div>
-            <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[11px] text-[#A9BED2]">
-              <span>Knowledge Base</span>
-              <span className="font-semibold text-white">
-                {docsQ.isLoading ? 'Verifying…' : `${approvedDocs} of ${totalDocs} Active`}
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* Pinned Bottom Section: User Profile, Role and Sign Out */}
-        <div className="shrink-0 border-t border-navy-soft px-5 py-3.5 mt-auto">
-          <p className="font-semibold text-sm truncate">{user.fullName}</p>
-          <p className="text-xs text-[#A9BED2]">{ROLE_LABEL[user.role]}</p>
-          <button
-            onClick={logout}
-            className="mt-2.5 inline-flex items-center gap-2 rounded-lg py-1 text-sm text-[#D6E3EF] hover:text-white cursor-pointer transition"
-          >
-            <LogOut size={16} aria-hidden /> Sign out
-          </button>
+        <div className="shrink-0 border-t border-white/10 px-5 py-4 mt-auto">
+          <div className="flex flex-col">
+            <p className="font-semibold text-sm text-white truncate tracking-tight">{user.fullName}</p>
+            <p className="text-xs text-[#8EA5BC] mt-0.5 font-medium">{ROLE_LABEL[user.role]}</p>
+            <button
+              onClick={logout}
+              className="mt-3.5 inline-flex items-center gap-2 rounded-lg py-1 text-xs font-medium text-[#D6E3EF] hover:text-[#5EEAD4] cursor-pointer transition w-fit"
+            >
+              <LogOut size={15} aria-hidden /> Sign out
+            </button>
+          </div>
         </div>
       </aside>
 

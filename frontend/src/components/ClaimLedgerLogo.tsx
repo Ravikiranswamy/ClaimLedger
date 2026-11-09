@@ -29,7 +29,7 @@ export function ClaimLedgerLogo({
         width={size}
         height={size}
         style={{ width: `${size}px`, height: `${size}px` }}
-        className="shrink-0 object-contain rounded-xl transition-transform duration-200 hover:scale-105"
+        className="shrink-0 object-contain transition-transform duration-200 hover:scale-105"
       />
 
       {withWordmark && (
