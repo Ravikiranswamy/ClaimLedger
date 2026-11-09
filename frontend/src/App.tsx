@@ -8,6 +8,7 @@ import { AdminSubmissions } from './pages/AdminSubmissions'
 import { ApprovalManagement } from './pages/ApprovalManagement'
 import { History } from './pages/History'
 import { Home } from './pages/Home'
+import { Insights } from './pages/Insights'
 import { KnowledgeBase } from './pages/KnowledgeBase'
 import { Login } from './pages/Login'
 import { ReviewDetail } from './pages/ReviewDetail'
@@ -43,7 +44,7 @@ export default function App() {
               <Route path="admin/submissions/:id" element={<AdminSubmissionDetail />} />
               <Route path="admin/users" element={<UserManagement />} />
               <Route path="admin/approvals" element={<ApprovalManagement />} />
-              <Route path="admin/insights" element={<AdminModulePlaceholder />} />
+              <Route path="admin/insights" element={<Insights />} />
               <Route path="admin/settings" element={<AdminModulePlaceholder />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

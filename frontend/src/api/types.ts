@@ -1,4 +1,4 @@
-import type { AuditEntry, KnowledgeChunk, KnowledgeDoc, LoginResponse, ReviewAction, Submission, User } from '../types'
+import type { AuditEntry, GovernanceInsights, KnowledgeChunk, KnowledgeDoc, LoginResponse, ReviewAction, Submission, User } from '../types'
 
 /** Everything the UI needs from the backend. One implementation is HTTP, one is mock. */
 export interface Api {
@@ -36,6 +36,7 @@ export interface Api {
   createUser(req: { email: string; fullName: string; role: string; departmentId?: string | null; canApproveKnowledge?: boolean }): Promise<User>
   updateUser(id: string, req: { role?: string; departmentId?: string | null; isActive?: boolean; canApproveKnowledge?: boolean }): Promise<User>
   toggleUserStatus(id: string): Promise<User>
+  getInsights(filters?: { departmentId?: string; dateRange?: string }): Promise<GovernanceInsights>
 }
 
 export class ApiError extends Error {

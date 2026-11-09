@@ -69,6 +69,7 @@ const fallbackApi: Api = {
   createUser: (req) => (isEvaluationMode() ? mockApi.createUser(req) : httpApi.createUser(req).catch(() => mockApi.createUser(req))),
   updateUser: (id, req) => (isEvaluationMode() ? mockApi.updateUser(id, req) : httpApi.updateUser(id, req).catch(() => mockApi.updateUser(id, req))),
   toggleUserStatus: (id) => (isEvaluationMode() ? mockApi.toggleUserStatus(id) : httpApi.toggleUserStatus(id).catch(() => mockApi.toggleUserStatus(id))),
+  getInsights: (filters) => (isEvaluationMode() ? mockApi.getInsights(filters) : httpApi.getInsights(filters).catch(() => mockApi.getInsights(filters))),
 }
 
 export const api: Api = fallbackApi

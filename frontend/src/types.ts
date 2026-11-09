@@ -163,3 +163,93 @@ export const ROLE_LABEL: Record<Role, string> = {
   DEPT_MANAGER: 'Manager',
   REVIEWER: 'Authorised Reviewer',
 }
+
+export interface GovernanceOverview {
+  totalSubmissions: number
+  flaggedSubmissions: number
+  approvedSubmissions: number
+  totalClaims: number
+  verifiedClaims: number
+  violationClaims: number
+  unverifiedClaims: number
+  conflictClaims: number
+  complianceRate: number
+  activeDocuments: number
+  expiredDocuments: number
+  expiringSoonDocuments: number
+}
+
+export interface ViolationCategory {
+  category: string
+  label: string
+  count: number
+  percentage: number
+  severity: 'HIGH' | 'MEDIUM' | 'LOW'
+  description: string
+  sampleClaim: string
+}
+
+export interface DepartmentCompliance {
+  departmentId: string
+  departmentName: string
+  totalSubmissions: number
+  flaggedSubmissions: number
+  approvedSubmissions: number
+  cleanRate: number
+  primaryFrictionPoint: string
+}
+
+export interface TrendDataPoint {
+  period: string
+  verified: number
+  flagged: number
+  changesRequested: number
+  approved: number
+}
+
+export interface RepeatedIssue {
+  id: string
+  issueTitle: string
+  category: string
+  occurrenceCount: number
+  affectedDepartment: string
+  rootCause: string
+  ruleReference: string
+}
+
+export interface GuidelineHealthIssue {
+  id: string
+  title: string
+  issueType: 'CONFIRMED_CONFLICT' | 'POTENTIAL_AMBIGUITY' | 'KNOWLEDGE_GAP' | 'EXPIRING_DOCUMENT' | 'OVERLAPPING_RULES'
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
+  verificationNature: 'CONFIRMED_CONTRADICTION' | 'REQUIRES_HUMAN_REVIEW' | 'ACTION_REQUIRED'
+  description: string
+  documentNames: string[]
+  documentIds?: string[]
+  conflictingExcerpts?: string
+  affectedSubmissionsCount: number
+  recommendedAction: string
+}
+
+export interface ActionableRecommendation {
+  id: string
+  title: string
+  priority: 'HIGH' | 'MEDIUM' | 'LOW'
+  category: string
+  problem: string
+  supportingRecords: string[]
+  whyItMatters: string
+  recommendedAction: string
+  actionType: 'REVIEW_GUIDELINE' | 'UPDATE_DOCUMENT' | 'CLARIFY_RULE' | 'RENEW_DOCUMENT'
+}
+
+export interface GovernanceInsights {
+  overview: GovernanceOverview
+  violationCategories: ViolationCategory[]
+  departmentBreakdown: DepartmentCompliance[]
+  complianceTrends: TrendDataPoint[]
+  repeatedIssues: RepeatedIssue[]
+  guidelineHealthIssues: GuidelineHealthIssue[]
+  recommendations: ActionableRecommendation[]
+}
+

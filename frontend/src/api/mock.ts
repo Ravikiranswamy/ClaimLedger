@@ -1,6 +1,6 @@
 // Development-only mock backend that mirrors the REAL API shapes. All data is synthetic (Nexora).
 // Delete this file and set VITE_USE_MOCK=false to use the live backend.
-import type { ActionType, AuditEntry, Claim, Evidence, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
+import type { ActionType, AuditEntry, Claim, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
 import { DEPARTMENTS } from '../types'
 import { ApiError, type Api } from './types'
 
@@ -682,5 +682,310 @@ export const mockApi: Api = {
       return strip(u)
     }
     throw new ApiError('User not found', 404)
+  },
+  async getInsights(filters) {
+    await wait(200)
+    const allSubs = Array.from(subs.values())
+    const filteredSubs = filters?.departmentId
+      ? allSubs.filter((s) => s.departmentId === filters.departmentId)
+      : allSubs
+
+    const allClaims = filteredSubs.flatMap((s) => s.claims ?? [])
+    const totalClaims = allClaims.length
+    const verifiedClaims = allClaims.filter((c) => c.verificationStatus === 'VERIFIED').length
+    const violationClaims = allClaims.filter((c) => c.verificationStatus === 'VIOLATION').length
+    const unverifiedClaims = allClaims.filter((c) => c.verificationStatus === 'UNVERIFIED').length
+    const conflictClaims = allClaims.filter((c) => c.verificationStatus === 'CONFLICT').length
+
+    const flaggedSubmissions = filteredSubs.filter(
+      (s) => s.status === 'FLAGGED' || s.status === 'CHANGES_REQUESTED' || s.status === 'REJECTED'
+    ).length
+    const approvedSubmissions = filteredSubs.filter((s) => s.status === 'APPROVED').length
+
+    const now = new Date()
+    const sixtyDaysLater = new Date(Date.now() + 60 * 86400000)
+
+    const activeDocs = MOCK_DOCS.filter((d) => d.approvalStatus === 'APPROVED').length
+    const expiredDocs = MOCK_DOCS.filter(
+      (d) => d.approvalStatus === 'EXPIRED' || (d.expiryDate && new Date(d.expiryDate) < now)
+    ).length
+    const expiringSoonDocs = MOCK_DOCS.filter(
+      (d) =>
+        d.approvalStatus === 'APPROVED' &&
+        d.expiryDate &&
+        new Date(d.expiryDate) >= now &&
+        new Date(d.expiryDate) <= sixtyDaysLater
+    ).length
+
+    const complianceRate = totalClaims > 0 ? Math.round((verifiedClaims / totalClaims) * 1000) / 10 : 100.0
+
+    const totalIssues = violationClaims + unverifiedClaims + conflictClaims
+
+    const priceClaims = allClaims.filter((c) => c.claimType === 'PRICE' && c.verificationStatus !== 'VERIFIED')
+    const promoClaims = allClaims.filter((c) => c.claimType === 'PROMOTION' && c.verificationStatus !== 'VERIFIED')
+    const factClaims = allClaims.filter((c) => c.claimType === 'FACTUAL' && c.verificationStatus !== 'VERIFIED')
+    const termClaims = allClaims.filter((c) => c.claimType === 'TERMINOLOGY' && c.verificationStatus !== 'VERIFIED')
+
+    const violationCategories: GovernanceInsights['violationCategories'] = [
+      {
+        category: 'PRICE',
+        label: 'Pricing Inconsistencies',
+        count: priceClaims.length,
+        percentage: totalIssues > 0 ? Math.round((priceClaims.length / totalIssues) * 1000) / 10 : 50.0,
+        severity: 'HIGH',
+        description: 'Discrepancies against Tier 1 Master Product Catalogue (₹799/₹899 cited instead of ₹999).',
+        sampleClaim: priceClaims[0]?.claimText ?? '₹799 per month',
+      },
+      {
+        category: 'PROMOTION',
+        label: 'Unsubstantiated Superlatives',
+        count: promoClaims.length,
+        percentage: totalIssues > 0 ? Math.round((promoClaims.length / totalIssues) * 1000) / 10 : 25.0,
+        severity: 'MEDIUM',
+        description: 'Subjective superlatives ("fastest", "#1") lacking authoritative benchmark citations.',
+        sampleClaim: promoClaims[0]?.claimText ?? 'fastest platform around',
+      },
+      {
+        category: 'FACTUAL',
+        label: 'Policy Misalignment',
+        count: factClaims.length,
+        percentage: totalIssues > 0 ? Math.round((factClaims.length / totalIssues) * 1000) / 10 : 25.0,
+        severity: 'HIGH',
+        description: 'Factual assertions conflicting with internal HR or operational compensation guidelines.',
+        sampleClaim: factClaims[0]?.claimText ?? 'guarantees 100% remote compensation parity',
+      },
+      {
+        category: 'TERMINOLOGY',
+        label: 'Brand Terminology Drift',
+        count: termClaims.length,
+        percentage: totalIssues > 0 ? Math.round((termClaims.length / totalIssues) * 1000) / 10 : 0.0,
+        severity: 'LOW',
+        description: 'Use of non-standard branding nomenclature or obsolete product trademarks.',
+        sampleClaim: 'No active terminology drift recorded',
+      },
+    ]
+
+    const departmentBreakdown: GovernanceInsights['departmentBreakdown'] = DEPARTMENTS.map((dept) => {
+      const deptSubs = allSubs.filter((s) => s.departmentId === dept.id)
+      const total = deptSubs.length
+      const flagged = deptSubs.filter(
+        (s) => s.status === 'FLAGGED' || s.status === 'CHANGES_REQUESTED' || s.status === 'REJECTED'
+      ).length
+      const approved = deptSubs.filter((s) => s.status === 'APPROVED').length
+      const cleanRate = total > 0 ? Math.round(((total - flagged) / total) * 1000) / 10 : 100.0
+
+      let friction = 'Low friction'
+      if (dept.name === 'Sales') friction = 'Tier 2 discount proposal conflicts vs Master Catalog'
+      else if (dept.name === 'Marketing') friction = 'Outdated price mentions (₹799) & unverified superlatives'
+      else if (dept.name === 'HR') friction = 'Regional wage parity claims vs cost-of-living policy'
+
+      return {
+        departmentId: dept.id,
+        departmentName: dept.name,
+        totalSubmissions: total,
+        flaggedSubmissions: flagged,
+        approvedSubmissions: approved,
+        cleanRate,
+        primaryFrictionPoint: friction,
+      }
+    })
+
+    const complianceTrends: GovernanceInsights['complianceTrends'] = [
+      { period: '4 Weeks Ago', verified: 2, flagged: 3, changesRequested: 2, approved: 1 },
+      { period: '3 Weeks Ago', verified: 4, flagged: 2, changesRequested: 1, approved: 3 },
+      { period: '2 Weeks Ago', verified: 5, flagged: 2, changesRequested: 2, approved: 4 },
+      { period: 'Last Week', verified: 6, flagged: 1, changesRequested: 1, approved: 5 },
+      {
+        period: 'Current Week',
+        verified: Math.max(verifiedClaims, 3),
+        flagged: Math.max(flaggedSubmissions, 2),
+        changesRequested: 1,
+        approved: Math.max(approvedSubmissions, 2),
+      },
+    ]
+
+    const repeatedIssues: GovernanceInsights['repeatedIssues'] = [
+      {
+        id: 'iss-1',
+        issueTitle: 'Quoting Legacy ₹799 Subscription Rate',
+        category: 'PRICE',
+        occurrenceCount: 2,
+        affectedDepartment: 'Marketing',
+        rootCause: 'Creators relying on superseded 2025 brochures instead of Product Master Catalogue v4.2.',
+        ruleReference: 'Product Master Catalogue v4.2 (Tier 1)',
+      },
+      {
+        id: 'iss-2',
+        issueTitle: 'Unqualified APAC Enterprise ₹899 Quote',
+        category: 'PRICE',
+        occurrenceCount: 1,
+        affectedDepartment: 'Sales',
+        rootCause: 'Using deal-specific proposal rates in general customer-facing communications without executive approval.',
+        ruleReference: 'Nexora Sales Proposal v2.1 (Tier 2)',
+      },
+      {
+        id: 'iss-3',
+        issueTitle: 'Unsubstantiated "Fastest Platform" Superlative',
+        category: 'PROMOTION',
+        occurrenceCount: 1,
+        affectedDepartment: 'Marketing',
+        rootCause: 'Promotional superlatives included without embedding official technical benchmark whitepapers into ClaimLedger.',
+        ruleReference: 'Brand Guidelines v2.0 (Tier 1)',
+      },
+      {
+        id: 'iss-4',
+        issueTitle: 'Worldwide Remote Parity Guarantee',
+        category: 'FACTUAL',
+        occurrenceCount: 1,
+        affectedDepartment: 'HR',
+        rootCause: 'Promising uniform wage parity that contradicts regional cost-of-living index bands.',
+        ruleReference: 'Regional Compensation Addendum 2026 (Tier 2)',
+      },
+    ]
+
+    const guidelineHealthIssues: GovernanceInsights['guidelineHealthIssues'] = [
+      {
+        id: 'gh-1',
+        title: 'Pricing Contradiction: Tier 1 Master Catalogue vs Tier 2 Sales Proposal',
+        issueType: 'CONFIRMED_CONFLICT',
+        severity: 'HIGH',
+        verificationNature: 'CONFIRMED_CONTRADICTION',
+        description:
+          'Product Master Catalogue v4.2 establishes ₹999/month as the authoritative price. However, Nexora Sales Proposal v2.1 lists ₹899/month without customer or deal qualification criteria.',
+        documentNames: ['Product_Master_Catalogue_v4.2.pdf', 'Nexora_Sales_Proposal_v2.pdf'],
+        conflictingExcerpts:
+          'Master: "Nexora Pro — ₹999 per user per month, billed annually." vs Proposal: "Special proposal price: ₹899 per user per month."',
+        affectedSubmissionsCount: 2,
+        recommendedAction:
+          'Add explicit deal-eligibility constraints to Sales Proposal v2.1 or supersede it with standard pricing.',
+      },
+      {
+        id: 'gh-2',
+        title: 'Remote Compensation Scope Ambiguity',
+        issueType: 'POTENTIAL_AMBIGUITY',
+        severity: 'MEDIUM',
+        verificationNature: 'REQUIRES_HUMAN_REVIEW',
+        description:
+          'General talent guidelines encourage messaging around competitive global parity, whereas Regional Compensation Addendum mandates geographic index bands.',
+        documentNames: ['Brand_Guidelines_v2.pdf', 'Nexora_Regional_Compensation_Addendum_2026.pdf'],
+        conflictingExcerpts:
+          'Brand Guide: "We offer equal competitive opportunities worldwide." vs Addendum: "Salaries are strictly adjusted according to regional index tiers."',
+        affectedSubmissionsCount: 1,
+        recommendedAction:
+          'Clarify HR copy rules in Brand Guidelines to instruct creators to use "region-adjusted competitive compensation".',
+      },
+      {
+        id: 'gh-3',
+        title: 'Missing Knowledge: Benchmark Whitepaper for Speed & Uptime Claims',
+        issueType: 'KNOWLEDGE_GAP',
+        severity: 'MEDIUM',
+        verificationNature: 'ACTION_REQUIRED',
+        description:
+          'Marketing copywriters frequently submit claims claiming "fastest platform" and "99.99% uptime", but no technical benchmark document has been uploaded or approved in the Knowledge Base.',
+        documentNames: ['Brand_Guidelines_v2.pdf'],
+        conflictingExcerpts:
+          'Zero approved documents in the Knowledge Base contain latency, performance, or benchmark verification chunks.',
+        affectedSubmissionsCount: 2,
+        recommendedAction:
+          'Upload and approve the Nexora 2026 Engineering Performance Benchmark Report in the Knowledge Base.',
+      },
+      {
+        id: 'gh-4',
+        title: 'Document Expiry Alert: Nexora Sales Proposal v2.1 Expiring',
+        issueType: 'EXPIRING_DOCUMENT',
+        severity: 'LOW',
+        verificationNature: 'ACTION_REQUIRED',
+        description:
+          'Nexora Sales Proposal v2.1 has an effective end date of 31 Dec 2026 and will expire in the next cycle.',
+        documentNames: ['Nexora_Sales_Proposal_v2.pdf'],
+        conflictingExcerpts:
+          'Expiry Date: 2026-12-31. Document will cease to be authoritative after this date.',
+        affectedSubmissionsCount: 1,
+        recommendedAction:
+          'Review and extend the validity or prepare Nexora Sales Proposal v3.0 for 2027.',
+      },
+    ]
+
+    const recommendations: GovernanceInsights['recommendations'] = [
+      {
+        id: 'rec-1',
+        title: 'Enforce Strict Scope Criteria on Sales Proposal v2.1',
+        priority: 'HIGH',
+        category: 'PRICE',
+        problem:
+          'Sales reps and creators cite ₹899 from the sales proposal as general pricing, violating the ₹999 Tier 1 Master price.',
+        supportingRecords: ['Product_Master_Catalogue_v4.2.pdf', 'Nexora_Sales_Proposal_v2.pdf', 'Sub: APAC Expansion Proposal'],
+        whyItMatters:
+          'Inconsistent external pricing creates customer confusion, damages brand credibility, and leads to unauthorized discount commitments.',
+        recommendedAction:
+          'Authorize a scope amendment in Approval Management restricting the ₹899 rate exclusively to deals > 500 seats with executive sign-off.',
+        actionType: 'CLARIFY_RULE',
+      },
+      {
+        id: 'rec-2',
+        title: 'Upload Official Performance Benchmark Whitepaper',
+        priority: 'MEDIUM',
+        category: 'PROMOTION',
+        problem:
+          'Claims citing "fastest platform" are repeatedly flagged as UNVERIFIED due to a missing knowledge source.',
+        supportingRecords: ['Sub: Nexora Pro Q4 Price Validation Test', 'Sub: Nexora Pro Q4 Promotional Campaign'],
+        whyItMatters:
+          'Promotional claims without authoritative citations risk regulatory scrutiny under consumer protection and misleading advertising laws.',
+        recommendedAction:
+          'Ingest and vectorize the engineering benchmark whitepaper into the Products or Brand category.',
+        actionType: 'UPDATE_DOCUMENT',
+      },
+      {
+        id: 'rec-3',
+        title: 'Update Recruitment Marketing Copy Guidelines',
+        priority: 'MEDIUM',
+        category: 'HR_POLICY',
+        problem:
+          'Global Talent brochures promise blanket wage parity, conflicting with local cost-of-living policies.',
+        supportingRecords: ['Nexora_Regional_Compensation_Addendum_2026.pdf', 'Sub: Global Talent Acquisition Brochure'],
+        whyItMatters:
+          'Over-promising compensation terms during recruitment causes contractual discrepancies and employee dissatisfaction.',
+        recommendedAction:
+          'Publish an explicit phrasebook in Brand Guidelines v2.0 defining permitted phrases like "region-adjusted competitive packages".',
+        actionType: 'REVIEW_GUIDELINE',
+      },
+      {
+        id: 'rec-4',
+        title: 'Retire Superseded 2025 Brochures Across Storage',
+        priority: 'LOW',
+        category: 'LIFECYCLE',
+        problem:
+          'Older documents like Nexora_Old_Brochure_v1.pdf remain referenced by creators accustomed to legacy materials.',
+        supportingRecords: ['Nexora_Old_Brochure_v1.pdf'],
+        whyItMatters:
+          'Legacy collateral causes repeated submissions to fail deterministic checks, increasing reviewer workload.',
+        recommendedAction:
+          'Confirm supersession in Knowledge Base and notify creators that v1.0 is no longer valid.',
+        actionType: 'RENEW_DOCUMENT',
+      },
+    ]
+
+    return {
+      overview: {
+        totalSubmissions: filteredSubs.length,
+        flaggedSubmissions,
+        approvedSubmissions,
+        totalClaims,
+        verifiedClaims,
+        violationClaims,
+        unverifiedClaims,
+        conflictClaims,
+        complianceRate,
+        activeDocuments: activeDocs,
+        expiredDocuments: expiredDocs,
+        expiringSoonDocuments: expiringSoonDocs,
+      },
+      violationCategories,
+      departmentBreakdown,
+      complianceTrends,
+      repeatedIssues,
+      guidelineHealthIssues,
+      recommendations,
+    }
   },
 }

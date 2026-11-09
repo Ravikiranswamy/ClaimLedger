@@ -1,5 +1,5 @@
 import { ApiError, type Api } from './types'
-import type { AuditEntry, KnowledgeChunk, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
+import type { AuditEntry, GovernanceInsights, KnowledgeChunk, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
 
 const TOKEN_KEY = 'claimledger.token'
 export const tokenStore = {
@@ -132,4 +132,11 @@ export const httpApi: Api = {
     request<User>(`/users/${id}/toggle-status`, {
       method: 'PATCH',
     }),
+  getInsights: (filters) => {
+    const params = new URLSearchParams()
+    if (filters?.departmentId) params.set('departmentId', filters.departmentId)
+    if (filters?.dateRange) params.set('dateRange', filters.dateRange)
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    return request<GovernanceInsights>(`/insights${qs}`)
+  },
 }
