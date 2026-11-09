@@ -1,15 +1,19 @@
 package com.claimledger.service;
 
+import com.claimledger.dto.document.DocumentAuthorityUpdateRequest;
 import com.claimledger.dto.document.DocumentResponse;
 import com.claimledger.dto.document.DocumentStatusUpdateRequest;
 import com.claimledger.dto.document.DocumentUploadRequest;
 import com.claimledger.exception.BadRequestException;
 import com.claimledger.exception.ResourceNotFoundException;
 import com.claimledger.model.KnowledgeDocument;
+import com.claimledger.model.ReviewAction;
+import com.claimledger.model.enums.ActionType;
 import com.claimledger.model.enums.ApprovalStatus;
 import com.claimledger.model.enums.AuthorityTier;
 import com.claimledger.repository.DocumentChunkRepository;
 import com.claimledger.repository.KnowledgeDocumentRepository;
+import com.claimledger.repository.ReviewActionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -28,6 +32,7 @@ public class KnowledgeDocumentService {
 
     private final KnowledgeDocumentRepository documentRepository;
     private final DocumentChunkRepository chunkRepository;
+    private final ReviewActionRepository reviewActionRepository;
     private final PdfExtractionService pdfExtractionService;
     private final DocumentChunkingService chunkingService;
     private final EmbeddingService embeddingService;
@@ -36,6 +41,7 @@ public class KnowledgeDocumentService {
     public KnowledgeDocumentService(
             KnowledgeDocumentRepository documentRepository,
             DocumentChunkRepository chunkRepository,
+            ReviewActionRepository reviewActionRepository,
             PdfExtractionService pdfExtractionService,
             DocumentChunkingService chunkingService,
             EmbeddingService embeddingService,
@@ -43,6 +49,7 @@ public class KnowledgeDocumentService {
     ) {
         this.documentRepository = documentRepository;
         this.chunkRepository = chunkRepository;
+        this.reviewActionRepository = reviewActionRepository;
         this.pdfExtractionService = pdfExtractionService;
         this.chunkingService = chunkingService;
         this.embeddingService = embeddingService;
@@ -74,6 +81,7 @@ public class KnowledgeDocumentService {
         document.setApprovalStatus(request.getApprovalStatus() != null ? request.getApprovalStatus() : ApprovalStatus.APPROVED);
         document.setAuthorityTier(request.getAuthorityTier() != null ? request.getAuthorityTier() : AuthorityTier.TIER_2);
         document.setVersion(request.getVersion() != null ? request.getVersion() : "v1.0");
+        document.setCategory(request.getCategory() != null ? request.getCategory() : "BRAND");
         document.setEffectiveDate(request.getEffectiveDate());
         document.setExpiryDate(request.getExpiryDate());
         document.setProductScope(request.getProductScope());
@@ -82,6 +90,17 @@ public class KnowledgeDocumentService {
         document.setUploadedBy(uploadedBy);
 
         KnowledgeDocument savedDoc = documentRepository.save(document);
+
+        // Record governance audit log for document upload
+        reviewActionRepository.save(new ReviewAction(
+                UUID.randomUUID(),
+                null,
+                savedDoc.getId(),
+                uploadedBy,
+                ActionType.KNOWLEDGE_UPLOADED,
+                "Uploaded knowledge document '" + savedDoc.getName() + "' version " + savedDoc.getVersion() +
+                        " (Tier: " + savedDoc.getAuthorityTier() + ", Category: " + savedDoc.getCategory() + ")"
+        ));
 
         // Extract and chunk text from PDF
         try {
@@ -110,7 +129,7 @@ public class KnowledgeDocumentService {
     }
 
     @Transactional(readOnly = true)
-    public List<DocumentResponse> listDocuments(UUID departmentId, ApprovalStatus status, AuthorityTier tier) {
+    public List<DocumentResponse> listDocuments(UUID departmentId, ApprovalStatus status, AuthorityTier tier, String category) {
         List<KnowledgeDocument> docs;
 
         if (status != null && tier != null) {
@@ -121,6 +140,12 @@ public class KnowledgeDocumentService {
             docs = documentRepository.findByDepartmentId(departmentId);
         } else {
             docs = documentRepository.findAll();
+        }
+
+        if (category != null && !category.equalsIgnoreCase("ALL")) {
+            docs = docs.stream()
+                    .filter(d -> d.getCategory() != null && d.getCategory().equalsIgnoreCase(category))
+                    .toList();
         }
 
         return docs.stream()
@@ -144,14 +169,105 @@ public class KnowledgeDocumentService {
     }
 
     @Transactional
-    public DocumentResponse updateStatus(UUID id, DocumentStatusUpdateRequest request) {
+    public DocumentResponse updateStatus(UUID id, DocumentStatusUpdateRequest request, UUID actorId) {
         KnowledgeDocument doc = documentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + id));
 
+        ApprovalStatus previousStatus = doc.getApprovalStatus();
         doc.setApprovalStatus(request.getApprovalStatus());
         KnowledgeDocument updated = documentRepository.save(doc);
+
+        ActionType actionType = switch (request.getApprovalStatus()) {
+            case APPROVED -> ActionType.KNOWLEDGE_APPROVED;
+            case SUPERSEDED -> ActionType.KNOWLEDGE_SUPERSEDED;
+            case WITHDRAWN, REJECTED -> ActionType.KNOWLEDGE_WITHDRAWN;
+            default -> ActionType.KNOWLEDGE_APPROVED;
+        };
+
+        reviewActionRepository.save(new ReviewAction(
+                UUID.randomUUID(),
+                null,
+                updated.getId(),
+                actorId != null ? actorId : doc.getUploadedBy(),
+                actionType,
+                "Document '" + doc.getName() + "' status changed from " + previousStatus + " to " + updated.getApprovalStatus()
+        ));
+
         long chunkCount = chunkRepository.countByDocumentId(updated.getId());
         return DocumentResponse.fromEntity(updated, chunkCount);
+    }
+
+    @Transactional
+    public DocumentResponse updateAuthority(UUID id, DocumentAuthorityUpdateRequest request, UUID actorId) {
+        KnowledgeDocument doc = documentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Document not found with id: " + id));
+
+        StringBuilder comment = new StringBuilder("Updated document authority and scope: ");
+        if (request.getAuthorityTier() != null) {
+            comment.append("Tier -> ").append(request.getAuthorityTier()).append("; ");
+            doc.setAuthorityTier(request.getAuthorityTier());
+        }
+        if (request.getDepartmentId() != null) {
+            doc.setDepartmentId(request.getDepartmentId());
+        }
+        if (request.getProductScope() != null) {
+            doc.setProductScope(request.getProductScope());
+        }
+        if (request.getCategory() != null) {
+            doc.setCategory(request.getCategory());
+        }
+        if (request.getVersion() != null) {
+            doc.setVersion(request.getVersion());
+        }
+        if (request.getEffectiveDate() != null) {
+            doc.setEffectiveDate(request.getEffectiveDate());
+        }
+        if (request.getExpiryDate() != null) {
+            doc.setExpiryDate(request.getExpiryDate());
+        }
+        if (request.getRegion() != null) {
+            doc.setRegion(request.getRegion());
+        }
+        if (request.getChannel() != null) {
+            doc.setChannel(request.getChannel());
+        }
+
+        KnowledgeDocument updated = documentRepository.save(doc);
+
+        reviewActionRepository.save(new ReviewAction(
+                UUID.randomUUID(),
+                null,
+                updated.getId(),
+                actorId,
+                ActionType.KNOWLEDGE_TIER_CHANGED,
+                comment.toString()
+        ));
+
+        long chunkCount = chunkRepository.countByDocumentId(updated.getId());
+        return DocumentResponse.fromEntity(updated, chunkCount);
+    }
+
+    @Transactional
+    public DocumentResponse supersedeDocument(UUID oldDocId, UUID newDocId, UUID actorId) {
+        KnowledgeDocument oldDoc = documentRepository.findById(oldDocId)
+                .orElseThrow(() -> new ResourceNotFoundException("Old document not found with id: " + oldDocId));
+        KnowledgeDocument newDoc = documentRepository.findById(newDocId)
+                .orElseThrow(() -> new ResourceNotFoundException("New document not found with id: " + newDocId));
+
+        oldDoc.setApprovalStatus(ApprovalStatus.SUPERSEDED);
+        documentRepository.save(oldDoc);
+
+        reviewActionRepository.save(new ReviewAction(
+                UUID.randomUUID(),
+                null,
+                oldDoc.getId(),
+                actorId,
+                ActionType.KNOWLEDGE_SUPERSEDED,
+                "Superseded by newer version '" + newDoc.getName() + "' (" + newDoc.getVersion() + ")"
+        ));
+
+        long chunkCount = chunkRepository.countByDocumentId(oldDoc.getId());
+        return DocumentResponse.fromEntity(oldDoc, chunkCount);
     }
 
     @Transactional

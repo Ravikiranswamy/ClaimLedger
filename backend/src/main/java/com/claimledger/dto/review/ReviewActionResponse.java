@@ -10,6 +10,7 @@ public class ReviewActionResponse {
 
     private UUID id;
     private UUID submissionId;
+    private UUID documentId;
     private UUID actorId;
     private String actorName;
     private String actorEmail;
@@ -25,6 +26,7 @@ public class ReviewActionResponse {
         ReviewActionResponse response = new ReviewActionResponse();
         response.setId(ra.getId());
         response.setSubmissionId(ra.getSubmissionId());
+        response.setDocumentId(ra.getDocumentId());
         response.setActorId(ra.getActorId());
         response.setActorName(actorName);
         response.setActorEmail(actorEmail);
@@ -50,6 +52,14 @@ public class ReviewActionResponse {
 
     public void setSubmissionId(UUID submissionId) {
         this.submissionId = submissionId;
+    }
+
+    public UUID getDocumentId() {
+        return documentId;
+    }
+
+    public void setDocumentId(UUID documentId) {
+        this.documentId = documentId;
     }
 
     public UUID getActorId() {

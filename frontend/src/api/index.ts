@@ -62,6 +62,8 @@ const fallbackApi: Api = {
   getDocumentChunks: (docId) => (isEvaluationMode() ? mockApi.getDocumentChunks(docId) : httpApi.getDocumentChunks(docId).catch(() => mockApi.getDocumentChunks(docId))),
   uploadDocument: (formData) => (isEvaluationMode() ? mockApi.uploadDocument(formData) : httpApi.uploadDocument(formData).catch(() => mockApi.uploadDocument(formData))),
   updateDocumentStatus: (id, status) => (isEvaluationMode() ? mockApi.updateDocumentStatus(id, status) : httpApi.updateDocumentStatus(id, status).catch(() => mockApi.updateDocumentStatus(id, status))),
+  updateDocumentAuthority: (id, req) => (isEvaluationMode() ? mockApi.updateDocumentAuthority(id, req) : httpApi.updateDocumentAuthority(id, req).catch(() => mockApi.updateDocumentAuthority(id, req))),
+  supersedeDocument: (oldDocId, supersededByDocId) => (isEvaluationMode() ? mockApi.supersedeDocument(oldDocId, supersededByDocId) : httpApi.supersedeDocument(oldDocId, supersededByDocId).catch(() => mockApi.supersedeDocument(oldDocId, supersededByDocId))),
 }
 
 export const api: Api = fallbackApi

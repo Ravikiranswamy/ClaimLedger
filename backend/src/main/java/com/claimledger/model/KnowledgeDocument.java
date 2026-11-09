@@ -53,6 +53,9 @@ public class KnowledgeDocument {
     @Column(name = "channel")
     private String channel;
 
+    @Column(name = "category")
+    private String category;
+
     @Column(name = "uploaded_by")
     private UUID uploadedBy;
 
@@ -175,6 +178,14 @@ public class KnowledgeDocument {
 
     public void setChannel(String channel) {
         this.channel = channel;
+    }
+
+    public String getCategory() {
+        return category != null ? category : "BRAND";
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public UUID getUploadedBy() {

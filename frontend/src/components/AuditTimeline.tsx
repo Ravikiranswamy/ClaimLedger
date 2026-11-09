@@ -9,6 +9,13 @@ const LABEL: Record<ActionType, string> = {
   REVIEWER_APPROVED: 'Approved',
   REVIEWER_CHANGES_REQUESTED: 'Changes requested',
   REVIEWER_REJECTED: 'Rejected',
+  KNOWLEDGE_UPLOADED: 'Knowledge uploaded',
+  KNOWLEDGE_APPROVED: 'Knowledge approved',
+  KNOWLEDGE_SUPERSEDED: 'Knowledge superseded',
+  KNOWLEDGE_WITHDRAWN: 'Knowledge withdrawn',
+  KNOWLEDGE_TIER_CHANGED: 'Authority tier changed',
+  KNOWLEDGE_SCOPE_CHANGED: 'Scope updated',
+  KNOWLEDGE_REPLACED: 'Version replaced',
 }
 
 export const formatWhen = (iso: string) =>

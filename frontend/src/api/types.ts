@@ -12,10 +12,25 @@ export interface Api {
   reviseSubmission(id: string, content: string, comment?: string): Promise<Submission>
   getAudit(id: string): Promise<AuditEntry[]>
   listGlobalAudit(): Promise<AuditEntry[]>
-  listDocuments(filters?: { departmentId?: string; status?: string; tier?: string }): Promise<KnowledgeDoc[]>
+  listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }): Promise<KnowledgeDoc[]>
   getDocumentChunks(documentId: string): Promise<KnowledgeChunk[]>
   uploadDocument(formData: FormData): Promise<KnowledgeDoc>
   updateDocumentStatus(id: string, status: string): Promise<KnowledgeDoc>
+  updateDocumentAuthority(
+    id: string,
+    request: {
+      authorityTier?: string
+      departmentId?: string | null
+      productScope?: string
+      category?: string
+      version?: string
+      effectiveDate?: string
+      expiryDate?: string
+      region?: string
+      channel?: string
+    }
+  ): Promise<KnowledgeDoc>
+  supersedeDocument(oldDocId: string, supersededByDocId: string): Promise<KnowledgeDoc>
 }
 
 export class ApiError extends Error {

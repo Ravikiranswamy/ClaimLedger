@@ -28,6 +28,7 @@ public class DocumentUploadRequest {
     private String productScope;
     private String region = "GLOBAL";
     private String channel = "ALL";
+    private String category = "BRAND";
 
     public DocumentUploadRequest() {
     }
@@ -110,5 +111,13 @@ public class DocumentUploadRequest {
 
     public void setChannel(String channel) {
         this.channel = channel;
+    }
+
+    public String getCategory() {
+        return category != null ? category : "BRAND";
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 }

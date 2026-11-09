@@ -53,5 +53,14 @@ export const NAV_BY_ROLE: Record<Role, string[]> = {
   CREATOR: ['home', 'create', 'my-content', 'guidelines', 'history'],
   DEPT_MANAGER: ['home', 'review', 'history'],
   REVIEWER: ['home', 'review', 'history'],
-  ADMIN: ['home', 'submit', 'review', 'knowledge', 'history'],
+  ADMIN: [
+    'admin-overview',
+    'admin-knowledge',
+    'admin-submissions',
+    'admin-users',
+    'admin-approvals',
+    'admin-audit',
+    'admin-insights',
+    'admin-settings',
+  ],
 }

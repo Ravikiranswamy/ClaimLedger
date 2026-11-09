@@ -44,6 +44,7 @@ public class DocumentController {
             @RequestParam(value = "approvalStatus", required = false, defaultValue = "APPROVED") ApprovalStatus approvalStatus,
             @RequestParam(value = "authorityTier", required = false, defaultValue = "TIER_2") AuthorityTier authorityTier,
             @RequestParam(value = "version", required = false, defaultValue = "v1.0") String version,
+            @RequestParam(value = "category", required = false, defaultValue = "BRAND") String category,
             @RequestParam(value = "effectiveDate", required = false) LocalDate effectiveDate,
             @RequestParam(value = "expiryDate", required = false) LocalDate expiryDate,
             @RequestParam(value = "productScope", required = false) String productScope,
@@ -57,6 +58,7 @@ public class DocumentController {
         request.setApprovalStatus(approvalStatus);
         request.setAuthorityTier(authorityTier);
         request.setVersion(version);
+        request.setCategory(category);
         request.setEffectiveDate(effectiveDate);
         request.setExpiryDate(expiryDate);
         request.setProductScope(productScope);
@@ -72,9 +74,10 @@ public class DocumentController {
     public ResponseEntity<ApiResponse<List<DocumentResponse>>> listDocuments(
             @RequestParam(value = "departmentId", required = false) UUID departmentId,
             @RequestParam(value = "status", required = false) ApprovalStatus status,
-            @RequestParam(value = "tier", required = false) AuthorityTier tier
+            @RequestParam(value = "tier", required = false) AuthorityTier tier,
+            @RequestParam(value = "category", required = false) String category
     ) {
-        List<DocumentResponse> response = documentService.listDocuments(departmentId, status, tier);
+        List<DocumentResponse> response = documentService.listDocuments(departmentId, status, tier, category);
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
@@ -97,10 +100,35 @@ public class DocumentController {
     @Operation(summary = "Update approval status of a knowledge document")
     public ResponseEntity<ApiResponse<DocumentResponse>> updateStatus(
             @PathVariable UUID id,
-            @Valid @RequestBody DocumentStatusUpdateRequest request
+            @Valid @RequestBody DocumentStatusUpdateRequest request,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        DocumentResponse response = documentService.updateStatus(id, request);
+        DocumentResponse response = documentService.updateStatus(id, request, principal != null ? principal.getId() : null);
         return ResponseEntity.ok(ApiResponse.ok("Document status updated successfully", response));
+    }
+
+    @PutMapping("/{id}/authority")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Update authority tier, scope, category, and validity dates")
+    public ResponseEntity<ApiResponse<DocumentResponse>> updateAuthority(
+            @PathVariable UUID id,
+            @RequestBody com.claimledger.dto.document.DocumentAuthorityUpdateRequest request,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        DocumentResponse response = documentService.updateAuthority(id, request, principal != null ? principal.getId() : null);
+        return ResponseEntity.ok(ApiResponse.ok("Document authority and scope updated successfully", response));
+    }
+
+    @PostMapping("/{id}/supersede")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Supersede this document version with a newer active document")
+    public ResponseEntity<ApiResponse<DocumentResponse>> supersedeDocument(
+            @PathVariable UUID id,
+            @RequestParam("supersededByDocId") UUID supersededByDocId,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        DocumentResponse response = documentService.supersedeDocument(id, supersededByDocId, principal != null ? principal.getId() : null);
+        return ResponseEntity.ok(ApiResponse.ok("Document superseded successfully", response));
     }
 
     @DeleteMapping("/{id}")

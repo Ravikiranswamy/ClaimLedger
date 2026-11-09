@@ -17,6 +17,7 @@ export type SubmissionStatus =
   | 'REJECTED'
 
 export type AuthorityTier = 'TIER_1' | 'TIER_2' | 'TIER_3'
+export type DocumentCategory = 'BRAND' | 'PRODUCTS' | 'TERMINOLOGY' | 'ASSETS' | 'DEPARTMENTAL'
 export type ClaimType = 'PRICE' | 'FEATURE' | 'PROMOTION' | 'TERMINOLOGY' | 'TONE' | 'FACTUAL' | 'OTHER'
 export type ActionType =
   | 'SUBMITTED'
@@ -25,6 +26,13 @@ export type ActionType =
   | 'REVIEWER_APPROVED'
   | 'REVIEWER_CHANGES_REQUESTED'
   | 'REVIEWER_REJECTED'
+  | 'KNOWLEDGE_UPLOADED'
+  | 'KNOWLEDGE_APPROVED'
+  | 'KNOWLEDGE_SUPERSEDED'
+  | 'KNOWLEDGE_WITHDRAWN'
+  | 'KNOWLEDGE_TIER_CHANGED'
+  | 'KNOWLEDGE_SCOPE_CHANGED'
+  | 'KNOWLEDGE_REPLACED'
 export type ReviewAction = Extract<ActionType, 'REVIEWER_APPROVED' | 'REVIEWER_CHANGES_REQUESTED' | 'REVIEWER_REJECTED'>
 
 export interface User {
@@ -118,6 +126,7 @@ export interface KnowledgeDoc {
   approvalStatus: ApprovalStatus
   authorityTier: AuthorityTier
   version: string
+  category?: DocumentCategory | string
   effectiveDate?: string | null
   expiryDate?: string | null
   productScope?: string | null

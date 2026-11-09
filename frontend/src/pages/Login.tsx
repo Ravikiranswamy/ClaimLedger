@@ -15,7 +15,7 @@ import { Navigate } from 'react-router-dom'
 import { z } from 'zod'
 import { useAuth } from '../auth/AuthContext'
 import { ClaimLedgerLogo } from '../components/ClaimLedgerLogo'
-import { ROLE_LABEL, type Role } from '../types'
+import type { Role } from '../types'
 
 const DEMO_PASSWORD = 'Demo@1234'
 
@@ -27,15 +27,16 @@ type Form = z.infer<typeof schema>
 
 interface DemoAccount {
   role: Role
+  label: string
   email: string
   Icon: LucideIcon
 }
 
 const DEMO: DemoAccount[] = [
-  { role: 'CREATOR', email: 'creator@nexora.com', Icon: UserPen },
-  { role: 'REVIEWER', email: 'reviewer@nexora.com', Icon: ShieldCheck },
-  { role: 'DEPT_MANAGER', email: 'manager@nexora.com', Icon: Users },
-  { role: 'ADMIN', email: 'admin@nexora.com', Icon: Settings },
+  { role: 'CREATOR', label: 'Content Creator', email: 'creator@nexora.com', Icon: UserPen },
+  { role: 'REVIEWER', label: 'Authorised Reviewer', email: 'reviewer@nexora.com', Icon: ShieldCheck },
+  { role: 'DEPT_MANAGER', label: 'Manager', email: 'manager@nexora.com', Icon: Users },
+  { role: 'ADMIN', label: 'Admin', email: 'admin@nexora.com', Icon: Settings },
 ]
 
 // Messages shown while server is waking up
@@ -211,51 +212,48 @@ export function Login() {
         {/* Centered 'or' Divider */}
         <div className="relative my-6 text-center">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-[#DDE5EE]" />
+            <div className="w-full border-t border-[#E2E8F0]" />
           </div>
-          <span className="relative rounded-full border border-[#DDE5EE] bg-white px-3 py-0.5 text-xs font-medium text-muted shadow-2xs">
+          <span className="relative rounded-full border border-[#E2E8F0] bg-white px-3 py-0.5 text-xs font-medium text-slate-400 shadow-2xs">
             or
           </span>
         </div>
 
-        {/* Demo Workspace Section (Matching Reference Layout) */}
-        <section className="rounded-2xl border border-line bg-surface p-5 shadow-xs" aria-labelledby="demo-h">
-          {/* Top Info Banner */}
-          <div className="flex items-center gap-3.5 rounded-xl border border-[#D1FAE5] bg-[#E8F7F2] p-3.5">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#A7F3D0] bg-white text-[#0F766E] shadow-2xs">
-              <Layers size={20} />
-            </div>
-            <div className="h-7 w-px shrink-0 bg-[#A7F3D0]/70" />
-            <div>
-              <h2 id="demo-h" className="text-sm font-bold text-[#0A1F36] leading-tight">
-                Explore demo workspace
-              </h2>
-              <p className="mt-0.5 text-xs text-[#55677A]">
-                Nexora Technologies · Sample organisation
-              </p>
-            </div>
+        {/* Explore demo workspace Banner */}
+        <div className="flex items-center gap-3.5 rounded-2xl border border-[#C5EDE3] bg-[#EAF7F4] p-3.5 sm:p-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#A7F3D0]/60 bg-[#D4F4ED] text-[#0D9488] shadow-2xs">
+            <Layers size={22} className="text-[#0D9488]" />
           </div>
+          <div className="h-8 w-px shrink-0 bg-[#A7F3D0]/80" />
+          <div>
+            <h2 className="text-[15px] font-bold text-[#0F172A] leading-tight">
+              Explore demo workspace
+            </h2>
+            <p className="mt-0.5 text-xs text-[#55677A]">
+              Nexora Technologies · Sample organisation
+            </p>
+          </div>
+        </div>
 
-          {/* 2x2 Interactive Roles Grid */}
-          <div className="mt-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {DEMO.map((d) => (
-              <button
-                key={d.role}
-                type="button"
-                disabled={isLoading}
-                onClick={() => attempt(d.email, DEMO_PASSWORD, d.role)}
-                className="group flex items-center justify-start gap-2.5 rounded-xl border border-line bg-white px-3.5 py-3 text-left text-xs font-semibold text-[#0A1F36] hover:border-brand hover:bg-brand-soft/40 disabled:opacity-50 cursor-pointer transition shadow-2xs"
-              >
-                {submittingRole === d.role ? (
-                  <Loader2 size={17} className="animate-spin text-brand shrink-0" />
-                ) : (
-                  <d.Icon size={17} className="text-[#0F766E] shrink-0 transition-transform group-hover:scale-110" />
-                )}
-                <span>{ROLE_LABEL[d.role]}</span>
-              </button>
-            ))}
-          </div>
-        </section>
+        {/* 2x2 Interactive Roles Grid (Matching Reference Screenshot) */}
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {DEMO.map((d) => (
+            <button
+              key={d.role}
+              type="button"
+              disabled={isLoading}
+              onClick={() => attempt(d.email, DEMO_PASSWORD, d.role)}
+              className="group flex items-center justify-start gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3.5 text-left text-xs sm:text-[13px] font-semibold text-[#0F172A] hover:border-[#0D9488] hover:bg-[#F0FDF9] disabled:opacity-50 cursor-pointer transition shadow-2xs"
+            >
+              {submittingRole === d.role ? (
+                <Loader2 size={18} className="animate-spin text-[#0D9488] shrink-0" />
+              ) : (
+                <d.Icon size={18} className="text-[#0D9488] shrink-0 transition-transform group-hover:scale-110" />
+              )}
+              <span>{d.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

@@ -13,8 +13,11 @@ public class ReviewAction {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "submission_id", nullable = false)
+    @Column(name = "submission_id")
     private UUID submissionId;
+
+    @Column(name = "document_id")
+    private UUID documentId;
 
     @Column(name = "actor_id", nullable = false)
     private UUID actorId;
@@ -35,6 +38,16 @@ public class ReviewAction {
     public ReviewAction(UUID id, UUID submissionId, UUID actorId, ActionType action, String comment) {
         this.id = id != null ? id : UUID.randomUUID();
         this.submissionId = submissionId;
+        this.actorId = actorId;
+        this.action = action;
+        this.comment = comment;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public ReviewAction(UUID id, UUID submissionId, UUID documentId, UUID actorId, ActionType action, String comment) {
+        this.id = id != null ? id : UUID.randomUUID();
+        this.submissionId = submissionId;
+        this.documentId = documentId;
         this.actorId = actorId;
         this.action = action;
         this.comment = comment;
@@ -66,6 +79,14 @@ public class ReviewAction {
 
     public void setSubmissionId(UUID submissionId) {
         this.submissionId = submissionId;
+    }
+
+    public UUID getDocumentId() {
+        return documentId;
+    }
+
+    public void setDocumentId(UUID documentId) {
+        this.documentId = documentId;
     }
 
     public UUID getActorId() {

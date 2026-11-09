@@ -96,6 +96,7 @@ export const httpApi: Api = {
     if (filters?.departmentId) params.append('departmentId', filters.departmentId)
     if (filters?.status) params.append('status', filters.status)
     if (filters?.tier) params.append('tier', filters.tier)
+    if (filters?.category) params.append('category', filters.category)
     const qs = params.toString() ? `?${params.toString()}` : ''
     return request<KnowledgeDoc[]>(`/documents${qs}`)
   },
@@ -105,5 +106,14 @@ export const httpApi: Api = {
     request<KnowledgeDoc>(`/documents/${id}/status`, {
       method: 'PUT',
       body: JSON.stringify({ approvalStatus: status }),
+    }),
+  updateDocumentAuthority: (id, req) =>
+    request<KnowledgeDoc>(`/documents/${id}/authority`, {
+      method: 'PUT',
+      body: JSON.stringify(req),
+    }),
+  supersedeDocument: (oldDocId, supersededByDocId) =>
+    request<KnowledgeDoc>(`/documents/${oldDocId}/supersede?supersededByDocId=${supersededByDocId}`, {
+      method: 'POST',
     }),
 }

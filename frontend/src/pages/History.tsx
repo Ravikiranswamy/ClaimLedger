@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
+  BookOpen,
   CheckCircle2,
   Download,
   FileText,
   Filter,
   History as HistoryIcon,
   MessageSquare,
+  RefreshCw,
   Search,
   Shield,
   Wand2,
@@ -26,6 +28,13 @@ const ACTION_CONFIG: Record<ActionType, { label: string; cls: string; icon: any 
   REVIEWER_APPROVED: { label: 'Approved', cls: 'bg-verified-soft text-verified border-emerald-300', icon: CheckCircle2 },
   REVIEWER_CHANGES_REQUESTED: { label: 'Changes Requested', cls: 'bg-amber-50 text-amber-800 border-amber-300', icon: AlertTriangle },
   REVIEWER_REJECTED: { label: 'Rejected', cls: 'bg-violation-soft text-violation border-rose-300', icon: XCircle },
+  KNOWLEDGE_UPLOADED: { label: 'Knowledge Uploaded', cls: 'bg-cyan-50 text-cyan-800 border-cyan-200', icon: BookOpen },
+  KNOWLEDGE_APPROVED: { label: 'Knowledge Approved', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: CheckCircle2 },
+  KNOWLEDGE_SUPERSEDED: { label: 'Knowledge Superseded', cls: 'bg-slate-100 text-slate-800 border-slate-300', icon: AlertTriangle },
+  KNOWLEDGE_WITHDRAWN: { label: 'Knowledge Withdrawn', cls: 'bg-rose-50 text-rose-800 border-rose-200', icon: XCircle },
+  KNOWLEDGE_TIER_CHANGED: { label: 'Tier Changed', cls: 'bg-purple-50 text-purple-800 border-purple-200', icon: Shield },
+  KNOWLEDGE_SCOPE_CHANGED: { label: 'Scope Changed', cls: 'bg-indigo-50 text-indigo-800 border-indigo-200', icon: Wand2 },
+  KNOWLEDGE_REPLACED: { label: 'Version Replaced', cls: 'bg-amber-50 text-amber-800 border-amber-200', icon: RefreshCw },
 }
 
 export function History() {

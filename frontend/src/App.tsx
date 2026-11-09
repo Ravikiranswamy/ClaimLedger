@@ -2,9 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { AppShell } from './components/AppShell'
+import { AdminModulePlaceholder } from './pages/AdminModulePlaceholder'
+import { History } from './pages/History'
 import { Home } from './pages/Home'
 import { KnowledgeBase } from './pages/KnowledgeBase'
-import { History } from './pages/History'
 import { Login } from './pages/Login'
 import { ReviewDetail } from './pages/ReviewDetail'
 import { ReviewList } from './pages/ReviewList'
@@ -34,6 +35,10 @@ export default function App() {
               <Route path="review/:id" element={<ReviewDetail />} />
               <Route path="knowledge-base" element={<KnowledgeBase />} />
               <Route path="history" element={<History />} />
+              <Route path="admin/users" element={<AdminModulePlaceholder />} />
+              <Route path="admin/approvals" element={<AdminModulePlaceholder />} />
+              <Route path="admin/insights" element={<AdminModulePlaceholder />} />
+              <Route path="admin/settings" element={<AdminModulePlaceholder />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

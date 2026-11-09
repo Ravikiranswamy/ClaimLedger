@@ -1,6 +1,6 @@
 // Development-only mock backend that mirrors the REAL API shapes. All data is synthetic (Nexora).
 // Delete this file and set VITE_USE_MOCK=false to use the live backend.
-import type { AuditEntry, Claim, Evidence, LoginResponse, Submission, User, ActionType } from '../types'
+import type { ActionType, AuditEntry, Claim, Evidence, KnowledgeDoc, LoginResponse, Submission, User } from '../types'
 import { DEPARTMENTS } from '../types'
 import { ApiError, type Api } from './types'
 
@@ -86,6 +86,13 @@ async function create(title: string, content: string, type: 'TEXT' | 'PDF', depa
   log(id, { ...user, fullName: 'System', email: '', role: 'ADMIN' }, 'ANALYZED', `${claims.length} claim(s) checked`)
   return structuredClone(s)
 }
+
+let MOCK_DOCS: KnowledgeDoc[] = [
+  { id: 'dc000003-0000-0000-0000-000000000003', name: 'Product_Master_Catalogue_v4.2.pdf', category: 'PRODUCTS', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '4.2', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2026-11-01', expiryDate: '2027-10-31', chunkCount: 3, createdAt: new Date().toISOString() },
+  { id: 'dc000004-0000-0000-0000-000000000004', name: 'Brand_Guidelines_v2.pdf', category: 'BRAND', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '2.0', productScope: 'ALL', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2026-06-01', expiryDate: '2027-06-30', chunkCount: 2, createdAt: new Date().toISOString() },
+  { id: 'dc000002-0000-0000-0000-000000000002', name: 'Nexora_Sales_Proposal_v2.pdf', category: 'DEPARTMENTAL', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: '2.1', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2026-01-01', expiryDate: '2026-12-31', chunkCount: 2, createdAt: new Date().toISOString() },
+  { id: 'dc000001-0000-0000-0000-000000000001', name: 'Nexora_Old_Brochure_v1.pdf', category: 'ASSETS', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: '1.0', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', effectiveDate: '2025-01-01', expiryDate: '2026-06-30', chunkCount: 1, createdAt: new Date().toISOString() },
+]
 
 export const mockApi: Api = {
   async login(email, password): Promise<LoginResponse> {
@@ -193,14 +200,19 @@ export const mockApi: Api = {
     })
     return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   },
-  async listDocuments() {
+  async listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }) {
     await wait(200)
-    return [
-      { id: 'kd1', name: 'Product_Master_Catalogue_v4.2.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: 'v4.2', productScope: 'Nexora Core, Pro, Enterprise', chunkCount: 3, createdAt: new Date().toISOString() },
-      { id: 'kd2', name: 'Brand_Guidelines_v2.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: 'v2.0', productScope: 'All Brands', chunkCount: 2, createdAt: new Date().toISOString() },
-      { id: 'kd3', name: 'Nexora_Sales_Proposal_v2.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: 'v2.1', productScope: 'Nexora Enterprise', chunkCount: 2, createdAt: new Date().toISOString() },
-      { id: 'kd4', name: 'Nexora_Old_Brochure_v1.pdf', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: 'v1.0', productScope: 'Nexora Legacy', chunkCount: 1, createdAt: new Date().toISOString() },
-    ]
+    let res = [...MOCK_DOCS]
+    if (filters?.category) {
+      res = res.filter((d) => d.category === filters.category)
+    }
+    if (filters?.status) {
+      res = res.filter((d) => d.approvalStatus === filters.status)
+    }
+    if (filters?.tier) {
+      res = res.filter((d) => d.authorityTier === filters.tier)
+    }
+    return res
   },
   async getDocumentChunks(id) {
     await wait(150)
@@ -209,12 +221,60 @@ export const mockApi: Api = {
       { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Nexora Pro costs ₹999 per user per month billed annually.', pageNumber: 2, hasEmbedding: true },
     ]
   },
-  async uploadDocument() {
+  async uploadDocument(formData: FormData) {
     await wait(500)
-    return { id: `kd-${Date.now()}`, name: 'New_Document.pdf', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
+    const name = (formData.get('name') as string) || 'New_Document.pdf'
+    const category = (formData.get('category') as any) || 'BRAND'
+    const authorityTier = (formData.get('authorityTier') as any) || 'TIER_2'
+    const doc: KnowledgeDoc = {
+      id: `kd-${Date.now()}`,
+      name,
+      category,
+      approvalStatus: 'APPROVED',
+      authorityTier,
+      version: (formData.get('version') as string) || 'v1.0',
+      productScope: (formData.get('productScope') as string) || 'ALL',
+      region: (formData.get('region') as string) || 'GLOBAL',
+      channel: (formData.get('channel') as string) || 'ALL',
+      chunkCount: 2,
+      createdAt: new Date().toISOString(),
+    }
+    MOCK_DOCS.unshift(doc)
+    return structuredClone(doc)
   },
   async updateDocumentStatus(id, status) {
     await wait(200)
+    const doc = MOCK_DOCS.find((d) => d.id === id)
+    if (doc) {
+      doc.approvalStatus = status as any
+      return structuredClone(doc)
+    }
     return { id, name: 'Document.pdf', approvalStatus: status as any, authorityTier: 'TIER_2' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
+  },
+  async updateDocumentAuthority(id, req) {
+    await wait(200)
+    const doc = MOCK_DOCS.find((d) => d.id === id)
+    if (doc) {
+      if (req.authorityTier) doc.authorityTier = req.authorityTier as any
+      if (req.departmentId !== undefined) doc.departmentId = req.departmentId
+      if (req.productScope !== undefined) doc.productScope = req.productScope
+      if (req.category !== undefined) doc.category = req.category as any
+      if (req.version !== undefined) doc.version = req.version
+      if (req.effectiveDate !== undefined) doc.effectiveDate = req.effectiveDate
+      if (req.expiryDate !== undefined) doc.expiryDate = req.expiryDate
+      if (req.region !== undefined) doc.region = req.region
+      if (req.channel !== undefined) doc.channel = req.channel
+      return structuredClone(doc)
+    }
+    return { id, name: 'Document.pdf', approvalStatus: 'APPROVED' as const, authorityTier: (req.authorityTier as any) || 'TIER_1', version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
+  },
+  async supersedeDocument(oldDocId, _supersededByDocId) {
+    await wait(200)
+    const oldDoc = MOCK_DOCS.find((d) => d.id === oldDocId)
+    if (oldDoc) {
+      oldDoc.approvalStatus = 'SUPERSEDED'
+      return structuredClone(oldDoc)
+    }
+    return { id: oldDocId, name: 'Document.pdf', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: 'v1.0', chunkCount: 1, createdAt: new Date().toISOString() }
   },
 }

@@ -23,6 +23,7 @@ public class DocumentResponse {
     private String productScope;
     private String region;
     private String channel;
+    private String category;
     private UUID uploadedBy;
     private LocalDateTime createdAt;
     private long chunkCount;
@@ -45,6 +46,7 @@ public class DocumentResponse {
         response.setProductScope(doc.getProductScope());
         response.setRegion(doc.getRegion());
         response.setChannel(doc.getChannel());
+        response.setCategory(doc.getCategory());
         response.setUploadedBy(doc.getUploadedBy());
         response.setCreatedAt(doc.getCreatedAt());
         response.setChunkCount(chunkCount);
@@ -154,6 +156,14 @@ public class DocumentResponse {
 
     public void setChannel(String channel) {
         this.channel = channel;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     public UUID getUploadedBy() {
