@@ -1,282 +1,1089 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Lightbulb, Loader2, ShieldCheck, Wand2 } from 'lucide-react'
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Clock,
+  FileCheck2,
+  FileText,
+  GitMerge,
+  HelpCircle,
+  Lightbulb,
+  Loader2,
+  Quote,
+  RotateCcw,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  User as UserIcon,
+  Wand2,
+  XCircle,
+} from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { AuditTimeline } from '../components/AuditTimeline'
 import { CheckingView } from '../components/CheckingView'
-import { EvidenceCard } from '../components/EvidenceCard'
-import { StatusPill } from '../components/StatusPill'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { applySuggestions, buildSegments } from '../lib/highlight'
-import type { Claim, ClaimState, ReviewAction, Submission } from '../types'
+import type { AuthorityTier, Claim, ClaimState, Evidence, KnowledgeDoc, ReviewAction, Submission } from '../types'
+import { isAuthoritative } from '../types'
 
-const MARK: Record<ClaimState, string> = {
-  VERIFIED: 'bg-verified-soft decoration-verified',
-  VIOLATION: 'bg-violation-soft decoration-violation',
-  UNVERIFIED: 'bg-unverified-soft decoration-unverified',
-  CONFLICT: 'bg-conflict-soft decoration-conflict',
+// Inline text highlight classes per verification status
+const HIGHLIGHT_STYLES: Record<ClaimState, string> = {
+  VERIFIED: 'bg-emerald-100 text-emerald-950 border-b-2 border-emerald-500 hover:bg-emerald-200/80',
+  VIOLATION: 'bg-rose-100 text-rose-950 border-b-2 border-rose-500 hover:bg-rose-200/80',
+  CONFLICT: 'bg-amber-100 text-amber-950 border-b-2 border-amber-500 hover:bg-amber-200/80',
+  UNVERIFIED: 'bg-yellow-100 text-yellow-950 border-b-2 border-yellow-500 hover:bg-yellow-200/80',
 }
+
+const CLAIM_STATUS_CONFIG: Record<
+  ClaimState,
+  { label: string; badgeCls: string; icon: any; borderCls: string }
+> = {
+  VERIFIED: {
+    label: 'Verified',
+    badgeCls: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+    icon: CheckCircle2,
+    borderCls: 'border-emerald-300',
+  },
+  VIOLATION: {
+    label: 'Violation',
+    badgeCls: 'bg-rose-50 text-rose-800 border-rose-300',
+    icon: AlertTriangle,
+    borderCls: 'border-rose-300',
+  },
+  UNVERIFIED: {
+    label: 'Unverified',
+    badgeCls: 'bg-yellow-50 text-yellow-800 border-yellow-300',
+    icon: HelpCircle,
+    borderCls: 'border-yellow-300',
+  },
+  CONFLICT: {
+    label: 'Conflict',
+    badgeCls: 'bg-amber-50 text-amber-800 border-amber-300',
+    icon: GitMerge,
+    borderCls: 'border-amber-300',
+  },
+}
+
+const TIER_META: Record<AuthorityTier, { label: string; badgeCls: string }> = {
+  TIER_1: {
+    label: 'Tier 1 — Master Authority',
+    badgeCls: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  },
+  TIER_2: {
+    label: 'Tier 2 — Departmental Scope',
+    badgeCls: 'bg-blue-100 text-blue-800 border-blue-300',
+  },
+  TIER_3: {
+    label: 'Tier 3 — Supporting Material',
+    badgeCls: 'bg-purple-100 text-purple-800 border-purple-300',
+  },
+}
+
 const REVIEWER_ROLES = ['REVIEWER', 'ADMIN', 'DEPT_MANAGER']
 const CLOSED = ['APPROVED', 'REJECTED']
+
+/** Determines source scope and applicability based on authority tier, status and jurisdictional scope */
+function getSourceScopeInfo(e: Evidence, doc?: KnowledgeDoc, submissionDept?: string | null) {
+  const isAuth = isAuthoritative(e)
+  const name = e.documentName.toLowerCase()
+  const excerpt = (e.excerpt ?? '').toLowerCase()
+
+  const isSuperseded =
+    doc?.approvalStatus === 'SUPERSEDED' ||
+    name.includes('old_brochure') ||
+    name.includes('outdated') ||
+    excerpt.includes('superseded')
+
+  const isOutsideScope =
+    !isAuth &&
+    !isSuperseded &&
+    (name.includes('sales_proposal') ||
+      name.includes('compensation') ||
+      name.includes('regional') ||
+      (doc?.departmentName &&
+        submissionDept &&
+        doc.departmentName !== submissionDept &&
+        doc.departmentName !== 'Universal' &&
+        !doc.departmentName.includes('All')))
+
+  if (isAuth) {
+    return {
+      status: 'APPLICABLE_AUTHORITATIVE',
+      label: 'Applicable Authoritative Grounding',
+      badgeCls: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+      iconCls: 'text-emerald-700',
+    }
+  }
+
+  if (isSuperseded) {
+    return {
+      status: 'SUPERSEDED',
+      label: 'Superseded Document (Outdated)',
+      badgeCls: 'bg-rose-50 text-rose-800 border-rose-300',
+      iconCls: 'text-rose-700',
+    }
+  }
+
+  if (isOutsideScope) {
+    return {
+      status: 'OUTSIDE_SCOPE',
+      label: 'Outside Authorised Scope / Scoped Exception',
+      badgeCls: 'bg-amber-50 text-amber-800 border-amber-300',
+      iconCls: 'text-amber-700',
+    }
+  }
+
+  return {
+    status: 'SUPPORTING_REFERENCE',
+    label: 'Supporting Reference (Subordinate)',
+    badgeCls: 'bg-slate-100 text-slate-800 border-slate-300',
+    iconCls: 'text-slate-600',
+  }
+}
+
+/** Helper to extract version from KnowledgeDoc or document name */
+function getDocumentVersion(e: Evidence, doc?: KnowledgeDoc) {
+  if (doc?.version) return `v${doc.version.replace(/^v/i, '')}`
+  const vMatch = e.documentName.match(/_v(\d+(?:\.\d+)?)/i)
+  if (vMatch) return `v${vMatch[1]}`
+  return 'v1.0'
+}
 
 export function ReviewDetail() {
   const { id = '' } = useParams()
   const location = useLocation()
   const { user } = useAuth()
   const qc = useQueryClient()
+
+  // Queries
   const q = useQuery({ queryKey: ['submission', id], queryFn: () => api.getSubmission(id) })
+  const docsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
+
   const s = q.data
+  const docs = docsQ.data ?? []
+
+  // Document map for rich metadata lookup
+  const docMap = useMemo(() => {
+    const map = new Map<string, KnowledgeDoc>()
+    for (const d of docs) {
+      map.set(d.name.toLowerCase().trim(), d)
+    }
+    return map
+  }, [docs])
+
   const [selected, setSelected] = useState<string | null>(null)
 
-  // Select the first claim that needs attention once data arrives (or after a revision).
+  // Select the first claim that needs attention once data arrives
   useEffect(() => {
-    if (!s) return
+    if (!s || s.claims.length === 0) return
     if (selected && s.claims.some((c) => c.id === selected)) return
-    setSelected((s.claims.find((c) => c.verificationStatus !== 'VERIFIED') ?? s.claims[0])?.id ?? null)
+    setSelected(
+      (s.claims.find((c) => c.verificationStatus !== 'VERIFIED') ?? s.claims[0])?.id ?? null
+    )
   }, [s, selected])
 
-  const { segments, unlocated } = useMemo(() => (s ? buildSegments(s.content, s.claims) : { segments: [], unlocated: [] as string[] }), [s])
+  const { segments, unlocated } = useMemo(
+    () => (s ? buildSegments(s.content, s.claims) : { segments: [], unlocated: [] as string[] }),
+    [s]
+  )
 
   const store = (next: Submission) => {
     qc.setQueryData(['submission', id], next)
     qc.invalidateQueries({ queryKey: ['audit', id] })
     qc.invalidateQueries({ queryKey: ['submissions'] })
+    qc.invalidateQueries({ queryKey: ['audit-all'] })
   }
 
-  if (q.isLoading) return <p className="text-lg text-muted" role="status">Loading…</p>
+  // Smooth scroll to claim finding card when clicked from submitted content
+  const handleSelectClaim = (claimId: string) => {
+    setSelected(claimId)
+    const element = document.getElementById(`claim-card-${claimId}`)
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    }
+  }
+
+  if (q.isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-muted">
+        <Loader2 size={32} className="animate-spin text-[#0F766E] mb-3" />
+        <p className="text-base font-medium text-ink">Loading submission details…</p>
+      </div>
+    )
+  }
+
   if (q.isError || !s) {
     return (
-      <div role="alert" className="rounded-2xl bg-violation-soft p-6 text-violation">
-        {q.error instanceof Error ? q.error.message : 'We couldn’t load this submission.'}{' '}
-        <Link to={user?.role === 'CREATOR' ? '/my-content' : '/review'} className="font-semibold underline">
-          {user?.role === 'CREATOR' ? 'Back to My Content' : 'Back to Review'}
+      <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-800">
+        <p className="font-bold text-base mb-1">Unable to load submission</p>
+        <p className="text-sm mb-4">
+          {q.error instanceof Error ? q.error.message : 'We could not find or load this submission.'}
+        </p>
+        <Link
+          to={user?.role === 'CREATOR' ? '/my-content' : '/review'}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white hover:bg-navy-soft"
+        >
+          <ArrowLeft size={14} />
+          {user?.role === 'CREATOR' ? 'Back to My Content' : 'Back to Review Queue'}
         </Link>
       </div>
     )
   }
 
-  const claim = s.claims.find((c) => c.id === selected) ?? null
-  const unresolved = s.claims.filter((c) => c.verificationStatus !== 'VERIFIED').length
-  const isReadOnlyMode = new URLSearchParams(location.search).get('mode') === 'readonly' || CLOSED.includes(s.status)
-  const canDecide = !isReadOnlyMode && !!user && REVIEWER_ROLES.includes(user.role) && !CLOSED.includes(s.status) && s.status !== 'CHANGES_REQUESTED'
-  const canRevise = !isReadOnlyMode && user?.role === 'CREATOR' && ['FLAGGED', 'CHANGES_REQUESTED', 'DRAFT'].includes(s.status)
+  // Computed claim counts
+  const totalClaims = s.claims.length
+  const violationsCount = s.claims.filter((c) => c.verificationStatus === 'VIOLATION').length
+  const conflictsCount = s.claims.filter((c) => c.verificationStatus === 'CONFLICT').length
+  const unverifiedCount = s.claims.filter((c) => c.verificationStatus === 'UNVERIFIED').length
+  const verifiedCount = s.claims.filter((c) => c.verificationStatus === 'VERIFIED').length
+  const unresolved = totalClaims - verifiedCount
+
+  const isReadOnlyMode =
+    new URLSearchParams(location.search).get('mode') === 'readonly' || CLOSED.includes(s.status)
+  const canDecide =
+    !isReadOnlyMode &&
+    !!user &&
+    REVIEWER_ROLES.includes(user.role) &&
+    !CLOSED.includes(s.status) &&
+    s.status !== 'CHANGES_REQUESTED'
+  const canRevise =
+    !isReadOnlyMode &&
+    user?.role === 'CREATOR' &&
+    ['FLAGGED', 'CHANGES_REQUESTED', 'DRAFT'].includes(s.status)
+
+  const backLink = isReadOnlyMode
+    ? '/history'
+    : user?.role === 'CREATOR'
+      ? '/my-content'
+      : '/review'
+  const backLabel = isReadOnlyMode
+    ? 'Back to Review History'
+    : user?.role === 'CREATOR'
+      ? 'Back to My Content'
+      : 'Back to Review Queue'
 
   return (
-    <>
-      <Link
-        to={isReadOnlyMode ? '/history' : user?.role === 'CREATOR' ? '/my-content' : '/review'}
-        className="mb-4 inline-flex items-center gap-1.5 text-muted hover:text-ink font-medium"
-      >
-        <ArrowLeft size={18} aria-hidden /> {isReadOnlyMode ? 'Back to Review History' : user?.role === 'CREATOR' ? 'Back to My Content' : 'Back to Review Queue'}
-      </Link>
-      <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-8 animate-fade-in pb-20">
+      {/* ========================================================================= */}
+      {/* 1. SUBMISSION HEADER                                                      */}
+      {/* ========================================================================= */}
+      <header className="space-y-4">
+        {/* Back navigation */}
         <div>
-          {user?.role === 'CREATOR' && (
-            <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-1">
-              Submission Details & Revision
-            </p>
-          )}
-          <h1 className="font-display text-3xl font-semibold tracking-tight">{s.title}</h1>
-          <p className="mt-1 text-muted">
-            {s.departmentName ?? 'No department'} · {s.submittedByName}{s.revisionNumber > 1 ? ` · revision ${s.revisionNumber}` : ''}
-          </p>
+          <Link
+            to={backLink}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-muted hover:text-[#0F766E] transition cursor-pointer"
+          >
+            <ArrowLeft size={14} /> {backLabel}
+          </Link>
         </div>
-        <div className="flex items-center gap-3">
-          <SubmissionStatusChip status={s.status} />
-        </div>
-      </header>
 
-      {/* Historical Context Banner (Read-Only) */}
-      {isReadOnlyMode && (
-        <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-900 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 font-bold shrink-0">
-              <ShieldCheck size={18} />
-            </span>
-            <div>
-              <p className="font-bold text-sm text-blue-950">Historical Review Record (Read-Only Context)</p>
-              <p className="text-blue-800">
-                This completed review decision is archived in the governance ledger. Approval actions are disabled for completed reviews.
-              </p>
+        {/* Title, Creator, Department, Date and Status */}
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-6">
+          <div className="space-y-1.5 max-w-4xl">
+            <div className="flex items-center gap-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#0F766E] text-white text-[10px] font-bold font-mono">
+                02
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0F766E]">
+                Authorised Reviewer Workspace · Compliance Inspection
+              </span>
+            </div>
+
+            <h1 className="font-display text-3xl font-bold tracking-tight text-[#0A1F36]">
+              {s.title}
+            </h1>
+
+            {/* Metadata row */}
+            <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-muted pt-1">
+              <span className="flex items-center gap-1.5 text-slate-800 font-semibold">
+                <UserIcon size={14} className="text-muted shrink-0" />
+                {s.submittedByName ?? 'Creator'}
+              </span>
+
+              <span className="flex items-center gap-1.5">
+                <Shield size={14} className="text-muted shrink-0" />
+                <span className="rounded bg-canvas border border-line px-2 py-0.5 text-slate-700 font-medium">
+                  {s.departmentName ?? 'Marketing'}
+                </span>
+              </span>
+
+              <span className="flex items-center gap-1.5">
+                <Clock size={14} className="text-muted shrink-0" />
+                <span>
+                  Submitted{' '}
+                  <strong className="text-slate-800">
+                    {new Date(s.createdAt).toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </strong>{' '}
+                  at{' '}
+                  {new Date(s.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </span>
+              </span>
+
+              {s.revisionNumber > 1 && (
+                <span className="rounded bg-slate-200 border border-slate-300 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-800">
+                  Revision {s.revisionNumber}
+                </span>
+              )}
             </div>
           </div>
-          <span className="rounded-md bg-white border border-blue-200 px-3 py-1 text-xs font-bold text-blue-800">
-            Recorded Decision: {s.status.replace(/_/g, ' ')}
-          </span>
+
+          {/* Workflow Status Chip */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted uppercase tracking-wider mr-1">
+              Workflow Status:
+            </span>
+            <SubmissionStatusChip status={s.status} />
+          </div>
         </div>
-      )}
 
-      <p className="mb-5 text-lg" aria-live="polite">
-        {s.claims.length === 0
-          ? 'No claims needed checking.'
-          : unresolved === 0
-            ? `All ${s.claims.length} claims match approved sources.`
-            : `${unresolved} of ${s.claims.length} claim${s.claims.length === 1 ? '' : 's'} need${unresolved === 1 ? 's' : ''} attention.`}
-      </p>
+        {/* Read-Only Historical Mode Banner */}
+        {isReadOnlyMode && (
+          <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 text-xs text-blue-900 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-100 text-blue-700 font-bold shrink-0">
+                <ShieldCheck size={20} />
+              </span>
+              <div>
+                <p className="font-bold text-sm text-blue-950">Historical Review Record (Read-Only Mode)</p>
+                <p className="text-blue-800">
+                  This completed review decision is committed to the governance ledger. Approval controls are deactivated.
+                </p>
+              </div>
+            </div>
+            <span className="rounded-lg bg-white border border-blue-200 px-3 py-1 font-bold text-blue-900">
+              Recorded Decision: {s.status.replace(/_/g, ' ')}
+            </span>
+          </div>
+        )}
+      </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_26rem]">
-        {/* LEFT: content with highlighted claims */}
-        <section aria-labelledby="content-h" className="rounded-2xl border border-line bg-surface p-6">
-          <h2 id="content-h" className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Submitted content</h2>
-          <p className="whitespace-pre-wrap text-lg leading-8">
-            {segments.map((seg, i) =>
-              seg.claimId ? (
-                <button key={i} type="button" onClick={() => setSelected(seg.claimId!)}
-                  aria-pressed={selected === seg.claimId}
-                  className={`rounded px-1 underline decoration-2 underline-offset-4 ${MARK[s.claims.find((c) => c.id === seg.claimId)!.verificationStatus]} ${selected === seg.claimId ? 'outline-2 outline-offset-2 outline-ink' : ''}`}>
-                  {seg.text}
-                </button>
+      {/* ========================================================================= */}
+      {/* 2. REVIEW SUMMARY                                                         */}
+      {/* ========================================================================= */}
+      <section aria-labelledby="review-summary-heading" className="space-y-3">
+        <h2 id="review-summary-heading" className="sr-only">
+          Review Summary of Detected Claims
+        </h2>
+
+        <div className="rounded-2xl border border-line bg-surface p-5 shadow-xs">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            {/* Status counts ribbon */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted mr-1">
+                Detected Claims ({totalClaims}):
+              </span>
+
+              {/* Violations */}
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold ${
+                  violationsCount > 0
+                    ? 'border-rose-300 bg-rose-50 text-rose-800'
+                    : 'border-line bg-canvas text-muted opacity-75'
+                }`}
+              >
+                <AlertTriangle size={14} className={violationsCount > 0 ? 'text-rose-600' : 'text-muted'} />
+                <span>{violationsCount} {violationsCount === 1 ? 'Violation' : 'Violations'}</span>
+              </div>
+
+              {/* Conflicts */}
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold ${
+                  conflictsCount > 0
+                    ? 'border-amber-300 bg-amber-50 text-amber-800'
+                    : 'border-line bg-canvas text-muted opacity-75'
+                }`}
+              >
+                <GitMerge size={14} className={conflictsCount > 0 ? 'text-amber-600' : 'text-muted'} />
+                <span>{conflictsCount} {conflictsCount === 1 ? 'Conflict' : 'Conflicts'}</span>
+              </div>
+
+              {/* Unverified */}
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold ${
+                  unverifiedCount > 0
+                    ? 'border-yellow-300 bg-yellow-50 text-yellow-800'
+                    : 'border-line bg-canvas text-muted opacity-75'
+                }`}
+              >
+                <HelpCircle size={14} className={unverifiedCount > 0 ? 'text-yellow-600' : 'text-muted'} />
+                <span>{unverifiedCount} Unverified</span>
+              </div>
+
+              {/* Verified */}
+              <div
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold ${
+                  verifiedCount > 0
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                    : 'border-line bg-canvas text-muted opacity-75'
+                }`}
+              >
+                <CheckCircle2 size={14} className={verifiedCount > 0 ? 'text-emerald-600' : 'text-muted'} />
+                <span>{verifiedCount} Verified</span>
+              </div>
+            </div>
+
+            {/* Overall Verdict Banner */}
+            <div className="text-xs">
+              {totalClaims === 0 ? (
+                <span className="text-muted font-medium">No factual claims detected in content.</span>
+              ) : unresolved === 0 ? (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-1 font-bold text-emerald-800">
+                  <CheckCircle2 size={14} className="text-emerald-600" />
+                  All claims verified against authoritative guidelines — awaiting human approval
+                </span>
               ) : (
-                <span key={i}>{seg.text}</span>
-              ),
-            )}
-          </p>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-1 font-bold text-amber-900">
+                  <AlertCircle size={14} className="text-amber-600" />
+                  {unresolved} claim{unresolved === 1 ? '' : 's'} require reviewer decision before clearance
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* BALANCED DESKTOP LAYOUT: 3. SUBMITTED CONTENT & 4. CLAIM FINDINGS         */}
+      {/* ========================================================================= */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
+        {/* ======================================================================= */}
+        {/* 3. SUBMITTED CONTENT (LEFT COLUMN)                                      */}
+        {/* ======================================================================= */}
+        <section
+          aria-labelledby="submitted-content-heading"
+          className="lg:col-span-5 rounded-2xl border border-line bg-surface p-6 shadow-xs space-y-4 lg:sticky lg:top-6"
+        >
+          <div className="flex items-center justify-between border-b border-line pb-3">
+            <div>
+              <h2 id="submitted-content-heading" className="font-display text-lg font-bold text-[#0A1F36]">
+                Original Submitted Content
+              </h2>
+              <p className="text-xs text-muted">
+                Interactive highlights correspond to verified claims and flagged discrepancies.
+              </p>
+            </div>
+            <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-[11px] font-mono text-muted">
+              {s.content.trim().split(/\s+/).filter(Boolean).length} words
+            </span>
+          </div>
+
+          {/* Submitted content paragraph with highlighted spans */}
+          <div className="rounded-xl border border-line/80 bg-canvas/60 p-4 min-h-[160px]">
+            <p className="whitespace-pre-wrap text-base leading-8 text-slate-800 font-normal">
+              {segments.map((seg, i) => {
+                if (seg.claimId) {
+                  const matchingClaim = s.claims.find((c) => c.id === seg.claimId)
+                  const status = matchingClaim?.verificationStatus ?? 'UNVERIFIED'
+                  const isSelected = selected === seg.claimId
+
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => handleSelectClaim(seg.claimId!)}
+                      aria-pressed={isSelected}
+                      title={`Click to inspect Claim: ${matchingClaim?.claimText}`}
+                      className={`rounded px-1.5 py-0.5 mx-0.5 transition-all cursor-pointer ${
+                        HIGHLIGHT_STYLES[status]
+                      } ${
+                        isSelected
+                          ? 'ring-2 ring-slate-900 ring-offset-1 font-semibold shadow-xs'
+                          : ''
+                      }`}
+                    >
+                      {seg.text}
+                    </button>
+                  )
+                }
+                return <span key={i}>{seg.text}</span>
+              })}
+            </p>
+          </div>
+
+          {/* Unlocated claims notice if any */}
           {unlocated.length > 0 && (
-            <p className="mt-4 text-sm text-muted">{unlocated.length} claim{unlocated.length === 1 ? '' : 's'} could not be located word-for-word in the text. {unlocated.length === 1 ? 'It is' : 'They are'} still listed on the right.</p>
+            <p className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-800">
+              Note: {unlocated.length} claim{unlocated.length === 1 ? '' : 's'} could not be located word-for-word in the text, but {unlocated.length === 1 ? 'is' : 'are'} listed in the findings.
+            </p>
           )}
+
+          {/* Color Legend */}
+          <div className="border-t border-line pt-3">
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-muted mb-2">
+              Highlight Legend:
+            </span>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <span className="flex items-center gap-1.5 text-rose-800">
+                <span className="h-2.5 w-2.5 rounded-full bg-rose-500 shrink-0" />
+                <span>Violation (Contradicts truth)</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-amber-800">
+                <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
+                <span>Conflict (Tier discrepancy)</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-yellow-800">
+                <span className="h-2.5 w-2.5 rounded-full bg-yellow-500 shrink-0" />
+                <span>Unverified (No evidence)</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-emerald-800">
+                <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 shrink-0" />
+                <span>Verified (Matches guideline)</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Creator Revision Panel (only for Creator role when revision is permitted) */}
           {canRevise && <RevisePanel s={s} onDone={store} />}
         </section>
 
-        {/* RIGHT: claims + decision card */}
-        <aside aria-label="Claims" className="space-y-3 lg:sticky lg:top-6 lg:self-start">
-          {s.claims.length === 0 && <p className="rounded-2xl border border-dashed border-line bg-surface p-5 text-muted">Nothing in this content needed verification.</p>}
-          {s.claims.map((c, i) => (
-            <ClaimCard key={c.id} c={c} n={i + 1} open={c.id === claim?.id} onSelect={() => setSelected(c.id)} located={!unlocated.includes(c.id)} />
-          ))}
-        </aside>
-      </div>
-
-      {canDecide && <DecisionBar s={s} unresolved={unresolved} onDone={store} />}
-      {(isReadOnlyMode || CLOSED.includes(s.status) || s.status === 'CHANGES_REQUESTED') && !canDecide && (
-        <div className="mt-6 rounded-2xl border border-line bg-surface p-5 text-sm space-y-1 shadow-xs">
-          <span className="font-bold uppercase tracking-wider text-xs text-muted block">Recorded Review Decision:</span>
-          <p className="font-display font-bold text-base text-ink">
-            Status: <span className={s.status === 'APPROVED' ? 'text-emerald-700' : s.status === 'REJECTED' ? 'text-rose-700' : 'text-amber-700'}>{s.status.replace(/_/g, ' ')}</span>
-          </p>
-          <p className="text-xs text-muted">
-            This decision is permanently recorded with full audit justification and timestamps in the history log below.
-          </p>
-        </div>
-      )}
-
-      <section aria-labelledby="hist-h" className="mt-8 rounded-2xl border border-line bg-surface p-6">
-        <h2 id="hist-h" className="mb-4 font-display text-xl font-semibold">History</h2>
-        <AuditTimeline submissionId={s.id} />
-      </section>
-    </>
-  )
-}
-
-function ClaimCard({ c, n, open, onSelect, located }: { c: Claim; n: number; open: boolean; onSelect: () => void; located: boolean }) {
-  const evidence = [...c.evidence].sort((a, b) => Number(!!(b.authoritative ?? b.isAuthoritative)) - Number(!!(a.authoritative ?? a.isAuthoritative)))
-  return (
-    <div className={`rounded-2xl border bg-surface ${open ? 'border-ink' : 'border-line'}`}>
-      <button type="button" onClick={onSelect} aria-expanded={open} className="flex w-full items-start gap-3 p-4 text-left">
-        <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-canvas text-sm font-semibold">{n}</span>
-        <span className="min-w-0 flex-1">
-          <span className="mb-1.5 block"><StatusPill state={c.verificationStatus} /></span>
-          <span className="block font-semibold">“{c.claimText}”</span>
-        </span>
-      </button>
-      {open && (
-        <div className="space-y-4 border-t border-line p-4">
-          {c.explanation && <p className="text-lg leading-relaxed">{c.explanation}</p>}
-          {c.suggestedCorrection && c.verificationStatus !== 'VERIFIED' && (
-            <div className="rounded-xl bg-brand-soft p-4">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-brand"><Lightbulb size={16} aria-hidden /> Suggested wording</p>
-              <p className="mt-1 text-lg font-semibold">{c.suggestedCorrection}</p>
-            </div>
-          )}
-          {evidence.length > 0 ? (
+        {/* ======================================================================= */}
+        {/* 4. CLAIM FINDINGS & EVIDENCE (RIGHT COLUMN)                             */}
+        {/* ======================================================================= */}
+        <section
+          aria-labelledby="claim-findings-heading"
+          className="lg:col-span-7 space-y-4"
+        >
+          <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
-              <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Evidence</p>
-              <ul className="space-y-2">{evidence.map((e) => <EvidenceCard key={e.id} e={e} />)}</ul>
+              <h2 id="claim-findings-heading" className="font-display text-lg font-bold text-[#0A1F36]">
+                Claim Findings & Evidence
+              </h2>
+              <p className="text-xs text-muted">
+                Deterministic claim verification, explanation, suggested corrections, and authority sources.
+              </p>
+            </div>
+            <span className="text-xs font-semibold text-muted">
+              {totalClaims} {totalClaims === 1 ? 'claim' : 'claims'} evaluated
+            </span>
+          </div>
+
+          {totalClaims === 0 ? (
+            <div className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-muted">
+              <FileCheck2 size={32} className="mx-auto mb-2 text-muted/60" />
+              <p className="font-semibold text-ink">No verifiable claims detected</p>
+              <p className="text-xs text-muted mt-1">
+                The compliance engine found no objective pricing, specification, or factual statements requiring grounding.
+              </p>
             </div>
           ) : (
-            <p className="text-muted">No approved source mentions this claim.</p>
+            <div className="space-y-4">
+              {s.claims.map((claim: Claim, idx) => {
+                const isSelected = selected === claim.id
+                const statusConfig = CLAIM_STATUS_CONFIG[claim.verificationStatus]
+                const StatusIcon = statusConfig.icon
+                const sortedEvidence = [...claim.evidence].sort(
+                  (a, b) => Number(isAuthoritative(b)) - Number(isAuthoritative(a))
+                )
+
+                return (
+                  <article
+                    key={claim.id}
+                    id={`claim-card-${claim.id}`}
+                    className={`rounded-2xl border bg-surface p-5 transition-all shadow-xs space-y-4 ${
+                      isSelected
+                        ? 'border-[#0F766E] ring-2 ring-[#0F766E]/20 bg-teal-50/10'
+                        : 'border-line hover:border-slate-300'
+                    }`}
+                  >
+                    {/* Claim Card Header */}
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line/70 pb-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-700">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                            Extracted Claim
+                          </span>
+                        </div>
+                        <h3 className="font-display text-base font-bold text-[#0A1F36]">
+                          “{claim.claimText}”
+                        </h3>
+                      </div>
+
+                      {/* Status Pill */}
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${statusConfig.badgeCls}`}
+                      >
+                        <StatusIcon size={14} />
+                        {statusConfig.label}
+                      </span>
+                    </div>
+
+                    {/* Clear Explanation */}
+                    <div className="space-y-1 text-xs">
+                      <span className="font-bold uppercase tracking-wider text-muted block text-[11px]">
+                        Verification Rationale:
+                      </span>
+                      <p className="text-slate-800 leading-relaxed text-sm bg-canvas/70 border border-line rounded-xl p-3">
+                        {claim.explanation ?? 'No specific rationale provided by the verification engine.'}
+                      </p>
+                    </div>
+
+                    {/* Suggested Correction (where available) */}
+                    {claim.suggestedCorrection && claim.verificationStatus !== 'VERIFIED' && (
+                      <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3.5 text-xs space-y-1">
+                        <div className="flex items-center gap-1.5 font-bold text-[#0F766E]">
+                          <Lightbulb size={15} />
+                          <span>Suggested Compliant Wording</span>
+                        </div>
+                        <p className="text-sm font-semibold text-[#0A1F36] pl-5">
+                          “{claim.suggestedCorrection}”
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Supporting Evidence Documents */}
+                    <div className="space-y-2.5 pt-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                          Supporting Evidence & Guidelines ({sortedEvidence.length}):
+                        </span>
+                        {claim.aiConfidence != null && (
+                          <span className="text-[11px] text-muted">
+                            Confidence: <strong>{Math.round(Number(claim.aiConfidence) * 100)}%</strong>
+                          </span>
+                        )}
+                      </div>
+
+                      {sortedEvidence.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-line bg-canvas p-4 text-xs text-muted">
+                          <p className="font-semibold text-slate-700">No supporting evidence in Knowledge Base</p>
+                          <p className="mt-0.5">
+                            No approved company brand guideline, price catalogue, or policy document mentions or authorizes this statement.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {sortedEvidence.map((ev) => {
+                            const matchingDoc = docMap.get(ev.documentName.toLowerCase().trim())
+                            const scopeInfo = getSourceScopeInfo(ev, matchingDoc, s.departmentName)
+                            const version = getDocumentVersion(ev, matchingDoc)
+                            const tier = ev.authorityTier ?? matchingDoc?.authorityTier ?? 'TIER_1'
+                            const tierMeta = TIER_META[tier] ?? TIER_META.TIER_1
+
+                            return (
+                              <div
+                                key={ev.id}
+                                className={`rounded-xl border p-3.5 text-xs transition space-y-2.5 ${
+                                  scopeInfo.status === 'APPLICABLE_AUTHORITATIVE'
+                                    ? 'border-emerald-300 bg-emerald-50/40'
+                                    : scopeInfo.status === 'SUPERSEDED'
+                                      ? 'border-rose-200 bg-rose-50/30'
+                                      : scopeInfo.status === 'OUTSIDE_SCOPE'
+                                        ? 'border-amber-200 bg-amber-50/30'
+                                        : 'border-line bg-canvas'
+                                }`}
+                              >
+                                {/* Document title and Scope Badge */}
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <FileText size={15} className={scopeInfo.iconCls} />
+                                    <span className="font-bold text-slate-900 break-all">
+                                      {ev.documentName}
+                                    </span>
+                                  </div>
+
+                                  {/* Scope & Applicability Badge */}
+                                  <span
+                                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${scopeInfo.badgeCls}`}
+                                  >
+                                    {scopeInfo.status === 'APPLICABLE_AUTHORITATIVE' && (
+                                      <Check size={11} className="text-emerald-700" />
+                                    )}
+                                    {scopeInfo.status === 'SUPERSEDED' && (
+                                      <RotateCcw size={11} className="text-rose-700" />
+                                    )}
+                                    {scopeInfo.status === 'OUTSIDE_SCOPE' && (
+                                      <ShieldAlert size={11} className="text-amber-700" />
+                                    )}
+                                    {scopeInfo.label}
+                                  </span>
+                                </div>
+
+                                {/* Metadata row: Tier, Version, Page Reference */}
+                                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                                  <span
+                                    className={`inline-block rounded border px-2 py-0.5 font-bold ${tierMeta.badgeCls}`}
+                                  >
+                                    {tierMeta.label}
+                                  </span>
+
+                                  <span className="rounded bg-slate-200/80 border border-slate-300 px-1.5 py-0.5 font-mono font-bold text-slate-800">
+                                    {version}
+                                  </span>
+
+                                  {ev.pageNumber && (
+                                    <span className="rounded bg-canvas border border-line px-2 py-0.5 text-slate-700 font-medium">
+                                      Page {ev.pageNumber}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Relevant Excerpt */}
+                                {ev.excerpt && (
+                                  <div className="rounded-lg border-l-4 border-[#0F766E] bg-white/90 p-2.5 text-xs text-slate-800 font-mono leading-relaxed space-y-1">
+                                    <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted">
+                                      <Quote size={11} className="text-[#0F766E]" />
+                                      <span>Authoritative Excerpt:</span>
+                                    </div>
+                                    <p className="whitespace-pre-wrap italic">“{ev.excerpt}”</p>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
           )}
-          {!located && <p className="text-sm text-muted">Not found word-for-word in the text above.</p>}
-          {c.aiConfidence != null && <p className="text-sm text-muted">AI confidence: {Math.round(Number(c.aiConfidence) * 100)}%. A person makes the final decision.</p>}
-        </div>
+        </section>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* 5. REVIEWER DECISION SECTION (PLACED BELOW CONTENT & FINDINGS)             */}
+      {/* ========================================================================= */}
+      {canDecide ? (
+        <DecisionSection s={s} unresolved={unresolved} onDone={store} />
+      ) : (
+        (isReadOnlyMode || CLOSED.includes(s.status) || s.status === 'CHANGES_REQUESTED') && (
+          <section
+            aria-labelledby="recorded-decision-heading"
+            className="rounded-2xl border border-line bg-surface p-6 shadow-xs space-y-3"
+          >
+            <div className="flex items-center gap-2 border-b border-line pb-3">
+              <ShieldCheck size={18} className="text-[#0F766E]" />
+              <h2 id="recorded-decision-heading" className="font-display text-lg font-bold text-[#0A1F36]">
+                Recorded Review Decision
+              </h2>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-semibold text-muted uppercase tracking-wider">
+                Decision Status:
+              </span>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
+                  s.status === 'APPROVED'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
+                    : s.status === 'REJECTED'
+                      ? 'border-rose-300 bg-rose-50 text-rose-900'
+                      : 'border-amber-300 bg-amber-50 text-amber-900'
+                }`}
+              >
+                {s.status === 'APPROVED' && <CheckCircle2 size={14} />}
+                {s.status === 'REJECTED' && <XCircle size={14} />}
+                {s.status === 'CHANGES_REQUESTED' && <RotateCcw size={14} />}
+                {s.status.replace(/_/g, ' ')}
+              </span>
+            </div>
+
+            <p className="text-xs text-muted leading-relaxed">
+              This review decision has been recorded and committed to the tamper-resistant governance ledger with full reviewer audit trails.
+            </p>
+          </section>
+        )
       )}
+
+      {/* ========================================================================= */}
+      {/* 6. GOVERNANCE AUDIT TIMELINE                                              */}
+      {/* ========================================================================= */}
+      <section
+        aria-labelledby="audit-history-heading"
+        className="rounded-2xl border border-line bg-surface p-6 shadow-xs space-y-4"
+      >
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <div>
+            <h2 id="audit-history-heading" className="font-display text-lg font-bold text-[#0A1F36]">
+              Governance Audit Trail & Revision History
+            </h2>
+            <p className="text-xs text-muted">
+              Chronological log of submissions, compliance scans, reviewer decisions, and revisions.
+            </p>
+          </div>
+        </div>
+
+        <AuditTimeline submissionId={s.id} />
+      </section>
     </div>
   )
 }
 
-function DecisionBar({ s, unresolved, onDone }: { s: Submission; unresolved: number; onDone: (s: Submission) => void }) {
+// =============================================================================
+// REVIEWER DECISION SECTION
+// =============================================================================
+interface DecisionSectionProps {
+  s: Submission
+  unresolved: number
+  onDone: (s: Submission) => void
+}
+
+function DecisionSection({ s, unresolved, onDone }: DecisionSectionProps) {
   const [comment, setComment] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const [confirmApprove, setConfirmApprove] = useState(false)
+
   const m = useMutation({
     mutationFn: (a: ReviewAction) => api.reviewSubmission(s.id, a, comment.trim() || undefined),
     onSuccess: onDone,
-    onError: (e) => setErr(e instanceof Error ? e.message : 'Could not record your decision.'),
+    onError: (e) =>
+      setErr(e instanceof Error ? e.message : 'Could not record your decision in the ledger.'),
   })
 
-  const decide = (a: ReviewAction) => {
+  const handleDecision = (a: ReviewAction) => {
     setErr(null)
+
+    // Requirement: Require a comment for Request Changes and Reject
     if (a !== 'REVIEWER_APPROVED' && comment.trim().length < 3) {
-      setErr('Add a short comment so the creator knows what to do.')
+      setErr(
+        a === 'REVIEWER_CHANGES_REQUESTED'
+          ? 'Reviewer comment is mandatory when requesting revisions so the creator knows what to correct.'
+          : 'Reviewer comment is mandatory when rejecting content to document governance reasons.'
+      )
       return
     }
+
+    // Require confirmation if approving with unresolved discrepancies
     if (a === 'REVIEWER_APPROVED' && unresolved > 0 && !confirmApprove) {
       setConfirmApprove(true)
       return
     }
+
     m.mutate(a)
   }
 
   return (
-    <section aria-labelledby="decide-h" className="sticky bottom-0 mt-6 rounded-2xl border-2 border-ink bg-surface p-5 shadow-lg">
-      <h2 id="decide-h" className="mb-2 font-display text-xl font-semibold">Your decision</h2>
-      <label htmlFor="comment" className="sr-only">Comment</label>
-      <textarea id="comment" rows={2} value={comment} onChange={(e) => setComment(e.target.value)}
-        placeholder="Comment (required if you request changes or reject)"
-        className="w-full rounded-xl border border-line px-4 py-3 text-base" />
-      {confirmApprove && (
-        <p role="alert" className="mt-3 rounded-lg bg-unverified-soft px-4 py-3 text-unverified">
-          {unresolved} claim{unresolved === 1 ? ' is' : 's are'} still flagged. Approve anyway?
+    <section
+      aria-labelledby="reviewer-decision-heading"
+      className="rounded-2xl border-2 border-[#0F766E]/40 bg-surface p-6 shadow-xs space-y-4"
+    >
+      <div className="flex items-start justify-between border-b border-line pb-3">
+        <div>
+          <h2 id="reviewer-decision-heading" className="font-display text-xl font-bold text-[#0A1F36]">
+            Reviewer Decision & Governance Sign-off
+          </h2>
+          <p className="text-xs text-muted mt-0.5">
+            Record your binding review decision on this submission. Your evaluation, comments, and timestamp will be permanently logged.
+          </p>
+        </div>
+      </div>
+
+      {/* Reviewer Comment Field */}
+      <div className="space-y-1.5">
+        <label htmlFor="reviewer-decision-comment" className="block text-xs font-bold uppercase tracking-wider text-slate-800">
+          Reviewer Comments & Feedback
+        </label>
+        <textarea
+          id="reviewer-decision-comment"
+          rows={3}
+          value={comment}
+          onChange={(e) => {
+            setComment(e.target.value)
+            if (err) setErr(null)
+          }}
+          placeholder="Enter review comments, guidance for creator revisions, or approval rationale… (Required when requesting changes or rejecting)"
+          className="w-full rounded-xl border border-line bg-canvas p-3.5 text-sm text-ink placeholder:text-muted focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20"
+        />
+        <p className="text-[11px] text-muted">
+          Mandatory for <strong>Request Changes</strong> and <strong>Reject</strong>. Optional for <strong>Approve</strong>.
         </p>
+      </div>
+
+      {/* Unresolved claims approval confirmation banner */}
+      {confirmApprove && (
+        <div
+          role="alert"
+          className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-3 animate-fade-in"
+        >
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+            <span>
+              <strong>Warning:</strong> {unresolved} claim{unresolved === 1 ? '' : 's'} flagged with violations or unverified status. Approving will override automated verification checks.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={m.isPending}
+              onClick={() => handleDecision('REVIEWER_APPROVED')}
+              className="rounded-lg bg-emerald-700 px-3 py-1.5 font-bold text-white hover:bg-emerald-800 cursor-pointer text-xs"
+            >
+              Confirm Approval
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmApprove(false)}
+              className="rounded-lg border border-line bg-white px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer text-xs"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
-      {err && <p role="alert" className="mt-3 rounded-lg bg-violation-soft px-4 py-3 text-violation">{err}</p>}
-      <div className="mt-3 flex flex-wrap gap-3">
-        <button disabled={m.isPending} onClick={() => decide('REVIEWER_APPROVED')} className="inline-flex items-center gap-2 rounded-xl bg-verified px-5 py-3 font-semibold text-white disabled:opacity-60">
-          {m.isPending && <Loader2 size={18} className="animate-spin" aria-hidden />}{confirmApprove ? 'Yes, approve anyway' : 'Approve'}
+
+      {/* Error Banner */}
+      {err && (
+        <div
+          role="alert"
+          className="rounded-xl border border-rose-300 bg-rose-50 p-3.5 text-xs text-rose-800 flex items-center gap-2"
+        >
+          <XCircle size={16} className="text-rose-600 shrink-0" />
+          <span>{err}</span>
+        </div>
+      )}
+
+      {/* Decision Actions */}
+      <div className="flex flex-wrap items-center gap-3 pt-2">
+        {/* Approve Button */}
+        <button
+          type="button"
+          disabled={m.isPending}
+          onClick={() => handleDecision('REVIEWER_APPROVED')}
+          className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60 transition shadow-2xs cursor-pointer"
+        >
+          {m.isPending && <Loader2 size={16} className="animate-spin" />}
+          <CheckCircle2 size={16} />
+          {confirmApprove ? 'Yes, Approve Content' : 'Approve Content'}
         </button>
-        <button disabled={m.isPending} onClick={() => decide('REVIEWER_CHANGES_REQUESTED')} className="rounded-xl border-2 border-conflict px-5 py-3 font-semibold text-conflict disabled:opacity-60">Request changes</button>
-        <button disabled={m.isPending} onClick={() => decide('REVIEWER_REJECTED')} className="rounded-xl border-2 border-violation px-5 py-3 font-semibold text-violation disabled:opacity-60">Reject</button>
-        {confirmApprove && <button onClick={() => setConfirmApprove(false)} className="rounded-xl px-4 py-3 font-semibold text-muted">Cancel</button>}
+
+        {/* Request Changes Button */}
+        <button
+          type="button"
+          disabled={m.isPending}
+          onClick={() => handleDecision('REVIEWER_CHANGES_REQUESTED')}
+          className="inline-flex items-center gap-2 rounded-xl border border-amber-500 bg-amber-50 px-5 py-2.5 text-sm font-bold text-amber-900 hover:bg-amber-100 disabled:opacity-60 transition shadow-2xs cursor-pointer"
+        >
+          {m.isPending && <Loader2 size={16} className="animate-spin" />}
+          <RotateCcw size={16} />
+          Request Changes
+        </button>
+
+        {/* Reject Button */}
+        <button
+          type="button"
+          disabled={m.isPending}
+          onClick={() => handleDecision('REVIEWER_REJECTED')}
+          className="inline-flex items-center gap-2 rounded-xl border border-rose-500 bg-rose-50 px-5 py-2.5 text-sm font-bold text-rose-900 hover:bg-rose-100 disabled:opacity-60 transition shadow-2xs cursor-pointer"
+        >
+          {m.isPending && <Loader2 size={16} className="animate-spin" />}
+          <XCircle size={16} />
+          Reject Content
+        </button>
+
+        {confirmApprove && (
+          <button
+            type="button"
+            onClick={() => setConfirmApprove(false)}
+            className="rounded-xl px-4 py-2.5 text-xs font-semibold text-muted hover:text-ink cursor-pointer"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </section>
   )
 }
 
+// =============================================================================
+// REVISE PANEL (FOR CREATOR ROLE)
+// =============================================================================
 function RevisePanel({ s, onDone }: { s: Submission; onDone: (s: Submission) => void }) {
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [applied, setApplied] = useState(0)
-  const m = useMutation({ mutationFn: () => api.reviseSubmission(s.id, text.trim()), onSuccess: (n) => { onDone(n); setOpen(false) } })
 
-  if (m.isPending) return <div className="mt-6"><CheckingView title="Checking your revision" /></div>
-  if (!open) {
+  const m = useMutation({
+    mutationFn: () => api.reviseSubmission(s.id, text.trim()),
+    onSuccess: (n) => {
+      onDone(n)
+      setOpen(false)
+    },
+  })
+
+  if (m.isPending) {
     return (
-      <button onClick={() => { const r = applySuggestions(s.content, s.claims); setText(r.text); setApplied(r.applied); setOpen(true) }}
-        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white hover:bg-brand-strong">
-        <Wand2 size={18} aria-hidden /> Fix with suggestions and resubmit
-      </button>
+      <div className="mt-4">
+        <CheckingView title="Re-analyzing your revision against brand guidelines…" />
+      </div>
     )
   }
+
+  if (!open) {
+    return (
+      <div className="pt-2">
+        <button
+          type="button"
+          onClick={() => {
+            const r = applySuggestions(s.content, s.claims)
+            setText(r.text)
+            setApplied(r.applied)
+            setOpen(true)
+          }}
+          className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-strong transition shadow-2xs cursor-pointer"
+        >
+          <Wand2 size={14} />
+          Apply Suggested Corrections & Resubmit
+        </button>
+      </div>
+    )
+  }
+
   return (
-    <div className="mt-6 space-y-3 rounded-xl border border-line bg-canvas p-4">
-      <p className="font-semibold">{applied > 0 ? `${applied} suggested fix${applied === 1 ? '' : 'es'} applied. Edit anything you like.` : 'No automatic fixes were available. Edit the text, then resubmit.'}</p>
-      <label htmlFor="revised" className="sr-only">Revised content</label>
-      <textarea id="revised" rows={8} value={text} onChange={(e) => setText(e.target.value)} className="w-full rounded-xl border border-line px-4 py-3 text-base leading-relaxed" />
-      {m.isError && <p role="alert" className="rounded-lg bg-violation-soft px-4 py-3 text-violation">{m.error instanceof Error ? m.error.message : 'Could not resubmit.'}</p>}
-      <div className="flex gap-3">
-        <button disabled={text.trim().length < 3} onClick={() => m.mutate()} className="rounded-xl bg-brand px-5 py-3 font-semibold text-white disabled:opacity-60">Resubmit for checking</button>
-        <button onClick={() => setOpen(false)} className="rounded-xl px-4 py-3 font-semibold text-muted">Cancel</button>
+    <div className="mt-4 space-y-3 rounded-xl border border-line bg-canvas p-4 text-xs">
+      <p className="font-semibold text-ink">
+        {applied > 0
+          ? `${applied} suggested correction${applied === 1 ? '' : 's'} applied automatically. Edit as needed, then resubmit.`
+          : 'Edit your content text below and resubmit for verification.'}
+      </p>
+      <label htmlFor="revised-text" className="sr-only">
+        Revised content
+      </label>
+      <textarea
+        id="revised-text"
+        rows={6}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="w-full rounded-xl border border-line bg-surface p-3 text-sm text-ink leading-relaxed"
+      />
+      {m.isError && (
+        <p role="alert" className="rounded-lg bg-rose-50 p-3 text-rose-800">
+          {m.error instanceof Error ? m.error.message : 'Could not resubmit revision.'}
+        </p>
+      )}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={text.trim().length < 3}
+          onClick={() => m.mutate()}
+          className="rounded-xl bg-brand px-4 py-2 font-bold text-white hover:bg-brand-strong disabled:opacity-60 cursor-pointer"
+        >
+          Resubmit Revision
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-xl border border-line px-4 py-2 font-semibold text-muted hover:text-ink cursor-pointer"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   )
