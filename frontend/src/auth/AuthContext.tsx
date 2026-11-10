@@ -22,6 +22,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const asRole = params.get('as')
       if (asRole === 'creator') {
         tokenStore.set('mock-u2')
+      } else if (asRole === 'reviewer') {
+        tokenStore.set('mock-u4')
       } else if (asRole === 'admin') {
         tokenStore.set('mock-u5')
       }

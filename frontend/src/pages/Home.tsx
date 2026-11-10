@@ -19,6 +19,7 @@ import { formatWhen } from '../components/AuditTimeline'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { ROLE_LABEL, type ActionType } from '../types'
 import { CreatorDashboard } from './CreatorDashboard'
+import { ReviewerDashboard } from './ReviewerDashboard'
 
 const ACTION_LABEL: Partial<Record<ActionType, { label: string; badgeClass: string }>> = {
   SUBMITTED: { label: 'Submitted', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -49,6 +50,11 @@ export function Home() {
   // Content Creator Dashboard is strictly scoped to the creator persona
   if (isCreator) {
     return <CreatorDashboard />
+  }
+
+  // Authorised Reviewer Dashboard is strictly scoped to reviewer responsibilities
+  if (user?.role === 'REVIEWER') {
+    return <ReviewerDashboard />
   }
 
   const submissions = submissionsQ.data ?? []
