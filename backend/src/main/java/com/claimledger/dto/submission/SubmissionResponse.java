@@ -15,6 +15,7 @@ public class SubmissionResponse {
     private String title;
     private String content;
     private String filePath;
+    private String fileUrl;
     private ContentType contentType;
     private UUID departmentId;
     private String departmentName;
@@ -41,6 +42,7 @@ public class SubmissionResponse {
         response.setTitle(submission.getTitle());
         response.setContent(submission.getContent());
         response.setFilePath(submission.getFilePath());
+        response.setFileUrl(submission.getFilePath() != null ? "/api/submissions/" + submission.getId() + "/file" : null);
         response.setContentType(submission.getContentType());
         response.setDepartmentId(submission.getDepartmentId());
         response.setDepartmentName(departmentName);
@@ -86,6 +88,14 @@ public class SubmissionResponse {
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
+    }
+
+    public String getFileUrl() {
+        return fileUrl != null ? fileUrl : (filePath != null && id != null ? "/api/submissions/" + id + "/file" : null);
+    }
+
+    public void setFileUrl(String fileUrl) {
+        this.fileUrl = fileUrl;
     }
 
     public ContentType getContentType() {

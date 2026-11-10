@@ -11,6 +11,9 @@ import com.claimledger.service.SubmissionWorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,11 +36,12 @@ public class SubmissionController {
     }
 
     @PostMapping(value = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Submit content (text or PDF) as multipart/form-data")
+    @Operation(summary = "Submit content (text, image, or PDF) as multipart/form-data")
     public ResponseEntity<ApiResponse<SubmissionResponse>> submitMultipart(
             @RequestParam("title") String title,
             @RequestParam(value = "department", required = false) String department,
             @RequestParam(value = "departmentId", required = false) String departmentId,
+            @RequestParam(value = "contentType", required = false) String contentTypeStr,
             @RequestParam(value = "text", required = false) String text,
             @RequestParam(value = "file", required = false) MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal
@@ -45,7 +49,19 @@ public class SubmissionController {
         SubmissionCreateRequest request = new SubmissionCreateRequest();
         request.setTitle(title);
         request.setContent(text != null ? text : "");
-        request.setContentType(file != null && !file.isEmpty() ? ContentType.PDF : ContentType.TEXT);
+
+        if (file != null && !file.isEmpty()) {
+            String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+            String mimeType = file.getContentType() != null ? file.getContentType().toLowerCase() : "";
+            if ("IMAGE".equalsIgnoreCase(contentTypeStr) || mimeType.startsWith("image/")
+                    || originalFilename.endsWith(".png") || originalFilename.endsWith(".jpg") || originalFilename.endsWith(".jpeg")) {
+                request.setContentType(ContentType.IMAGE);
+            } else {
+                request.setContentType(ContentType.PDF);
+            }
+        } else {
+            request.setContentType(ContentType.TEXT);
+        }
 
         if (departmentId != null && !departmentId.isBlank()) {
             try {
@@ -94,6 +110,22 @@ public class SubmissionController {
     ) {
         SubmissionResponse submission = workflowService.getSubmissionById(id, principal);
         return ResponseEntity.ok(ApiResponse.ok(submission));
+    }
+
+    @GetMapping("/{id}/file")
+    @Operation(summary = "Stream original uploaded submission file (Image or PDF) for embedded viewer or inspection")
+    public ResponseEntity<Resource> getSubmissionFile(
+            @PathVariable UUID id,
+            @RequestParam(value = "download", defaultValue = "false") boolean download,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        SubmissionWorkflowService.SubmissionFileResult fileResult = workflowService.getSubmissionFileResource(id, principal);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(fileResult.contentType()));
+        String dispositionType = download ? "attachment" : "inline";
+        headers.setContentDisposition(ContentDisposition.builder(dispositionType).filename(fileResult.filename()).build());
+        headers.setCacheControl("private, max-age=3600");
+        return ResponseEntity.ok().headers(headers).body(fileResult.resource());
     }
 
     @GetMapping("/{id}/findings")

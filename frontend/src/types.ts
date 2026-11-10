@@ -88,7 +88,7 @@ export interface Submission {
   title: string
   content: string
   filePath?: string | null
-  contentType?: 'TEXT' | 'PDF'
+  contentType?: 'TEXT' | 'PDF' | 'IMAGE'
   departmentId?: string | null
   departmentName?: string | null
   organisationId?: string

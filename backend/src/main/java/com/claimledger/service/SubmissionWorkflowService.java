@@ -15,12 +15,17 @@ import com.claimledger.repository.*;
 import com.claimledger.security.UserPrincipal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 @Service
@@ -94,6 +99,27 @@ public class SubmissionWorkflowService {
                 submission.setContent(extractedText);
             } catch (IOException e) {
                 throw new BadRequestException("Failed to read PDF submission: " + e.getMessage());
+            }
+        } else if (request.getContentType() == ContentType.IMAGE) {
+            if (file == null || file.isEmpty()) {
+                throw new BadRequestException("Image file is required when content type is IMAGE.");
+            }
+            String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+            boolean isAllowedExt = originalFilename.endsWith(".png") || originalFilename.endsWith(".jpg") || originalFilename.endsWith(".jpeg");
+            boolean isAllowedMime = file.getContentType() != null && file.getContentType().toLowerCase().startsWith("image/");
+            if (!isAllowedExt && !isAllowedMime) {
+                throw new BadRequestException("Unsupported image format. Only PNG, JPG, and JPEG images are supported.");
+            }
+            try {
+                String storedPath = fileStorageService.storeFile(file, "submissions");
+                submission.setFilePath(storedPath);
+                submission.setContentType(ContentType.IMAGE);
+                String contentText = (request.getContent() != null && !request.getContent().isBlank())
+                        ? request.getContent().trim()
+                        : "Visual Submission: " + (file.getOriginalFilename() != null ? file.getOriginalFilename() : "image");
+                submission.setContent(contentText);
+            } catch (IOException e) {
+                throw new BadRequestException("Failed to store image submission: " + e.getMessage());
             }
         } else {
             submission.setContentType(ContentType.TEXT);
@@ -322,7 +348,56 @@ public class SubmissionWorkflowService {
         validateAccess(submission, currentUser);
     }
 
+    public record SubmissionFileResult(Resource resource, String filename, String contentType) {}
+
+    /**
+     * Streams original uploaded submission file (Image or PDF) with strict organization and role access checks.
+     */
+    @Transactional(readOnly = true)
+    public SubmissionFileResult getSubmissionFileResource(UUID id, UserPrincipal currentUser) {
+        if (currentUser == null) {
+            throw new AccessDeniedException("Authentication required to access submission file.");
+        }
+
+        Submission submission = submissionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + id));
+
+        validateAccess(submission, currentUser);
+
+        if (submission.getFilePath() == null || submission.getFilePath().isBlank()) {
+            throw new ResourceNotFoundException("No file attached to this submission.");
+        }
+
+        Path path = Paths.get(submission.getFilePath());
+        if (!Files.exists(path) || !Files.isRegularFile(path)) {
+            path = fileStorageService.loadFile(submission.getFilePath());
+            if (!Files.exists(path) || !Files.isRegularFile(path)) {
+                throw new ResourceNotFoundException("Submission file not found on disk.");
+            }
+        }
+
+        String filename = path.getFileName().toString();
+        String contentType = "application/octet-stream";
+        String lowerName = filename.toLowerCase();
+        if (lowerName.endsWith(".png")) {
+            contentType = "image/png";
+        } else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) {
+            contentType = "image/jpeg";
+        } else if (lowerName.endsWith(".pdf")) {
+            contentType = "application/pdf";
+        }
+
+        return new SubmissionFileResult(new FileSystemResource(path), filename, contentType);
+    }
+
     private void validateAccess(Submission submission, UserPrincipal currentUser) {
+        if (currentUser == null) {
+            throw new AccessDeniedException("Authentication required.");
+        }
+        if (currentUser.getOrganisationId() != null && submission.getOrganisationId() != null
+                && !currentUser.getOrganisationId().equals(submission.getOrganisationId())) {
+            throw new AccessDeniedException("Access denied: submission belongs to a different organisation.");
+        }
         if (currentUser.getRole() == Role.ADMIN || currentUser.getRole() == Role.REVIEWER) {
             return;
         }
