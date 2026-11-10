@@ -13,7 +13,6 @@ import {
   Layers,
   Shield,
   ShieldAlert,
-  Sparkles,
   Tag,
   X,
   XCircle,
@@ -39,41 +38,35 @@ export type GovernanceArea =
 
 const AREA_META: Record<
   GovernanceArea,
-  { label: string; icon: string; desc: string; badgeCls: string }
+  { label: string; desc: string; badgeCls: string }
 > = {
   ALL: {
     label: 'All Areas',
-    icon: '✨',
     desc: 'All approved corporate governance standards',
     badgeCls: 'bg-slate-100 text-slate-800 border-slate-200',
   },
   PRODUCT_FACTS: {
     label: 'Product Facts & Pricing',
-    icon: '🏷️',
     desc: 'Official prices, billing conditions, product features, and availability',
     badgeCls: 'bg-blue-50 text-blue-800 border-blue-200',
   },
   BRAND_TONE: {
     label: 'Brand Tone & Communication',
-    icon: '🗣️',
     desc: 'Brand personality, preferred tone, writing style, and language rules',
     badgeCls: 'bg-teal-50 text-teal-800 border-teal-200',
   },
   TERMINOLOGY: {
     label: 'Terminology & Messaging',
-    icon: '📖',
     desc: 'Official product names, approved phrases, boilerplate, and messaging',
     badgeCls: 'bg-purple-50 text-purple-800 border-purple-200',
   },
   APPROVED_CLAIMS: {
     label: 'Approved Claims & Promotions',
-    icon: '🛡️',
     desc: 'Approved promotional claims, supporting evidence, and required qualifications',
     badgeCls: 'bg-amber-50 text-amber-800 border-amber-200',
   },
   VISUAL_ACCESSIBILITY: {
     label: 'Visual & Accessibility Standards',
-    icon: '🎨',
     desc: 'Approved logos, colour palette, typography, and WCAG accessibility requirements',
     badgeCls: 'bg-indigo-50 text-indigo-800 border-indigo-200',
   },
@@ -287,13 +280,12 @@ export function BrandGuidelines() {
                 key={areaKey}
                 type="button"
                 onClick={() => setSelectedArea(areaKey)}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                className={`inline-flex items-center rounded-xl border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
                   active
                     ? 'border-[#0F766E] bg-[#0F766E] text-white shadow-xs'
                     : 'border-line bg-surface text-ink hover:bg-canvas'
                 }`}
               >
-                <span>{meta.icon}</span>
                 <span>{meta.label}</span>
               </button>
             )
@@ -478,8 +470,7 @@ export function BrandGuidelines() {
 
                   {/* Primary Area Pill */}
                   <div className="mt-2.5">
-                    <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${areaMeta.badgeCls}`}>
-                      <span>{areaMeta.icon}</span>
+                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-semibold ${areaMeta.badgeCls}`}>
                       <span>{areaMeta.label}</span>
                     </span>
                   </div>
@@ -977,7 +968,7 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
                 : 'border-transparent text-muted hover:text-ink'
             }`}
           >
-            <Sparkles size={14} />
+            <BookOpen size={14} />
             Approved Rules & Standards
           </button>
 
@@ -1021,8 +1012,7 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
               {details.productFacts && (
                 <section className="rounded-2xl border border-line bg-surface p-5 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🏷️</span>
+                    <div>
                       <h3 className="font-display font-bold text-base text-ink">
                         1. Product Facts & Pricing Rules
                       </h3>
@@ -1111,8 +1101,7 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
               {details.brandTone && (
                 <section className="rounded-2xl border border-line bg-surface p-5 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🗣️</span>
+                    <div>
                       <h3 className="font-display font-bold text-base text-ink">
                         2. Brand Tone & Communication Standards
                       </h3>
@@ -1195,8 +1184,7 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
               {details.terminology && (
                 <section className="rounded-2xl border border-line bg-surface p-5 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">📖</span>
+                    <div>
                       <h3 className="font-display font-bold text-base text-ink">
                         3. Terminology & Official Messaging
                       </h3>
@@ -1227,8 +1215,8 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {details.terminology.officialNames.map((name) => (
-                          <span key={name} className="rounded-md bg-white border border-emerald-300 px-2 py-1 font-bold text-emerald-900">
-                            ✓ {name}
+                          <span key={name} className="rounded-md bg-white border border-emerald-300 px-2.5 py-1 font-bold text-emerald-900">
+                            {name}
                           </span>
                         ))}
                       </div>
@@ -1241,8 +1229,8 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {details.terminology.prohibitedNames.map((name) => (
-                          <span key={name} className="rounded-md bg-white border border-rose-300 px-2 py-1 font-bold text-rose-900 line-through">
-                            ✕ {name}
+                          <span key={name} className="rounded-md bg-white border border-rose-300 px-2.5 py-1 font-bold text-rose-900 line-through">
+                            {name}
                           </span>
                         ))}
                       </div>
@@ -1318,8 +1306,7 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
               {details.approvedClaims && (
                 <section className="rounded-2xl border border-line bg-surface p-5 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🛡️</span>
+                    <div>
                       <h3 className="font-display font-bold text-base text-ink">
                         4. Approved Promotional Claims & Required Evidence
                       </h3>
@@ -1349,7 +1336,7 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
                         </p>
                         {c.qualification && (
                           <div className="mt-1 rounded-lg border border-amber-300 bg-amber-50 p-2 text-amber-900 font-medium">
-                            ⚠️ {c.qualification}
+                            <span className="font-bold">Mandatory Qualification:</span> {c.qualification}
                           </div>
                         )}
                       </div>
@@ -1401,8 +1388,7 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
               {details.visualStandards && (
                 <section className="rounded-2xl border border-line bg-surface p-5 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">🎨</span>
+                    <div>
                       <h3 className="font-display font-bold text-base text-ink">
                         5. Visual & Digital Accessibility Standards
                       </h3>
@@ -1477,8 +1463,8 @@ function CreatorGuidelineModal({ doc, onClose }: CreatorGuidelineModalProps) {
                     </span>
                     <ul className="space-y-1 text-slate-800 leading-relaxed">
                       {details.visualStandards.accessibility.map((rule, idx) => (
-                        <li key={idx} className="flex items-start gap-1.5">
-                          <span className="text-emerald-700 font-bold">✓</span>
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-emerald-700 font-bold">•</span>
                           <span>{rule}</span>
                         </li>
                       ))}
