@@ -6,11 +6,13 @@ import { OrganisationSettings } from './pages/OrganisationSettings'
 import { AdminSubmissionDetail } from './pages/AdminSubmissionDetail'
 import { AdminSubmissions } from './pages/AdminSubmissions'
 import { ApprovalManagement } from './pages/ApprovalManagement'
+import { BrandGuidelines } from './pages/BrandGuidelines'
 import { History } from './pages/History'
 import { Home } from './pages/Home'
 import { Insights } from './pages/Insights'
 import { KnowledgeBase } from './pages/KnowledgeBase'
 import { Login } from './pages/Login'
+import { MyContent } from './pages/MyContent'
 import { ReviewDetail } from './pages/ReviewDetail'
 import { ReviewList } from './pages/ReviewList'
 import { Submit } from './pages/Submit'
@@ -35,6 +37,9 @@ export default function App() {
             <Route element={<Protected />}>
               <Route index element={<Home />} />
               <Route path="submit" element={<Submit />} />
+              <Route path="my-content" element={<MyContent />} />
+              <Route path="guidelines" element={<BrandGuidelines />} />
+              <Route path="brand-guidelines" element={<BrandGuidelines />} />
               <Route path="submissions/:id" element={<ReviewDetail />} />
               <Route path="review" element={<ReviewList />} />
               <Route path="review/:id" element={<ReviewDetail />} />

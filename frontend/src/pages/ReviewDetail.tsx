@@ -49,7 +49,7 @@ export function ReviewDetail() {
     return (
       <div role="alert" className="rounded-2xl bg-violation-soft p-6 text-violation">
         {q.error instanceof Error ? q.error.message : 'We couldn’t load this submission.'}{' '}
-        <Link to={user?.role === 'CREATOR' ? '/#my-content' : '/review'} className="font-semibold underline">
+        <Link to={user?.role === 'CREATOR' ? '/my-content' : '/review'} className="font-semibold underline">
           {user?.role === 'CREATOR' ? 'Back to My Content' : 'Back to Review'}
         </Link>
       </div>
@@ -64,7 +64,7 @@ export function ReviewDetail() {
   return (
     <>
       <Link
-        to={user?.role === 'CREATOR' ? '/#my-content' : '/review'}
+        to={user?.role === 'CREATOR' ? '/my-content' : '/review'}
         className="mb-4 inline-flex items-center gap-1.5 text-muted hover:text-ink font-medium"
       >
         <ArrowLeft size={18} aria-hidden /> {user?.role === 'CREATOR' ? 'Back to My Content' : 'All submissions'}

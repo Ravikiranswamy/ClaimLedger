@@ -20,6 +20,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { PageHeader } from '../components/PageHeader'
@@ -130,13 +131,15 @@ export function KnowledgeBase() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showEngineGuide, setShowEngineGuide] = useState(false)
 
-  const docsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
+  const isCreator = user?.role === 'CREATOR'
+  const docsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments(), enabled: !isCreator })
   const docs = docsQ.data ?? []
 
-  // Creators only see approved, currently valid brand guidelines
-  const baseDocs = user?.role === 'CREATOR'
-    ? docs.filter((d) => d.approvalStatus === 'APPROVED' && (!d.expiryDate || new Date(d.expiryDate) >= new Date()))
-    : docs
+  if (isCreator) {
+    return <Navigate to="/guidelines" replace />
+  }
+
+  const baseDocs = docs
   const filtered = baseDocs.filter((d) => tierFilter === 'ALL' || d.authorityTier === tierFilter)
 
   return (

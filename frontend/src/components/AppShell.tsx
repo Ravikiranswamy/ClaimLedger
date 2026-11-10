@@ -33,10 +33,10 @@ const ITEMS: Record<string, NavItemConfig> = {
   home: { to: '/', label: 'Home', Icon: Home },
   submit: { to: '/submit', label: 'Submit', Icon: PenSquare },
   create: { to: '/submit', label: 'Create Content', Icon: PenSquare },
-  'my-content': { to: '/#my-content', label: 'My Content', Icon: FileText },
+  'my-content': { to: '/my-content', label: 'My Content', Icon: FileText },
   review: { to: '/review', label: 'Review', Icon: ShieldCheck },
   knowledge: { to: '/knowledge-base', label: 'Knowledge Base', Icon: LibraryBig },
-  guidelines: { to: '/knowledge-base', label: 'Brand Guidelines', Icon: BookOpen },
+  guidelines: { to: '/guidelines', label: 'Brand Guidelines', Icon: BookOpen },
   history: { to: '/history', label: 'Activity & History', Icon: History },
 
   // Admin Workspace: 7 core sections + Organisation Settings
@@ -71,14 +71,8 @@ export function AppShell() {
     label: k === 'history' && user.role !== 'CREATOR' ? 'History' : ITEMS[k].label,
   }))
 
-  const handleNavClick = (to: string) => {
+  const handleNavClick = () => {
     setMobileOpen(false)
-    if (to === '/#my-content') {
-      const el = document.getElementById('my-content')
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' })
-      }
-    }
   }
 
   const isAdmin = user.role === 'ADMIN'
@@ -151,10 +145,7 @@ export function AppShell() {
           )}
 
           {nav.map(({ to, label, Icon, isSettings }) => {
-            const isMyContent = to === '/#my-content'
-            const isActive = isMyContent
-              ? location.pathname === '/' && location.hash === '#my-content'
-              : location.pathname === to
+            const isActive = to === '/' ? location.pathname === '/' : location.pathname.startsWith(to)
 
             return (
               <div key={to} className="contents">
@@ -168,7 +159,7 @@ export function AppShell() {
                 <NavLink
                   to={to}
                   end={to === '/'}
-                  onClick={() => handleNavClick(to)}
+                  onClick={handleNavClick}
                   className={() =>
                     `group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-[#5EEAD4] ${
                       isActive

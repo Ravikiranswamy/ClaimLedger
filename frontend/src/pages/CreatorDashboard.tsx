@@ -1,137 +1,89 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
-  ArrowRight,
   BookOpen,
-  Calendar,
   CheckCircle2,
   Clock,
-  ExternalLink,
   FileEdit,
-  FileText,
-  Filter,
   Lightbulb,
   MessageSquare,
   PenSquare,
   PlusCircle,
-  Search,
   Send,
   ShieldCheck,
   Sparkles,
-  Tag,
   Wand2,
-  X,
   XCircle,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { formatWhen } from '../components/AuditTimeline'
 import { StatusPill } from '../components/StatusPill'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
-import type { KnowledgeDoc } from '../types'
 
 export function CreatorDashboard() {
   const { user } = useAuth()
-  const location = useLocation()
+  const navigate = useNavigate()
 
   // Data queries
   const submissionsQ = useQuery({ queryKey: ['submissions'], queryFn: api.listSubmissions })
-  const documentsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
   const auditQ = useQuery({ queryKey: ['audit-global'], queryFn: api.listGlobalAudit })
 
-  const submissions = submissionsQ.data ?? []
+  const rawSubmissions = submissionsQ.data ?? []
   const audits = auditQ.data ?? []
 
-  // Section E: Brand Guidelines – Applicability Filters
-  const [scopeProductFilter, setScopeProductFilter] = useState<string>('ALL')
-  const [scopeRegionFilter, setScopeRegionFilter] = useState<string>('ALL')
-  const [scopeChannelFilter, setScopeChannelFilter] = useState<string>('ALL')
+  // Creator's personal submissions
+  const submissions = useMemo(() => {
+    if (user?.role === 'CREATOR') {
+      return rawSubmissions.filter((s) => !s.submittedBy || s.submittedBy === user.id)
+    }
+    return rawSubmissions
+  }, [rawSubmissions, user])
 
-  const availableProducts = useMemo(() => {
-    const set = new Set<string>()
-    for (const d of documentsQ.data ?? []) {
-      if (d.productScope && d.productScope !== 'ALL' && d.productScope !== 'All Products') {
-        set.add(d.productScope)
+  // Greeting based on time of day
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours()
+    if (hour < 12) return 'Good morning'
+    if (hour < 18) return 'Good afternoon'
+    return 'Good evening'
+  }, [])
+
+  const firstName = user?.fullName?.split(' ')[0] ?? 'Creator'
+
+  // Personal Content Metrics calculated strictly from authenticated Creator's submissions
+  const draftsCount = useMemo(() => submissions.filter((s) => s.status === 'DRAFT').length, [submissions])
+  const awaitingReviewCount = useMemo(
+    () => submissions.filter((s) => ['IN_REVIEW', 'ANALYZING', 'FLAGGED', 'VERIFIED'].includes(s.status)).length,
+    [submissions]
+  )
+  const changesRequestedCount = useMemo(
+    () => submissions.filter((s) => s.status === 'CHANGES_REQUESTED').length,
+    [submissions]
+  )
+  const approvedCount = useMemo(() => submissions.filter((s) => s.status === 'APPROVED').length, [submissions])
+
+  // Needs Your Attention items (Changes Requested priority)
+  const attentionItems = useMemo(
+    () => submissions.filter((s) => s.status === 'CHANGES_REQUESTED'),
+    [submissions]
+  )
+
+  // Map of latest reviewer comment per submission from personal audit log
+  const reviewerCommentMap = useMemo(() => {
+    const map = new Map<string, { comment: string; reviewer: string; date: string }>()
+    for (const a of audits) {
+      if (a.submissionId && a.action === 'REVIEWER_CHANGES_REQUESTED' && !map.has(a.submissionId)) {
+        map.set(a.submissionId, {
+          comment: a.comment || 'Reviewer requested changes to address flagged claim discrepancies.',
+          reviewer: a.actorName || 'Authorised Reviewer',
+          date: a.createdAt,
+        })
       }
     }
-    return Array.from(set).sort()
-  }, [documentsQ.data])
-
-  const availableRegions = useMemo(() => {
-    const set = new Set<string>()
-    for (const d of documentsQ.data ?? []) {
-      if (d.region && d.region !== 'GLOBAL' && d.region !== 'ALL') {
-        set.add(d.region)
-      }
-    }
-    return Array.from(set).sort()
-  }, [documentsQ.data])
-
-  const availableChannels = useMemo(() => {
-    const set = new Set<string>()
-    for (const d of documentsQ.data ?? []) {
-      if (d.channel && d.channel !== 'ALL' && d.channel !== 'All Channels') {
-        set.add(d.channel)
-      }
-    }
-    return Array.from(set).sort()
-  }, [documentsQ.data])
-
-  // Display only approved, currently valid guidelines applicable to the Creator's department, product, region and channel.
-  const applicableGuidelines = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0]
-    return (documentsQ.data ?? []).filter((doc) => {
-      // 1. Must be APPROVED and not withdrawn/expired/superseded
-      if (doc.approvalStatus !== 'APPROVED') return false
-
-      // 2. Must be currently valid (effective date <= today, expiry date >= today)
-      if (doc.effectiveDate && doc.effectiveDate > today) return false
-      if (doc.expiryDate && doc.expiryDate < today) return false
-
-      // 3. Department applicability:
-      // Tier 1 documents are Master Authority (universal organisation-wide truth applicable to all departments)
-      // Tier 2/3 documents must match the Creator's department (or be universal / unassigned)
-      if (doc.authorityTier !== 'TIER_1') {
-        if (doc.departmentId && user?.departmentId && doc.departmentId !== user.departmentId) {
-          return false
-        }
-        if (doc.departmentName && user?.departmentName && doc.departmentName.toLowerCase() !== user.departmentName.toLowerCase()) {
-          if (doc.departmentId) return false
-        }
-      }
-
-      // 4. Product scope filter
-      if (scopeProductFilter !== 'ALL') {
-        const docProd = (doc.productScope ?? '').toLowerCase()
-        const targetProd = scopeProductFilter.toLowerCase()
-        if (docProd !== 'all' && docProd !== 'all products' && !docProd.includes(targetProd)) {
-          return false
-        }
-      }
-
-      // 5. Region scope filter
-      if (scopeRegionFilter !== 'ALL') {
-        const docReg = (doc.region ?? '').toLowerCase()
-        const targetReg = scopeRegionFilter.toLowerCase()
-        if (docReg !== 'global' && docReg !== 'all' && !docReg.includes(targetReg)) {
-          return false
-        }
-      }
-
-      // 6. Channel scope filter
-      if (scopeChannelFilter !== 'ALL') {
-        const docChan = (doc.channel ?? '').toLowerCase()
-        const targetChan = scopeChannelFilter.toLowerCase()
-        if (docChan !== 'all' && docChan !== 'all channels' && !docChan.includes(targetChan)) {
-          return false
-        }
-      }
-
-      return true
-    })
-  }, [documentsQ.data, user, scopeProductFilter, scopeRegionFilter, scopeChannelFilter])
+    return map
+  }, [audits])
 
   // Recent Activity Event Metadata Mapper
   const getActivityMeta = (a: { action: string; comment?: string | null }) => {
@@ -202,87 +154,9 @@ export function CreatorDashboard() {
     }
   }
 
-  // Handle hash scrolling to #my-content
-  useEffect(() => {
-    if (location.hash === '#my-content') {
-      const el = document.getElementById('my-content')
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' })
-      }
-    }
-  }, [location.hash])
-
-  // Greeting based on time of day
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 18) return 'Good afternoon'
-    return 'Good evening'
-  }, [])
-
-  const firstName = user?.fullName?.split(' ')[0] ?? 'Creator'
-
-  // Section B: Personal Content Metrics calculated strictly from authenticated Creator's submissions
-  const draftsCount = useMemo(() => submissions.filter((s) => s.status === 'DRAFT').length, [submissions])
-  const awaitingReviewCount = useMemo(
-    () => submissions.filter((s) => ['IN_REVIEW', 'ANALYZING', 'FLAGGED', 'VERIFIED'].includes(s.status)).length,
-    [submissions]
-  )
-  const changesRequestedCount = useMemo(
-    () => submissions.filter((s) => s.status === 'CHANGES_REQUESTED').length,
-    [submissions]
-  )
-  const approvedCount = useMemo(() => submissions.filter((s) => s.status === 'APPROVED').length, [submissions])
-
-  // Section C: Needs Your Attention items (Changes Requested priority)
-  const attentionItems = useMemo(
-    () => submissions.filter((s) => s.status === 'CHANGES_REQUESTED'),
-    [submissions]
-  )
-
-  // Map of latest reviewer comment per submission from personal audit log
-  const reviewerCommentMap = useMemo(() => {
-    const map = new Map<string, { comment: string; reviewer: string; date: string }>()
-    for (const a of audits) {
-      if (a.submissionId && a.action === 'REVIEWER_CHANGES_REQUESTED' && !map.has(a.submissionId)) {
-        map.set(a.submissionId, {
-          comment: a.comment || 'Reviewer requested changes to address flagged claim discrepancies.',
-          reviewer: a.actorName || 'Authorised Reviewer',
-          date: a.createdAt,
-        })
-      }
-    }
-    return map
-  }, [audits])
-
-  // Section D: Search and filter state for My Content
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'DRAFT' | 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED'>('ALL')
-  const [selectedGuideline, setSelectedGuideline] = useState<KnowledgeDoc | null>(null)
-
-  const filteredSubmissions = useMemo(() => {
-    return submissions.filter((s) => {
-      // Status filtering with actual workflow statuses
-      if (statusFilter === 'DRAFT' && s.status !== 'DRAFT') return false
-      if (statusFilter === 'IN_REVIEW' && !['IN_REVIEW', 'ANALYZING', 'FLAGGED', 'VERIFIED'].includes(s.status)) return false
-      if (statusFilter === 'CHANGES_REQUESTED' && s.status !== 'CHANGES_REQUESTED') return false
-      if (statusFilter === 'APPROVED' && s.status !== 'APPROVED') return false
-      if (statusFilter === 'REJECTED' && s.status !== 'REJECTED') return false
-
-      // Text search
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
-        const titleMatch = s.title.toLowerCase().includes(q)
-        const deptMatch = s.departmentName?.toLowerCase().includes(q) ?? false
-        if (!titleMatch && !deptMatch) return false
-      }
-      return true
-    })
-  }, [submissions, statusFilter, searchQuery])
-
   return (
-    <div className="space-y-10">
-      {/* SECTION A: Personal Welcome Banner */}
+    <div className="space-y-8">
+      {/* 1. Welcome Banner */}
       <section
         aria-label="Creator Welcome"
         className="relative overflow-hidden rounded-3xl bg-navy p-8 text-white shadow-xl md:p-10"
@@ -302,14 +176,16 @@ export function CreatorDashboard() {
             Check your content against approved brand guidelines and facts before publication.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
+            {/* Create Content shortcut */}
             <Link
               to="/submit"
               className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2.5 font-semibold text-white transition hover:bg-brand-strong shadow-md"
             >
               <PlusCircle size={18} aria-hidden /> Create Content
             </Link>
+            {/* Browse Guidelines shortcut */}
             <Link
-              to="/knowledge-base"
+              to="/guidelines"
               className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-5 py-2.5 font-semibold text-white transition hover:bg-white/10"
             >
               <BookOpen size={18} aria-hidden /> Browse Guidelines
@@ -321,7 +197,7 @@ export function CreatorDashboard() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-72 w-72 rounded-full bg-[#5EEAD4]/15 blur-3xl" />
       </section>
 
-      {/* SECTION B: Personal Content Metrics */}
+      {/* 2. Personal Submission Metrics */}
       <section aria-labelledby="metrics-h">
         <h2 id="metrics-h" className="sr-only">
           Personal Content Metrics
@@ -330,13 +206,8 @@ export function CreatorDashboard() {
           {/* Drafts */}
           <button
             type="button"
-            onClick={() => {
-              setStatusFilter('DRAFT')
-              document.getElementById('my-content')?.scrollIntoView({ behavior: 'smooth' })
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-5 text-left transition shadow-xs hover:border-brand ${
-              statusFilter === 'DRAFT' ? 'border-brand bg-brand-soft/20' : 'border-line bg-surface'
-            }`}
+            onClick={() => navigate('/my-content?status=DRAFT')}
+            className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-5 text-left transition shadow-xs hover:border-brand hover:bg-brand-soft/10 cursor-pointer"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-sm font-medium text-muted">Drafts</span>
@@ -345,19 +216,14 @@ export function CreatorDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-ink">{draftsCount}</p>
-            <p className="mt-1 text-xs text-muted">Unsubmitted or work-in-progress</p>
+            <p className="mt-1 text-xs text-muted">Unsubmitted or work-in-progress →</p>
           </button>
 
           {/* Awaiting Review */}
           <button
             type="button"
-            onClick={() => {
-              setStatusFilter('IN_REVIEW')
-              document.getElementById('my-content')?.scrollIntoView({ behavior: 'smooth' })
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-5 text-left transition shadow-xs hover:border-amber-400 ${
-              statusFilter === 'IN_REVIEW' ? 'border-amber-400 bg-amber-50/40' : 'border-line bg-surface'
-            }`}
+            onClick={() => navigate('/my-content?status=IN_REVIEW')}
+            className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-5 text-left transition shadow-xs hover:border-amber-400 hover:bg-amber-50/20 cursor-pointer"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-sm font-medium text-muted">Awaiting Review</span>
@@ -366,19 +232,14 @@ export function CreatorDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-amber-900">{awaitingReviewCount}</p>
-            <p className="mt-1 text-xs text-muted">In reviewer queue for verification</p>
+            <p className="mt-1 text-xs text-muted">In reviewer queue for verification →</p>
           </button>
 
           {/* Changes Requested */}
           <button
             type="button"
-            onClick={() => {
-              setStatusFilter('CHANGES_REQUESTED')
-              document.getElementById('my-content')?.scrollIntoView({ behavior: 'smooth' })
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-5 text-left transition shadow-xs hover:border-conflict ${
-              statusFilter === 'CHANGES_REQUESTED' ? 'border-conflict bg-conflict-soft/40' : 'border-line bg-surface'
-            }`}
+            onClick={() => navigate('/my-content?status=CHANGES_REQUESTED')}
+            className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-5 text-left transition shadow-xs hover:border-conflict hover:bg-conflict-soft/20 cursor-pointer"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-sm font-medium text-muted">Changes Requested</span>
@@ -387,19 +248,14 @@ export function CreatorDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-conflict">{changesRequestedCount}</p>
-            <p className="mt-1 text-xs text-muted">Revisions requested before approval</p>
+            <p className="mt-1 text-xs text-muted">Revisions requested before approval →</p>
           </button>
 
           {/* Approved */}
           <button
             type="button"
-            onClick={() => {
-              setStatusFilter('APPROVED')
-              document.getElementById('my-content')?.scrollIntoView({ behavior: 'smooth' })
-            }}
-            className={`flex flex-col justify-between rounded-2xl border p-5 text-left transition shadow-xs hover:border-verified ${
-              statusFilter === 'APPROVED' ? 'border-verified bg-verified-soft/40' : 'border-line bg-surface'
-            }`}
+            onClick={() => navigate('/my-content?status=APPROVED')}
+            className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-5 text-left transition shadow-xs hover:border-verified hover:bg-verified-soft/20 cursor-pointer"
           >
             <div className="flex items-center justify-between w-full">
               <span className="text-sm font-medium text-muted">Approved</span>
@@ -408,12 +264,12 @@ export function CreatorDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-verified">{approvedCount}</p>
-            <p className="mt-1 text-xs text-muted">Cleared for official publishing</p>
+            <p className="mt-1 text-xs text-muted">Cleared for official publishing →</p>
           </button>
         </div>
       </section>
 
-      {/* SECTION C: Needs Your Attention */}
+      {/* 3. Needs Your Attention Section */}
       <section aria-labelledby="attention-h" className="space-y-4 rounded-3xl border border-line bg-surface p-6 shadow-sm md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
           <div>
@@ -452,13 +308,12 @@ export function CreatorDashboard() {
               >
                 <PlusCircle size={16} /> Create Content
               </Link>
-              <button
-                type="button"
-                onClick={() => document.getElementById('my-content')?.scrollIntoView({ behavior: 'smooth' })}
+              <Link
+                to="/my-content"
                 className="inline-flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-ink hover:bg-canvas"
               >
-                <FileText size={16} /> View My Content
-              </button>
+                View My Content
+              </Link>
             </div>
           </div>
         )}
@@ -538,353 +393,7 @@ export function CreatorDashboard() {
         </div>
       </section>
 
-      {/* SECTION D: My Content */}
-      <section id="my-content" aria-labelledby="my-content-h" className="space-y-4 rounded-3xl border border-line bg-surface p-6 shadow-sm md:p-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-soft text-brand">
-                <FileText size={18} />
-              </span>
-              <h2 id="my-content-h" className="font-display text-2xl font-bold text-ink">
-                My Content
-              </h2>
-            </div>
-            <p className="mt-1 text-sm text-muted">
-              Search, inspect, and track your submitted organisational content and verification results.
-            </p>
-          </div>
-          <Link
-            to="/submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-strong shadow-xs"
-          >
-            <PlusCircle size={16} /> Create Content
-          </Link>
-        </div>
-
-        {/* Search & Filter Toolbar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
-            <input
-              type="text"
-              placeholder="Search content by title or department…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-line bg-canvas pl-9 pr-4 py-2 text-sm text-ink placeholder:text-muted focus:border-brand focus:outline-none"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            <span className="text-xs font-semibold text-muted mr-1 flex items-center gap-1">
-              <Filter size={14} /> Status:
-            </span>
-            {(
-              [
-                { id: 'ALL', label: 'All' },
-                { id: 'DRAFT', label: 'Draft' },
-                { id: 'IN_REVIEW', label: 'In Review' },
-                { id: 'CHANGES_REQUESTED', label: 'Changes Requested' },
-                { id: 'APPROVED', label: 'Approved' },
-                { id: 'REJECTED', label: 'Rejected' },
-              ] as const
-            ).map((f) => (
-              <button
-                key={f.id}
-                onClick={() => setStatusFilter(f.id)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                  statusFilter === f.id
-                    ? 'bg-navy text-white shadow-xs'
-                    : 'bg-canvas text-muted hover:bg-surface border border-line hover:text-ink'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Submissions Table / Cards */}
-        {submissionsQ.isLoading && <p className="py-8 text-center text-muted">Loading your content…</p>}
-
-        {submissionsQ.isSuccess && filteredSubmissions.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-line bg-canvas p-8 text-center">
-            <FileText size={36} className="mx-auto text-muted opacity-60" />
-            <p className="mt-2 font-semibold text-ink">No content matches your filters</p>
-            <p className="text-xs text-muted mt-1">Try resetting the status filter or clearing your search term.</p>
-            <button
-              onClick={() => {
-                setSearchQuery('')
-                setStatusFilter('ALL')
-              }}
-              className="mt-3 text-xs font-bold text-brand hover:underline"
-            >
-              Reset all filters
-            </button>
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-line text-xs font-semibold uppercase tracking-wider text-muted">
-              <tr>
-                <th className="py-3 px-3">Content Title</th>
-                <th className="py-3 px-3">Department</th>
-                <th className="py-3 px-3">Format</th>
-                <th className="py-3 px-3">Last Updated</th>
-                <th className="py-3 px-3">Workflow Status</th>
-                <th className="py-3 px-3">Compliance Findings</th>
-                <th className="py-3 px-3 text-right">Next Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {filteredSubmissions.map((s) => {
-                const totalClaims = s.claims.length
-                const verifiedCount = s.claims.filter((c) => c.verificationStatus === 'VERIFIED').length
-                const violationCount = s.claims.filter((c) => c.verificationStatus === 'VIOLATION').length
-                const unverifiedCount = s.claims.filter((c) => c.verificationStatus === 'UNVERIFIED').length
-                const conflictCount = s.claims.filter((c) => c.verificationStatus === 'CONFLICT').length
-
-                return (
-                  <tr key={s.id} className="transition hover:bg-canvas">
-                    <td className="py-3 px-3 font-semibold text-ink">
-                      <Link to={`/submissions/${s.id}`} className="hover:text-brand transition flex items-center gap-1.5">
-                        <span className="truncate max-w-xs">{s.title}</span>
-                        {s.revisionNumber > 1 && (
-                          <span className="rounded bg-canvas border border-line px-1.5 py-0.2 text-[10px] text-muted">
-                            r{s.revisionNumber}
-                          </span>
-                        )}
-                      </Link>
-                    </td>
-                    <td className="py-3 px-3 text-muted">{s.departmentName ?? 'General'}</td>
-                    <td className="py-3 px-3">
-                      <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-xs font-medium text-ink">
-                        {s.contentType ?? 'TEXT'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-xs text-muted whitespace-nowrap">
-                      {formatWhen(s.updatedAt ?? s.createdAt)}
-                    </td>
-                    <td className="py-3 px-3 whitespace-nowrap">
-                      <SubmissionStatusChip status={s.status} />
-                    </td>
-                    <td className="py-3 px-3">
-                      {totalClaims === 0 ? (
-                        <span className="text-xs text-muted italic">0 claims</span>
-                      ) : (
-                        <div className="flex flex-wrap items-center gap-1.5 max-w-xs">
-                          {verifiedCount > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[11px] font-bold text-emerald-800">
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                              {verifiedCount} Verified
-                            </span>
-                          )}
-                          {violationCount > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[11px] font-bold text-rose-800">
-                              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                              {violationCount} {violationCount === 1 ? 'Violation' : 'Violations'}
-                            </span>
-                          )}
-                          {unverifiedCount > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[11px] font-bold text-amber-800">
-                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                              {unverifiedCount} Unverified
-                            </span>
-                          )}
-                          {conflictCount > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded bg-purple-50 border border-purple-200 px-1.5 py-0.5 text-[11px] font-bold text-purple-800">
-                              <span className="h-1.5 w-1.5 rounded-full bg-purple-500" />
-                              {conflictCount} {conflictCount === 1 ? 'Conflict' : 'Conflicts'}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-right whitespace-nowrap">
-                      {s.status === 'CHANGES_REQUESTED' ? (
-                        <Link
-                          to={`/submissions/${s.id}`}
-                          className="inline-flex items-center gap-1 rounded-lg bg-conflict px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-amber-600 transition"
-                        >
-                          <Wand2 size={13} /> Revise
-                        </Link>
-                      ) : s.status === 'DRAFT' ? (
-                        <Link
-                          to={`/submissions/${s.id}`}
-                          className="inline-flex items-center gap-1 rounded-lg bg-brand px-3 py-1.5 text-xs font-bold text-white shadow-2xs hover:bg-brand-strong transition"
-                        >
-                          <FileEdit size={13} /> Edit Draft
-                        </Link>
-                      ) : (
-                        <Link
-                          to={`/submissions/${s.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline"
-                        >
-                          View Details <ArrowRight size={13} />
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* SECTION E: Brand Guidelines (Read-Only) */}
-      <section aria-labelledby="guidelines-h" className="space-y-4 rounded-3xl border border-line bg-surface p-6 shadow-sm md:p-8">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-soft text-brand">
-                <BookOpen size={18} />
-              </span>
-              <h2 id="guidelines-h" className="font-display text-2xl font-bold text-ink">
-                Brand Guidelines & Standards
-              </h2>
-            </div>
-            <p className="mt-1 text-sm text-muted">
-              Read-only single source of truth for approved brand claims, product facts, and corporate terminology.
-            </p>
-          </div>
-          <Link
-            to="/knowledge-base"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-brand hover:underline"
-          >
-            Explore all guidelines <ExternalLink size={14} />
-          </Link>
-        </div>
-
-        {/* Scope Context & Applicability Toolbar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas p-3 border border-line text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-muted uppercase tracking-wider text-[11px]">Department Scope:</span>
-            <span className="rounded-md bg-brand-soft px-2 py-0.5 font-bold text-brand">
-              {user?.departmentName ?? 'Marketing'}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted">Product:</span>
-              <select
-                value={scopeProductFilter}
-                onChange={(e) => setScopeProductFilter(e.target.value)}
-                className="rounded-lg border border-line bg-surface px-2 py-1 text-ink focus:border-brand focus:outline-none"
-              >
-                <option value="ALL">All Products</option>
-                {availableProducts.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted">Region:</span>
-              <select
-                value={scopeRegionFilter}
-                onChange={(e) => setScopeRegionFilter(e.target.value)}
-                className="rounded-lg border border-line bg-surface px-2 py-1 text-ink focus:border-brand focus:outline-none"
-              >
-                <option value="ALL">All Regions</option>
-                <option value="GLOBAL">GLOBAL</option>
-                {availableRegions.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted">Channel:</span>
-              <select
-                value={scopeChannelFilter}
-                onChange={(e) => setScopeChannelFilter(e.target.value)}
-                className="rounded-lg border border-line bg-surface px-2 py-1 text-ink focus:border-brand focus:outline-none"
-              >
-                <option value="ALL">All Channels</option>
-                {availableChannels.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {documentsQ.isLoading && <p className="py-6 text-center text-muted">Loading brand guidelines…</p>}
-
-        {documentsQ.isSuccess && applicableGuidelines.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-line bg-canvas p-8 text-center">
-            <BookOpen size={36} className="mx-auto text-muted opacity-60" />
-            <p className="mt-2 font-semibold text-ink">No applicable brand guidelines found</p>
-            <p className="text-xs text-muted mt-1">There are no approved, currently valid guidelines matching your department, product, region, and channel scope.</p>
-          </div>
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {applicableGuidelines.slice(0, 3).map((doc) => {
-            const isTier1 = doc.authorityTier === 'TIER_1'
-            return (
-              <div
-                key={doc.id}
-                className="flex flex-col justify-between rounded-2xl border border-line bg-canvas p-5 shadow-xs transition hover:border-brand"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <span
-                      className={`rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${
-                        isTier1 ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                      }`}
-                    >
-                      {isTier1 ? 'Tier 1 — Master Authority' : doc.authorityTier === 'TIER_2' ? 'Tier 2 — Departmental' : 'Tier 3 — Supporting'}
-                    </span>
-                    <span className="rounded-full bg-verified-soft px-2 py-0.5 text-[10px] font-bold text-verified uppercase">
-                      Approved & Active
-                    </span>
-                  </div>
-
-                  <h3 className="mt-3 font-semibold text-ink text-sm leading-snug">{doc.name}</h3>
-                  <p className="mt-1 text-xs text-muted">Version {doc.version} · {doc.channel ?? 'All Channels'}</p>
-
-                  <div className="mt-3 space-y-1 text-xs text-muted">
-                    <p className="flex items-center gap-1.5">
-                      <Tag size={13} className="text-muted shrink-0" />
-                      <span className="truncate">Scope: {doc.productScope ?? 'All Products'} · {doc.region ?? 'GLOBAL'}</span>
-                    </p>
-                    <p className="flex items-center gap-1.5">
-                      <Calendar size={13} className="text-muted shrink-0" />
-                      <span>Valid: {doc.effectiveDate ?? 'Current'} {doc.expiryDate ? `to ${doc.expiryDate}` : '(Ongoing)'}</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 border-t border-line pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedGuideline(doc)}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:underline"
-                  >
-                    View Guideline Scope →
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* SECTION F: Recent Activity */}
+      {/* 4. Recent Activity Section */}
       <section aria-labelledby="activity-h" className="space-y-4 rounded-3xl border border-line bg-surface p-6 shadow-sm md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
           <div>
@@ -912,7 +421,7 @@ export function CreatorDashboard() {
         )}
 
         <div className="space-y-3">
-          {audits.slice(0, 6).map((a) => {
+          {audits.slice(0, 5).map((a) => {
             const meta = getActivityMeta(a)
             const Icon = meta.icon
 
@@ -952,98 +461,6 @@ export function CreatorDashboard() {
           })}
         </div>
       </section>
-
-      {/* Guideline Read-Only Modal */}
-      {selectedGuideline && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-hidden rounded-3xl bg-surface shadow-2xl flex flex-col border border-line">
-            <div className="flex items-center justify-between border-b border-line px-6 py-5">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
-                  <FileText size={20} />
-                </span>
-                <div>
-                  <h2 className="font-display font-bold text-lg">{selectedGuideline.name}</h2>
-                  <p className="text-xs text-muted">Authoritative Brand Guideline (Read-Only Scope)</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedGuideline(null)}
-                className="rounded-xl p-1.5 text-muted hover:bg-canvas hover:text-ink"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto p-6 space-y-4 flex-1 text-sm">
-              <div className="rounded-2xl border border-line bg-canvas p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Authority Tier</span>
-                  <span className="text-xs font-bold text-brand">
-                    {selectedGuideline.authorityTier === 'TIER_1'
-                      ? 'Tier 1 — Master Authority'
-                      : selectedGuideline.authorityTier === 'TIER_2'
-                        ? 'Tier 2 — Departmental Scope'
-                        : 'Tier 3 — Supporting Material'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Version</span>
-                  <span className="text-xs font-bold text-ink">{selectedGuideline.version}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Department Scope</span>
-                  <span className="text-xs font-bold text-ink">
-                    {selectedGuideline.authorityTier === 'TIER_1'
-                      ? 'Universal (All Departments)'
-                      : selectedGuideline.departmentName ?? 'Department Specific'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Product Scope</span>
-                  <span className="text-xs font-bold text-ink">{selectedGuideline.productScope ?? 'All Products'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Region</span>
-                  <span className="text-xs font-bold text-ink">{selectedGuideline.region ?? 'GLOBAL'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Channel</span>
-                  <span className="text-xs font-bold text-ink">{selectedGuideline.channel ?? 'All Channels'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Validity</span>
-                  <span className="text-xs font-bold text-ink">
-                    {selectedGuideline.effectiveDate ?? 'Current'} {selectedGuideline.expiryDate ? `to ${selectedGuideline.expiryDate}` : '(Ongoing)'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Approval Status</span>
-                  <span className="rounded-full bg-verified-soft px-2.5 py-0.5 text-xs font-bold text-verified">
-                    Approved & Active
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-xl border border-line bg-brand-soft/40 p-4 text-xs text-ink space-y-1">
-                <p className="font-bold text-brand">Authoritative Brand Governance</p>
-                <p className="text-muted leading-relaxed">
-                  All claims in your content are deterministically compared against this approved document before publication. This reference view is read-only for creators; authorised admins manage tiers and scope in the Knowledge Base.
-                </p>
-              </div>
-            </div>
-
-            <div className="border-t border-line px-6 py-4 bg-canvas flex justify-end">
-              <button
-                onClick={() => setSelectedGuideline(null)}
-                className="rounded-xl bg-navy px-5 py-2 text-sm font-semibold text-white hover:bg-navy-soft"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
