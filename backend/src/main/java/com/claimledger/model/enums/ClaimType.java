@@ -7,5 +7,6 @@ public enum ClaimType {
     TERMINOLOGY,
     TONE,
     FACTUAL,
+    VISUAL_BRAND,
     OTHER
 }

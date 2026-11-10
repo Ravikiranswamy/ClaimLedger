@@ -99,6 +99,69 @@ public class GeminiClientService {
     }
 
     /**
+     * Calls Gemini Multimodal Vision API with an image and text prompt.
+     */
+    public Optional<String> generateMultimodal(String prompt, byte[] imageBytes, String mimeType) {
+        if (!isGeminiConfigured() || imageBytes == null || imageBytes.length == 0) {
+            return Optional.empty();
+        }
+
+        try {
+            String endpoint = String.format(
+                    "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s",
+                    model, apiKey
+            );
+
+            String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+
+            Map<String, Object> inlineData = Map.of(
+                    "mime_type", mimeType != null ? mimeType : "image/png",
+                    "data", base64Image
+            );
+
+            Map<String, Object> body = Map.of(
+                    "contents", List.of(
+                            Map.of("parts", List.of(
+                                    Map.of("text", prompt),
+                                    Map.of("inline_data", inlineData)
+                            ))
+                    ),
+                    "generationConfig", Map.of(
+                            "temperature", 0.1,
+                            "topP", 0.95,
+                            "responseMimeType", "application/json"
+                    )
+            );
+
+            String requestJson = objectMapper.writeValueAsString(body);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(requestJson))
+                    .timeout(Duration.ofSeconds(30))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                JsonNode root = objectMapper.readTree(response.body());
+                JsonNode candidates = root.path("candidates");
+                if (candidates.isArray() && !candidates.isEmpty()) {
+                    String text = candidates.get(0).path("content").path("parts").get(0).path("text").asText();
+                    return Optional.of(text);
+                }
+            } else {
+                log.warn("Gemini Multimodal API returned status {}: {}", response.statusCode(), response.body());
+            }
+        } catch (Exception e) {
+            log.warn("Error calling Gemini Multimodal API: {}. Using fallback visual processing.", e.getMessage());
+        }
+
+        return Optional.empty();
+    }
+
+    /**
      * Calls Google embedding API to generate vector representations.
      */
     public Optional<float[]> generateEmbedding(String text) {

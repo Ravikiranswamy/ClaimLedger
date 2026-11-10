@@ -18,7 +18,7 @@ export type SubmissionStatus =
 
 export type AuthorityTier = 'TIER_1' | 'TIER_2' | 'TIER_3'
 export type DocumentCategory = 'BRAND' | 'PRODUCTS' | 'TERMINOLOGY' | 'ASSETS' | 'DEPARTMENTAL'
-export type ClaimType = 'PRICE' | 'FEATURE' | 'PROMOTION' | 'TERMINOLOGY' | 'TONE' | 'FACTUAL' | 'OTHER'
+export type ClaimType = 'PRICE' | 'FEATURE' | 'PROMOTION' | 'TERMINOLOGY' | 'TONE' | 'FACTUAL' | 'VISUAL_BRAND' | 'OTHER'
 export type ActionType =
   | 'SUBMITTED'
   | 'ANALYZED'
