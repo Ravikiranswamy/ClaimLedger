@@ -116,14 +116,28 @@ export function Login() {
     setValue('email', email)
     setValue('password', password)
 
-    // Show wake-up banner after 3 s of waiting
-    const wakeTimer = setTimeout(() => setIsWakingUp(true), 3000)
+    const isDemoAccount = email.toLowerCase().endsWith('@nexora.com') || email.toLowerCase().endsWith('@claimledger.dev')
+    if (role || isDemoAccount) {
+      localStorage.setItem('claimledger.force_mock', 'true')
+    }
+
+    // Show wake-up banner after 3s of waiting (only for live backend attempts, never for demo workspace)
+    const wakeTimer = (!role && !isDemoAccount) ? setTimeout(() => setIsWakingUp(true), 3000) : null
     try {
       await login(email, password)
     } catch (e) {
+      if (isDemoAccount) {
+        localStorage.setItem('claimledger.force_mock', 'true')
+        try {
+          await login(email, password)
+          return
+        } catch {
+          // ignore
+        }
+      }
       setError(e instanceof Error ? e.message : 'Could not sign in.')
     } finally {
-      clearTimeout(wakeTimer)
+      if (wakeTimer) clearTimeout(wakeTimer)
       setIsWakingUp(false)
       setSubmittingRole(null)
     }
