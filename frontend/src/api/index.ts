@@ -37,6 +37,7 @@ const directApi: Api = {
   me: async () => (isEvaluationMode() ? mockApi.me() : httpApi.me()),
   createTextSubmission: (args) => (isEvaluationMode() ? mockApi.createTextSubmission(args) : httpApi.createTextSubmission(args)),
   createPdfSubmission: (args) => (isEvaluationMode() ? mockApi.createPdfSubmission(args) : httpApi.createPdfSubmission(args)),
+  createImageSubmission: (args) => (isEvaluationMode() ? mockApi.createImageSubmission(args) : httpApi.createImageSubmission(args)),
   getSubmission: (id) => (isEvaluationMode() ? mockApi.getSubmission(id) : httpApi.getSubmission(id)),
   listSubmissions: () => (isEvaluationMode() ? mockApi.listSubmissions() : httpApi.listSubmissions()),
   reviewSubmission: (id, action, comment) => (isEvaluationMode() ? mockApi.reviewSubmission(id, action, comment) : httpApi.reviewSubmission(id, action, comment)),

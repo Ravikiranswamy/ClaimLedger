@@ -110,6 +110,15 @@ export const httpApi: Api = {
     if (departmentId) form.append('departmentId', departmentId)
     return request<Submission>('/submissions/upload', { method: 'POST', body: form })
   },
+  createImageSubmission: ({ title, file, departmentId, text }) => {
+    const form = new FormData()
+    form.append('title', title)
+    form.append('file', file)
+    form.append('contentType', 'IMAGE')
+    if (text) form.append('text', text)
+    if (departmentId) form.append('departmentId', departmentId)
+    return request<Submission>('/submissions/upload', { method: 'POST', body: form })
+  },
   getSubmission: (id) => request<Submission>(`/submissions/${id}`),
   listSubmissions: () => request<Submission[]>('/submissions'),
   reviewSubmission: (id, action, comment) =>

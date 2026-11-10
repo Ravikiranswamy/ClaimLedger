@@ -26,6 +26,7 @@ export interface Api {
   me(): Promise<User>
   createTextSubmission(input: { title: string; content: string; departmentId?: string }): Promise<Submission>
   createPdfSubmission(input: { title: string; file: File; departmentId?: string }): Promise<Submission>
+  createImageSubmission(input: { title: string; file: File; departmentId?: string; text?: string }): Promise<Submission>
   getSubmission(id: string): Promise<Submission>
   listSubmissions(): Promise<Submission[]>
   reviewSubmission(id: string, action: ReviewAction, comment?: string): Promise<Submission>

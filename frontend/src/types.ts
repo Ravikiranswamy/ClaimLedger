@@ -83,12 +83,15 @@ export interface Claim {
   evidence: Evidence[]
 }
 
+export type ContentType = 'TEXT' | 'PDF' | 'IMAGE'
+
 export interface Submission {
   id: string
   title: string
   content: string
   filePath?: string | null
-  contentType?: 'TEXT' | 'PDF' | 'IMAGE'
+  fileUrl?: string | null
+  contentType?: ContentType
   departmentId?: string | null
   departmentName?: string | null
   organisationId?: string

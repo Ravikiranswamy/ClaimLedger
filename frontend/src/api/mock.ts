@@ -1,6 +1,6 @@
 // Development-only mock backend that mirrors the REAL API shapes. All data is synthetic (Nexora).
 // Delete this file and set VITE_USE_MOCK=false to use the live backend.
-import type { ActionType, AuditEntry, AuthorityEngineConfig, Claim, DepartmentItem, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, OrganisationProfile, Submission, User } from '../types'
+import type { ActionType, AuditEntry, AuthorityEngineConfig, Claim, ContentType, DepartmentItem, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, OrganisationProfile, Submission, User } from '../types'
 import { DEPARTMENTS } from '../types'
 import { ApiError, type Api, type RegisterRequest } from './types'
 
@@ -409,7 +409,7 @@ function me(): User {
   return strip(u)
 }
 
-async function create(title: string, content: string, type: 'TEXT' | 'PDF', departmentId?: string): Promise<Submission> {
+async function create(title: string, content: string, type: ContentType, departmentId?: string): Promise<Submission> {
   const user = me()
   await wait(2400) // analysis is synchronous on the real backend, so creation takes a moment
   const id = `sub-${seq++}`
@@ -776,6 +776,8 @@ export const mockApi: Api = {
   createTextSubmission: ({ title, content, departmentId }) => create(title, content, 'TEXT', departmentId),
   createPdfSubmission: ({ title, departmentId }) =>
     create(title, 'Great news! Nexora Pro is now available at ₹799 per month. It is the fastest platform around.', 'PDF', departmentId),
+  createImageSubmission: ({ title, text, departmentId }) =>
+    create(title, text || 'Nexora Pro Graphic Campaign — Visual claim verification test.', 'IMAGE', departmentId),
   async getSubmission(id) {
     await wait(150)
     const user = me()
