@@ -9,6 +9,7 @@ import com.claimledger.model.ReviewAction;
 import com.claimledger.model.Submission;
 import com.claimledger.model.User;
 import com.claimledger.model.enums.ActionType;
+import com.claimledger.model.enums.Role;
 import com.claimledger.model.enums.SubmissionStatus;
 import com.claimledger.repository.DepartmentRepository;
 import com.claimledger.repository.KnowledgeDocumentRepository;
@@ -18,6 +19,7 @@ import com.claimledger.repository.UserRepository;
 import com.claimledger.security.UserPrincipal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +59,10 @@ public class ReviewService {
      */
     @Transactional
     public SubmissionResponse reviewSubmission(UUID submissionId, ReviewRequest request, UserPrincipal reviewer) {
+        if (reviewer.getRole() != Role.REVIEWER && reviewer.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Only Authorised Reviewers or Admins can review submissions.");
+        }
+
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
 
@@ -110,6 +116,28 @@ public class ReviewService {
             return List.of();
         }
         List<UUID> submissionIds = userSubmissions.stream().map(Submission::getId).toList();
+        List<ReviewAction> actions = reviewActionRepository.findBySubmissionIdInOrderByCreatedAtDesc(submissionIds);
+        return mapReviewActions(actions);
+    }
+
+    /**
+     * Returns department chronological audit history strictly scoped to a department's submissions (for Department Manager).
+     */
+    @Transactional(readOnly = true)
+    public List<ReviewActionResponse> getAuditHistoryForDepartment(UUID departmentId, UUID organisationId) {
+        if (departmentId == null) {
+            return List.of();
+        }
+        List<Submission> deptSubmissions = submissionRepository.findByDepartmentIdOrderByCreatedAtDesc(departmentId);
+        if (deptSubmissions == null || deptSubmissions.isEmpty()) {
+            return List.of();
+        }
+        if (organisationId != null) {
+            deptSubmissions = deptSubmissions.stream()
+                    .filter(s -> organisationId.equals(s.getOrganisationId()))
+                    .toList();
+        }
+        List<UUID> submissionIds = deptSubmissions.stream().map(Submission::getId).toList();
         List<ReviewAction> actions = reviewActionRepository.findBySubmissionIdInOrderByCreatedAtDesc(submissionIds);
         return mapReviewActions(actions);
     }

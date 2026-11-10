@@ -7,6 +7,9 @@ import { AdminSubmissionDetail } from './pages/AdminSubmissionDetail'
 import { AdminSubmissions } from './pages/AdminSubmissions'
 import { ApprovalManagement } from './pages/ApprovalManagement'
 import { BrandGuidelines } from './pages/BrandGuidelines'
+import { DepartmentActivity } from './pages/DepartmentActivity'
+import { DepartmentInsights } from './pages/DepartmentInsights'
+import { DepartmentSubmissions } from './pages/DepartmentSubmissions'
 import { History } from './pages/History'
 import { Home } from './pages/Home'
 import { Insights } from './pages/Insights'
@@ -48,10 +51,10 @@ export default function App() {
               <Route path="review/:id" element={<ReviewDetail />} />
               <Route path="knowledge-base" element={<KnowledgeBase />} />
               <Route path="history" element={<History />} />
-              <Route path="department/submissions" element={<AdminSubmissions />} />
+              <Route path="department/submissions" element={<DepartmentSubmissions />} />
               <Route path="department/submissions/:id" element={<AdminSubmissionDetail />} />
-              <Route path="department/insights" element={<Insights />} />
-              <Route path="department/activity" element={<History />} />
+              <Route path="department/insights" element={<DepartmentInsights />} />
+              <Route path="department/activity" element={<DepartmentActivity />} />
               <Route path="admin/submissions" element={<AdminSubmissions />} />
               <Route path="admin/submissions/:id" element={<AdminSubmissionDetail />} />
               <Route path="admin/users" element={<UserManagement />} />

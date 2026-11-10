@@ -14,6 +14,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../auth/AuthContext'
 import { AuditTimeline, formatWhen } from '../components/AuditTimeline'
 import { EvidenceCard } from '../components/EvidenceCard'
 import { StatusPill } from '../components/StatusPill'
@@ -40,6 +41,11 @@ const CLAIM_TYPE_LABELS: Record<string, string> = {
 
 export function AdminSubmissionDetail() {
   const { id = '' } = useParams()
+  const { user } = useAuth()
+  const isManager = user?.role === 'DEPT_MANAGER'
+  const backUrl = isManager ? '/department/submissions' : '/admin/submissions'
+  const backLabel = isManager ? 'Back to Department Submissions' : 'Back to Content & Submissions'
+
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null)
 
   // Query submission details
@@ -123,10 +129,10 @@ export function AdminSubmissionDetail() {
       {/* 1. Back Navigation & Header */}
       <div>
         <Link
-          to="/admin/submissions"
-          className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink transition"
+          to={backUrl}
+          className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-ink transition cursor-pointer"
         >
-          <ArrowLeft size={14} /> Back to Content & Submissions
+          <ArrowLeft size={14} /> {backLabel}
         </Link>
 
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -159,23 +165,29 @@ export function AdminSubmissionDetail() {
         </div>
       </div>
 
-      {/* 2. Admin Oversight Banner */}
+      {/* 2. Oversight Banner */}
       <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-4 text-xs text-teal-950 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-start gap-2.5">
           <ShieldCheck size={18} className="text-[#0F766E] shrink-0 mt-0.5" />
           <div>
-            <p className="font-bold text-[#0F766E]">Admin Governance Oversight</p>
+            <p className="font-bold text-[#0F766E]">
+              {isManager ? 'Department Oversight Mode · Read-Only Verification' : 'Admin Governance Oversight'}
+            </p>
             <p className="mt-0.5 text-slate-700">
-              You are viewing this submission in <strong>read-only governance mode</strong>. AI claim extraction, authority resolution against Tier 1 catalogues, and revision histories are fully auditable. Review decisions are recorded by Authorised Reviewers.
+              {isManager
+                ? 'You are viewing this departmental submission in read-only oversight mode. Automated claim extractions, grounded Tier 1 evidence, and revision trails are fully auditable. Review decisions are recorded by Authorised Reviewers.'
+                : 'You are viewing this submission in read-only governance mode. AI claim extraction, authority resolution against Tier 1 catalogues, and revision histories are fully auditable. Review decisions are recorded by Authorised Reviewers.'}
             </p>
           </div>
         </div>
-        <Link
-          to="/review"
-          className="inline-flex items-center gap-1 shrink-0 rounded-lg bg-white border border-teal-300 px-3 py-1.5 font-semibold text-[#0F766E] hover:bg-teal-50 transition"
-        >
-          View Reviewer Queue <ExternalLink size={12} />
-        </Link>
+        {!isManager && (
+          <Link
+            to="/review"
+            className="inline-flex items-center gap-1 shrink-0 rounded-lg bg-white border border-teal-300 px-3 py-1.5 font-semibold text-[#0F766E] hover:bg-teal-50 transition"
+          >
+            View Reviewer Queue <ExternalLink size={12} />
+          </Link>
+        )}
       </div>
 
       {/* 3. Overall Compliance Analysis Ribbon */}

@@ -27,7 +27,7 @@ public class ReviewController {
     }
 
     @PostMapping("/{id}/review")
-    @PreAuthorize("hasAnyRole('REVIEWER', 'ADMIN', 'DEPT_MANAGER')")
+    @PreAuthorize("hasAnyRole('REVIEWER', 'ADMIN')")
     @Operation(summary = "Reviewer action: approve, request changes, or reject submission with feedback")
     public ResponseEntity<ApiResponse<SubmissionResponse>> reviewSubmission(
             @PathVariable UUID id,

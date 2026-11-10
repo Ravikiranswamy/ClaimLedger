@@ -36,6 +36,8 @@ public class AuditController {
         List<ReviewActionResponse> history;
         if (principal != null && principal.getRole() == Role.CREATOR) {
             history = reviewService.getAuditHistoryForCreator(principal.getId());
+        } else if (principal != null && principal.getRole() == Role.DEPT_MANAGER) {
+            history = reviewService.getAuditHistoryForDepartment(principal.getDepartmentId(), principal.getOrganisationId());
         } else {
             history = reviewService.getAllAuditHistory(principal != null ? principal.getOrganisationId() : null);
         }

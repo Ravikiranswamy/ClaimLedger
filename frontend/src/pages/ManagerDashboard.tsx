@@ -108,28 +108,24 @@ export function ManagerDashboard() {
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* 1. Department Submissions */}
-          <Link
-            to="/department/submissions"
-            className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-5 shadow-xs hover:border-[#0F766E] hover:shadow-md transition text-left group"
+          <div
+            className="flex flex-col justify-between rounded-2xl border border-line bg-surface p-5 shadow-xs"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-muted">
                 Department Submissions
               </span>
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 transition group-hover:scale-105">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                 <FileText size={18} />
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-[#0A1F36]">
               {isLoading ? '–' : totalDepartmentSubmissions}
             </p>
-            <div className="mt-2 flex items-center justify-between text-xs text-muted">
+            <div className="mt-2 text-xs text-muted">
               <span>Total departmental submissions</span>
-              <span className="text-[#0F766E] font-semibold group-hover:underline inline-flex items-center gap-0.5">
-                View <ArrowRight size={12} />
-              </span>
             </div>
-          </Link>
+          </div>
 
           {/* 2. Awaiting Review */}
           <Link

@@ -805,7 +805,7 @@ export const mockApi: Api = {
   async reviewSubmission(id, action, comment) {
     await wait(300)
     const user = me()
-    if (user.role === 'CREATOR') throw new ApiError('You do not have permission to do that.', 403)
+    if (user.role === 'CREATOR' || user.role === 'DEPT_MANAGER') throw new ApiError('You do not have permission to do that.', 403)
     const s = subs.get(id)
     if (!s) throw new ApiError('Submission not found', 404)
     s.status = action === 'REVIEWER_APPROVED' ? 'APPROVED' : action === 'REVIEWER_REJECTED' ? 'REJECTED' : 'CHANGES_REQUESTED'
@@ -857,6 +857,23 @@ export const mockApi: Api = {
         }
       })
       return [...orgAudits, ...subAudits].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    }
+
+    if (user.role === 'DEPT_MANAGER') {
+      const deptAudits: AuditEntry[] = []
+      audits.forEach((list, subId) => {
+        const sub = subs.get(subId)
+        if (sub && sub.departmentId === user.departmentId) {
+          list.forEach((entry) => {
+            deptAudits.push({
+              ...entry,
+              resourceName: sub.title ?? 'Content Submission',
+              departmentName: sub.departmentName ?? user.departmentName ?? 'Marketing',
+            })
+          })
+        }
+      })
+      return deptAudits.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     }
 
     const all: AuditEntry[] = []
