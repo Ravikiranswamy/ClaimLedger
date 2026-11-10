@@ -13,8 +13,8 @@ import {
   ShieldAlert,
   ShieldCheck,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { formatWhen } from '../components/AuditTimeline'
@@ -33,12 +33,25 @@ export function AdminSubmissions() {
     DEPARTMENTS.find((d) => d.id === user?.departmentId)?.name ||
     'Marketing'
 
+  const [searchParams] = useSearchParams()
+  const urlStatus = searchParams.get('status') as StatusFilterType | null
+
   // Filters state
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState<string>('ALL')
   const [contentTypeFilter, setContentTypeFilter] = useState<string>('ALL')
-  const [statusFilter, setStatusFilter] = useState<StatusFilterType>('ALL')
+  const [statusFilter, setStatusFilter] = useState<StatusFilterType>(
+    urlStatus && ['ALL', 'AWAITING_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'DRAFT'].includes(urlStatus)
+      ? urlStatus
+      : 'ALL'
+  )
   const [sortBy, setSortBy] = useState<SortOrder>('NEWEST')
+
+  useEffect(() => {
+    if (urlStatus && ['ALL', 'AWAITING_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'DRAFT'].includes(urlStatus)) {
+      setStatusFilter(urlStatus)
+    }
+  }, [urlStatus])
 
   // Query submissions across the entire organisation
   const submissionsQ = useQuery({

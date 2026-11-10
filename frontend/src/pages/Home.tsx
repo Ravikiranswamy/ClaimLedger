@@ -21,6 +21,7 @@ import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { ROLE_LABEL, type ActionType } from '../types'
 import { CreatorDashboard } from './CreatorDashboard'
 import { ReviewerDashboard } from './ReviewerDashboard'
+import { ManagerDashboard } from './ManagerDashboard'
 
 const ACTION_LABEL: Partial<Record<ActionType, { label: string; badgeClass: string }>> = {
   SUBMITTED: { label: 'Submitted', badgeClass: 'bg-blue-50 text-blue-700 border-blue-200' },
@@ -44,9 +45,13 @@ export function Home() {
   const { user } = useAuth()
 
   const isCreator = user?.role === 'CREATOR'
-  const submissionsQ = useQuery({ queryKey: ['submissions'], queryFn: api.listSubmissions, enabled: !isCreator })
-  const documentsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments(), enabled: !isCreator })
-  const auditQ = useQuery({ queryKey: ['global-audit'], queryFn: api.listGlobalAudit, enabled: !isCreator })
+  const isReviewer = user?.role === 'REVIEWER'
+  const isManager = user?.role === 'DEPT_MANAGER'
+  const isAdmin = user?.role === 'ADMIN'
+
+  const submissionsQ = useQuery({ queryKey: ['submissions'], queryFn: api.listSubmissions, enabled: isAdmin })
+  const documentsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments(), enabled: isAdmin })
+  const auditQ = useQuery({ queryKey: ['global-audit'], queryFn: api.listGlobalAudit, enabled: isAdmin })
 
   // Content Creator Dashboard is strictly scoped to the creator persona
   if (isCreator) {
@@ -54,8 +59,13 @@ export function Home() {
   }
 
   // Authorised Reviewer Dashboard is strictly scoped to reviewer responsibilities
-  if (user?.role === 'REVIEWER') {
+  if (isReviewer) {
     return <ReviewerDashboard />
+  }
+
+  // Department Manager Dashboard is strictly scoped to departmental oversight
+  if (isManager) {
+    return <ManagerDashboard />
   }
 
   const submissions = submissionsQ.data ?? []
