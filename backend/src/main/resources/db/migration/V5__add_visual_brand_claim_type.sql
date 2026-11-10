@@ -8,3 +8,4 @@ BEGIN
     -- Re-create check constraint to permit VISUAL_BRAND alongside factual and textual claim types
     ALTER TABLE claims ADD CONSTRAINT claims_claim_type_check CHECK (claim_type IN ('PRICE', 'FEATURE', 'PROMOTION', 'TERMINOLOGY', 'TONE', 'FACTUAL', 'VISUAL_BRAND', 'OTHER'));
 END $$;
+

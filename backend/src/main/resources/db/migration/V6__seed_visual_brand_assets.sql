@@ -53,3 +53,4 @@ BEGIN
         CURRENT_TIMESTAMP
     );
 END $$;
+

@@ -25,7 +25,7 @@ import { EvidenceCard } from '../components/EvidenceCard'
 import { StatusPill } from '../components/StatusPill'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { buildSegments } from '../lib/highlight'
-import { getSubmissionMediaUrl } from '../lib/media'
+import { useSecureMediaUrl } from '../lib/media'
 import type { ClaimState } from '../types'
 
 const MARK: Record<ClaimState, string> = {
@@ -87,7 +87,7 @@ export function AdminSubmissionDetail() {
     return s.claims
   }, [s, findingsTab, textClaims, visualClaims])
 
-  const mediaUrl = s ? getSubmissionMediaUrl(s) : ''
+  const mediaUrl = useSecureMediaUrl(s)
 
   // Auto-select first flagged claim on load
   useEffect(() => {

@@ -35,7 +35,7 @@ import { AuditTimeline } from '../components/AuditTimeline'
 import { CheckingView } from '../components/CheckingView'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { applySuggestions, buildSegments } from '../lib/highlight'
-import { getSubmissionMediaUrl } from '../lib/media'
+import { useSecureMediaUrl } from '../lib/media'
 import type { AuthorityTier, Claim, ClaimState, Evidence, KnowledgeDoc, ReviewAction, Submission } from '../types'
 import { isAuthoritative } from '../types'
 
@@ -203,7 +203,7 @@ export function ReviewDetail() {
     return s.claims
   }, [s, findingsTab, textClaims, visualClaims])
 
-  const mediaUrl = s ? getSubmissionMediaUrl(s) : ''
+  const mediaUrl = useSecureMediaUrl(s)
 
   // Select the first claim that needs attention once data arrives
   useEffect(() => {
