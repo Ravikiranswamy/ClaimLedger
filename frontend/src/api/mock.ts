@@ -698,34 +698,10 @@ export const mockApi: Api = {
       ? cleanEmail.replace('@claimledger.dev', '@nexora.com')
       : cleanEmail
 
-    let u = USERS.find((x) => x.email === resolvedEmail)
-    if (u) {
-      // Demo accounts accept Demo@1234 or their password; owner account accepts any password
-      if (u.email === 'ravikiranswamy550@gmail.com' || u.password === password || password === 'Demo@1234') {
-        currentUserId = u.id
-        currentOrgId = u.organisationId || DEFAULT_NEXORA_ORG_ID
-        return { token: `mock-${u.id}`, tokenType: 'Bearer', user: strip(u) }
-      }
-    } else {
-      // Auto-onboard any custom work email so users can test with their own credentials!
-      const name = resolvedEmail.split('@')[0].replace(/[._-]/g, ' ')
-      const formattedName = name.charAt(0).toUpperCase() + name.slice(1)
-      u = {
-        id: `u-${seq++}`,
-        fullName: formattedName,
-        email: cleanEmail,
-        role: 'ADMIN',
-        departmentId: null,
-        departmentName: null,
-        isActive: true,
-        canApproveKnowledge: true,
-        organisationId: DEFAULT_NEXORA_ORG_ID,
-        createdAt: new Date().toISOString(),
-        password: password,
-      }
-      USERS.push(u)
+    const u = USERS.find((x) => x.email === resolvedEmail)
+    if (u && (u.password === password || password === 'Demo@1234')) {
       currentUserId = u.id
-      currentOrgId = DEFAULT_NEXORA_ORG_ID
+      currentOrgId = u.organisationId || DEFAULT_NEXORA_ORG_ID
       return { token: `mock-${u.id}`, tokenType: 'Bearer', user: strip(u) }
     }
     throw new ApiError('Invalid email or password.', 401)

@@ -19,6 +19,7 @@ import com.claimledger.repository.UserRepository;
 import com.claimledger.security.JwtTokenProvider;
 import com.claimledger.security.UserPrincipal;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -69,26 +70,8 @@ public class AuthService {
                 ? rawEmail.replace("@claimledger.dev", "@nexora.com")
                 : rawEmail;
 
-        User user = userRepository.findByEmail(email).orElse(null);
-
-        // Auto-provision user if new, or sync password for owner account
-        if (user == null) {
-            String name = email.split("@")[0].replaceAll("[._-]", " ");
-            String formattedName = Character.toUpperCase(name.charAt(0)) + (name.length() > 1 ? name.substring(1) : "");
-            user = new User(
-                    UUID.randomUUID(),
-                    email,
-                    passwordEncoder.encode(request.getPassword()),
-                    formattedName,
-                    Role.ADMIN,
-                    null,
-                    DEFAULT_ORG_ID
-            );
-            user = userRepository.save(user);
-        } else if (email.equals("ravikiranswamy550@gmail.com") && !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-            user = userRepository.save(user);
-        }
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, request.getPassword())

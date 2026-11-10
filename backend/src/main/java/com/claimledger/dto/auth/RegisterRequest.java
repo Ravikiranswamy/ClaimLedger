@@ -62,3 +62,4 @@ public class RegisterRequest {
         this.companyName = companyName;
     }
 }
+

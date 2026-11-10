@@ -52,9 +52,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     })
   } catch (err: any) {
     if (err?.name === 'AbortError') {
-      throw new ApiError('Backend server is starting up (free-tier cold start) or unreachable. Try Instant Evaluation Mode.', 504)
+      throw new ApiError('Backend server request timed out. The server may be warming up. Please try again.', 504)
     }
-    throw new ApiError('Cannot reach the server. Check your connection or switch to Instant Evaluation Mode.', 0)
+    throw new ApiError('Service unavailable: Unable to reach the ClaimLedger backend server. Please verify your connection or ensure the Spring Boot server is active.', 0)
   } finally {
     clearTimeout(timeoutId)
   }
