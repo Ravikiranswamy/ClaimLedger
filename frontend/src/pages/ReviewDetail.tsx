@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Lightbulb, Loader2, Wand2 } from 'lucide-react'
+import { ArrowLeft, Lightbulb, Loader2, ShieldCheck, Wand2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { AuditTimeline } from '../components/AuditTimeline'
@@ -23,6 +23,7 @@ const CLOSED = ['APPROVED', 'REJECTED']
 
 export function ReviewDetail() {
   const { id = '' } = useParams()
+  const location = useLocation()
   const { user } = useAuth()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['submission', id], queryFn: () => api.getSubmission(id) })
@@ -58,16 +59,17 @@ export function ReviewDetail() {
 
   const claim = s.claims.find((c) => c.id === selected) ?? null
   const unresolved = s.claims.filter((c) => c.verificationStatus !== 'VERIFIED').length
-  const canDecide = !!user && REVIEWER_ROLES.includes(user.role) && !CLOSED.includes(s.status)
-  const canRevise = user?.role === 'CREATOR' && ['FLAGGED', 'CHANGES_REQUESTED', 'DRAFT'].includes(s.status)
+  const isReadOnlyMode = new URLSearchParams(location.search).get('mode') === 'readonly' || CLOSED.includes(s.status)
+  const canDecide = !isReadOnlyMode && !!user && REVIEWER_ROLES.includes(user.role) && !CLOSED.includes(s.status) && s.status !== 'CHANGES_REQUESTED'
+  const canRevise = !isReadOnlyMode && user?.role === 'CREATOR' && ['FLAGGED', 'CHANGES_REQUESTED', 'DRAFT'].includes(s.status)
 
   return (
     <>
       <Link
-        to={user?.role === 'CREATOR' ? '/my-content' : '/review'}
+        to={isReadOnlyMode ? '/history' : user?.role === 'CREATOR' ? '/my-content' : '/review'}
         className="mb-4 inline-flex items-center gap-1.5 text-muted hover:text-ink font-medium"
       >
-        <ArrowLeft size={18} aria-hidden /> {user?.role === 'CREATOR' ? 'Back to My Content' : 'All submissions'}
+        <ArrowLeft size={18} aria-hidden /> {isReadOnlyMode ? 'Back to Review History' : user?.role === 'CREATOR' ? 'Back to My Content' : 'Back to Review Queue'}
       </Link>
       <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -85,6 +87,26 @@ export function ReviewDetail() {
           <SubmissionStatusChip status={s.status} />
         </div>
       </header>
+
+      {/* Historical Context Banner (Read-Only) */}
+      {isReadOnlyMode && (
+        <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-900 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 font-bold shrink-0">
+              <ShieldCheck size={18} />
+            </span>
+            <div>
+              <p className="font-bold text-sm text-blue-950">Historical Review Record (Read-Only Context)</p>
+              <p className="text-blue-800">
+                This completed review decision is archived in the governance ledger. Approval actions are disabled for completed reviews.
+              </p>
+            </div>
+          </div>
+          <span className="rounded-md bg-white border border-blue-200 px-3 py-1 text-xs font-bold text-blue-800">
+            Recorded Decision: {s.status.replace(/_/g, ' ')}
+          </span>
+        </div>
+      )}
 
       <p className="mb-5 text-lg" aria-live="polite">
         {s.claims.length === 0
@@ -127,10 +149,16 @@ export function ReviewDetail() {
       </div>
 
       {canDecide && <DecisionBar s={s} unresolved={unresolved} onDone={store} />}
-      {CLOSED.includes(s.status) && (
-        <p className="mt-6 rounded-2xl border border-line bg-surface p-5 text-lg">
-          Decision recorded: <strong>{s.status === 'APPROVED' ? 'approved' : 'rejected'}</strong>. It stays in the history below.
-        </p>
+      {(isReadOnlyMode || CLOSED.includes(s.status) || s.status === 'CHANGES_REQUESTED') && !canDecide && (
+        <div className="mt-6 rounded-2xl border border-line bg-surface p-5 text-sm space-y-1 shadow-xs">
+          <span className="font-bold uppercase tracking-wider text-xs text-muted block">Recorded Review Decision:</span>
+          <p className="font-display font-bold text-base text-ink">
+            Status: <span className={s.status === 'APPROVED' ? 'text-emerald-700' : s.status === 'REJECTED' ? 'text-rose-700' : 'text-amber-700'}>{s.status.replace(/_/g, ' ')}</span>
+          </p>
+          <p className="text-xs text-muted">
+            This decision is permanently recorded with full audit justification and timestamps in the history log below.
+          </p>
+        </div>
       )}
 
       <section aria-labelledby="hist-h" className="mt-8 rounded-2xl border border-line bg-surface p-6">

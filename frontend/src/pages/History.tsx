@@ -31,6 +31,7 @@ import { api } from '../api'
 import { useAuth } from '../auth/AuthContext'
 import { formatWhen } from '../components/AuditTimeline'
 import { DEPARTMENTS, type ActionType, type AuditEntry } from '../types'
+import { ReviewerHistory } from './ReviewerHistory'
 
 type ActivityCategory = 'ALL' | 'CONTENT_REVIEW' | 'KNOWLEDGE' | 'USER_MANAGEMENT'
 type DateRangeOption = 'ALL' | 'TODAY' | '7_DAYS' | '30_DAYS'
@@ -157,6 +158,9 @@ export function History() {
   const { user } = useAuth()
   if (user?.role === 'CREATOR') {
     return <CreatorHistory user={user} />
+  }
+  if (user?.role === 'REVIEWER') {
+    return <ReviewerHistory user={user} />
   }
   return <AdminHistory />
 }
