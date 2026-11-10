@@ -206,6 +206,19 @@ export function Login() {
             Sign in
           </button>
 
+          {/* Create New Account Option */}
+          <div className="pt-2 text-center border-t border-line/60">
+            <p className="text-xs text-muted">
+              Don't have an account?{' '}
+              <button
+                type="button"
+                className="font-bold text-[#0F766E] hover:text-[#0D9488] hover:underline cursor-pointer transition"
+              >
+                Create new account
+              </button>
+            </p>
+          </div>
+
           {isWakingUp && <WakeupBanner elapsed={elapsed} onSwitchMock={handleInstantBypass} />}
         </form>
 
