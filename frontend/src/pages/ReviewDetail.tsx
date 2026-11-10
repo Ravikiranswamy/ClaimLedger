@@ -1251,7 +1251,7 @@ function RevisePanel({ s, onDone }: { s: Submission; onDone: (s: Submission) => 
           className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-strong transition shadow-2xs cursor-pointer"
         >
           <Wand2 size={14} />
-          Apply Suggested Corrections & Resubmit
+          {s.contentType === 'IMAGE' ? 'Fix Visual Governance & Resubmit' : 'Apply Suggested Corrections & Resubmit'}
         </button>
       </div>
     )
@@ -1260,9 +1260,11 @@ function RevisePanel({ s, onDone }: { s: Submission; onDone: (s: Submission) => 
   return (
     <div className="mt-4 space-y-3 rounded-xl border border-line bg-canvas p-4 text-xs">
       <p className="font-semibold text-ink">
-        {applied > 0
-          ? `${applied} suggested correction${applied === 1 ? '' : 's'} applied automatically. Edit as needed, then resubmit.`
-          : 'Edit your content text below and resubmit for verification.'}
+        {s.contentType === 'IMAGE'
+          ? 'Confirm your revised submission to rectify visual brand guidelines and resubmit for verification.'
+          : applied > 0
+            ? `${applied} suggested correction${applied === 1 ? '' : 's'} applied automatically. Edit as needed, then resubmit.`
+            : 'Edit your content text below and resubmit for verification.'}
       </p>
       <label htmlFor="revised-text" className="sr-only">
         Revised content

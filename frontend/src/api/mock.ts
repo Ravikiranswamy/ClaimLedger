@@ -1032,8 +1032,82 @@ export const mockApi: Api = {
     if (user.role === 'CREATOR' && s.submittedBy !== user.id) {
       throw new ApiError('Creators are only permitted to revise their own submissions.', 403)
     }
-    const { claims, status } = analyse(content)
-    Object.assign(s, { content, claims, status, revisionNumber: s.revisionNumber + 1, updatedAt: new Date().toISOString() })
+
+    let { claims, status } = analyse(content, s.contentType, undefined, s.title)
+
+    // If it is an IMAGE submission, handle visual governance resolution
+    if (s.contentType === 'IMAGE') {
+      const hadVisualViolations = s.claims.some(
+        (c) => c.claimType === 'VISUAL_BRAND' && c.verificationStatus !== 'VERIFIED'
+      )
+
+      const approvedVisualDocs = MOCK_DOCS.filter(
+        (d) =>
+          (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId &&
+          d.category === 'ASSETS' &&
+          d.approvalStatus === 'APPROVED'
+      )
+
+      if (hadVisualViolations) {
+        // Creator applied the corrections and rectified visual branding
+        claims = claims.filter((c) => c.claimType !== 'VISUAL_BRAND')
+
+        claims.push({
+          id: `c${seq++}`,
+          claimText: 'Official Brand Identity: Logo Placement & Clear Space Rectified',
+          claimType: 'VISUAL_BRAND',
+          verificationStatus: 'VERIFIED',
+          explanation:
+            'Visual identity rectified: displays the official approved company mark with required clear space and isolation margins.',
+          suggestedCorrection: null,
+          aiConfidence: 0.98,
+          evidence: [
+            {
+              id: `c${seq++}-e1`,
+              documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
+              authorityTier: 'TIER_1',
+              authoritative: true,
+              pageNumber: 1,
+              excerpt:
+                'Brand Guidelines - Section 1.2: Official Logo Placement: Official primary logo mark verified with clear space adherence.',
+            },
+          ],
+        })
+
+        claims.push({
+          id: `c${seq++}`,
+          claimText: 'Brand Colour Palette Compliance: Rectified Approved Colors (#0A1F36, #0F766E)',
+          claimType: 'VISUAL_BRAND',
+          verificationStatus: 'VERIFIED',
+          explanation:
+            'Dominant colors in the graphic conform to the approved corporate brand palette (#0A1F36 Primary Navy, #0F766E Teal).',
+          suggestedCorrection: null,
+          aiConfidence: 0.95,
+          evidence: [
+            {
+              id: `c${seq++}-e2`,
+              documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
+              authorityTier: 'TIER_1',
+              authoritative: true,
+              pageNumber: 1,
+              excerpt:
+                'Nexora Corporate Brand Palette: Primary Navy (#0A1F36), Dark Teal (#0F766E). Corporate promotional collateral conforms to approved color swatches.',
+            },
+          ],
+        })
+      }
+
+      const hasBad = claims.some((c) => c.verificationStatus !== 'VERIFIED')
+      status = hasBad ? 'FLAGGED' : 'VERIFIED'
+    }
+
+    Object.assign(s, {
+      content,
+      claims,
+      status,
+      revisionNumber: s.revisionNumber + 1,
+      updatedAt: new Date().toISOString(),
+    })
     log(id, user, 'CREATOR_REVISED', comment || 'Content revised')
     log(id, { ...user, fullName: 'System', email: '', role: 'ADMIN' }, 'ANALYZED', `${claims.length} claim(s) checked`)
     return structuredClone(s)
