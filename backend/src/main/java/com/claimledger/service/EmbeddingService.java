@@ -38,10 +38,12 @@ public class EmbeddingService {
             return new float[VECTOR_DIMENSION];
         }
 
-        // Try Google Gemini text-embedding-004 first
-        Optional<float[]> geminiEmbedding = geminiClientService.generateEmbedding(text);
-        if (geminiEmbedding.isPresent() && geminiEmbedding.get().length == VECTOR_DIMENSION) {
-            return geminiEmbedding.get();
+        // Try Google Gemini text-embedding-004 first if client is configured
+        if (geminiClientService != null) {
+            Optional<float[]> geminiEmbedding = geminiClientService.generateEmbedding(text);
+            if (geminiEmbedding.isPresent() && geminiEmbedding.get().length == VECTOR_DIMENSION) {
+                return geminiEmbedding.get();
+            }
         }
 
         // Fallback: Deterministic semantic bag-of-words projection to 768-dim unit sphere

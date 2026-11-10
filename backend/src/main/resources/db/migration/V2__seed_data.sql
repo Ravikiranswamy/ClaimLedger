@@ -112,36 +112,40 @@ BEGIN
         role = EXCLUDED.role;
 
     -- 4. Demo Knowledge Documents
-    -- 1. Nexora_Old_Brochure_v1.pdf - SUPERSEDED, TIER_3, Sales
+    -- 1. Nexora_Old_Brochure_v1.pdf - SUPERSEDED, TIER_3, Marketing
     INSERT INTO knowledge_documents (
         id, name, file_path, department_id, organisation_id,
         approval_status, authority_tier, version, effective_date, expiry_date,
-        product_scope, region, channel, uploaded_by, created_at
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
     ) VALUES (
         'dc000001-0000-0000-0000-000000000001',
         'Nexora_Old_Brochure_v1.pdf',
         'uploads/documents/Nexora_Old_Brochure_v1.pdf',
-        v_sales_dept_id,
+        v_mkt_dept_id,
         v_org_id,
         'SUPERSEDED',
         'TIER_3',
-        'v1.0',
+        '1.0',
         '2025-01-01',
-        '2025-12-31',
-        'Nexora Standard',
+        '2026-06-30',
+        'Nexora Pro',
         'GLOBAL',
         'ALL',
+        'ASSETS',
+        1,
         v_admin_id,
         CURRENT_TIMESTAMP
     ) ON CONFLICT (id) DO UPDATE SET 
         approval_status = EXCLUDED.approval_status,
-        authority_tier = EXCLUDED.authority_tier;
+        authority_tier = EXCLUDED.authority_tier,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
 
-    -- 2. Nexora_Sales_Proposal_v2.pdf - APPROVED, TIER_2, Sales, product_scope=Nexora Pro
+    -- 2. Nexora_Sales_Proposal_v2.pdf - APPROVED, TIER_2, Sales, Acme Corp exception
     INSERT INTO knowledge_documents (
         id, name, file_path, department_id, organisation_id,
         approval_status, authority_tier, version, effective_date, expiry_date,
-        product_scope, region, channel, uploaded_by, created_at
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
     ) VALUES (
         'dc000002-0000-0000-0000-000000000002',
         'Nexora_Sales_Proposal_v2.pdf',
@@ -150,23 +154,28 @@ BEGIN
         v_org_id,
         'APPROVED',
         'TIER_2',
-        'v2.0',
+        '2.1',
         '2026-01-01',
         '2026-12-31',
         'Nexora Pro',
         'GLOBAL',
         'ALL',
+        'DEPARTMENTAL',
+        2,
         v_admin_id,
         CURRENT_TIMESTAMP
     ) ON CONFLICT (id) DO UPDATE SET 
         approval_status = EXCLUDED.approval_status,
-        authority_tier = EXCLUDED.authority_tier;
+        authority_tier = EXCLUDED.authority_tier,
+        version = EXCLUDED.version,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
 
     -- 3. Product_Master_Catalogue_v4.2.pdf - APPROVED, TIER_1, Sales, product_scope=Nexora Pro, effective 2026-11-01
     INSERT INTO knowledge_documents (
         id, name, file_path, department_id, organisation_id,
         approval_status, authority_tier, version, effective_date, expiry_date,
-        product_scope, region, channel, uploaded_by, created_at
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
     ) VALUES (
         'dc000003-0000-0000-0000-000000000003',
         'Product_Master_Catalogue_v4.2.pdf',
@@ -175,15 +184,224 @@ BEGIN
         v_org_id,
         'APPROVED',
         'TIER_1',
-        'v4.2',
+        '4.2',
         '2026-11-01',
-        NULL,
+        '2027-10-31',
         'Nexora Pro',
         'GLOBAL',
         'ALL',
+        'PRODUCTS',
+        2,
         v_admin_id,
         CURRENT_TIMESTAMP
     ) ON CONFLICT (id) DO UPDATE SET 
         approval_status = EXCLUDED.approval_status,
-        authority_tier = EXCLUDED.authority_tier;
+        authority_tier = EXCLUDED.authority_tier,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
+
+    -- 4. Brand_Guidelines_v2.pdf - APPROVED, TIER_1, Marketing, product_scope=ALL
+    INSERT INTO knowledge_documents (
+        id, name, file_path, department_id, organisation_id,
+        approval_status, authority_tier, version, effective_date, expiry_date,
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
+    ) VALUES (
+        'dc000004-0000-0000-0000-000000000004',
+        'Brand_Guidelines_v2.pdf',
+        'uploads/documents/Brand_Guidelines_v2.pdf',
+        v_mkt_dept_id,
+        v_org_id,
+        'APPROVED',
+        'TIER_1',
+        '2.0',
+        '2026-06-01',
+        '2027-06-30',
+        'ALL',
+        'GLOBAL',
+        'ALL',
+        'BRAND',
+        2,
+        v_admin_id,
+        CURRENT_TIMESTAMP
+    ) ON CONFLICT (id) DO UPDATE SET 
+        approval_status = EXCLUDED.approval_status,
+        authority_tier = EXCLUDED.authority_tier,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
+
+    -- 5. Nexora_Regional_Compensation_Addendum_2026.pdf - DRAFT, TIER_2, HR, product_scope=All Products
+    INSERT INTO knowledge_documents (
+        id, name, file_path, department_id, organisation_id,
+        approval_status, authority_tier, version, effective_date, expiry_date,
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
+    ) VALUES (
+        'dc000005-0000-0000-0000-000000000005',
+        'Nexora_Regional_Compensation_Addendum_2026.pdf',
+        'uploads/documents/Nexora_Regional_Compensation_Addendum_2026.pdf',
+        v_hr_dept_id,
+        v_org_id,
+        'DRAFT',
+        'TIER_2',
+        '1.2',
+        '2026-11-01',
+        '2027-10-31',
+        'All Products',
+        'GLOBAL',
+        'INTERNAL',
+        'DEPARTMENTAL',
+        2,
+        v_admin_id,
+        CURRENT_TIMESTAMP
+    ) ON CONFLICT (id) DO UPDATE SET 
+        approval_status = EXCLUDED.approval_status,
+        authority_tier = EXCLUDED.authority_tier,
+        product_scope = EXCLUDED.product_scope,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
+
+    -- 6. Nexora_Q4_Social_Media_Copywriting_Kit.pdf - DRAFT, TIER_3, Marketing
+    INSERT INTO knowledge_documents (
+        id, name, file_path, department_id, organisation_id,
+        approval_status, authority_tier, version, effective_date, expiry_date,
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
+    ) VALUES (
+        'dc000006-0000-0000-0000-000000000006',
+        'Nexora_Q4_Social_Media_Copywriting_Kit.pdf',
+        'uploads/documents/Nexora_Q4_Social_Media_Copywriting_Kit.pdf',
+        v_mkt_dept_id,
+        v_org_id,
+        'DRAFT',
+        'TIER_3',
+        '1.0',
+        '2026-11-01',
+        '2027-03-31',
+        'Nexora Pro',
+        'APAC',
+        'SOCIAL',
+        'BRAND',
+        1,
+        v_admin_id,
+        CURRENT_TIMESTAMP
+    ) ON CONFLICT (id) DO UPDATE SET 
+        approval_status = EXCLUDED.approval_status,
+        authority_tier = EXCLUDED.authority_tier,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
+
+    -- 7. Nexora_APAC_Promotional_Discount_Scheme_Outdated.pdf - REJECTED, TIER_3, Sales
+    INSERT INTO knowledge_documents (
+        id, name, file_path, department_id, organisation_id,
+        approval_status, authority_tier, version, effective_date, expiry_date,
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
+    ) VALUES (
+        'dc000007-0000-0000-0000-000000000007',
+        'Nexora_APAC_Promotional_Discount_Scheme_Outdated.pdf',
+        'uploads/documents/Nexora_APAC_Promotional_Discount_Scheme_Outdated.pdf',
+        v_sales_dept_id,
+        v_org_id,
+        'REJECTED',
+        'TIER_3',
+        '0.9',
+        '2025-06-01',
+        '2025-12-31',
+        'Nexora Pro',
+        'APAC',
+        'PARTNER',
+        'ASSETS',
+        1,
+        v_admin_id,
+        CURRENT_TIMESTAMP
+    ) ON CONFLICT (id) DO UPDATE SET 
+        approval_status = EXCLUDED.approval_status,
+        authority_tier = EXCLUDED.authority_tier,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
+
+    -- 8. Brand_Guidelines_v3.pdf - DRAFT, TIER_1, Marketing, v3.0
+    INSERT INTO knowledge_documents (
+        id, name, file_path, department_id, organisation_id,
+        approval_status, authority_tier, version, effective_date, expiry_date,
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
+    ) VALUES (
+        'dc000008-0000-0000-0000-000000000008',
+        'Brand_Guidelines_v3.pdf',
+        'uploads/documents/Brand_Guidelines_v3.pdf',
+        v_mkt_dept_id,
+        v_org_id,
+        'DRAFT',
+        'TIER_1',
+        '3.0',
+        '2026-11-01',
+        '2027-10-31',
+        'ALL',
+        'GLOBAL',
+        'ALL',
+        'BRAND',
+        3,
+        v_admin_id,
+        CURRENT_TIMESTAMP
+    ) ON CONFLICT (id) DO UPDATE SET 
+        approval_status = EXCLUDED.approval_status,
+        authority_tier = EXCLUDED.authority_tier,
+        version = EXCLUDED.version,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
+
+    -- 9. Approved_Claims_Register.pdf - DRAFT, TIER_1, Marketing, v1.0
+    INSERT INTO knowledge_documents (
+        id, name, file_path, department_id, organisation_id,
+        approval_status, authority_tier, version, effective_date, expiry_date,
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
+    ) VALUES (
+        'dc000009-0000-0000-0000-000000000009',
+        'Approved_Claims_Register.pdf',
+        'uploads/documents/Approved_Claims_Register.pdf',
+        v_mkt_dept_id,
+        v_org_id,
+        'DRAFT',
+        'TIER_1',
+        '1.0',
+        '2026-11-01',
+        '2027-10-31',
+        'Nexora Pro',
+        'GLOBAL',
+        'ALL',
+        'BRAND',
+        2,
+        v_admin_id,
+        CURRENT_TIMESTAMP
+    ) ON CONFLICT (id) DO UPDATE SET 
+        approval_status = EXCLUDED.approval_status,
+        authority_tier = EXCLUDED.authority_tier,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
+
+    -- 10. Terminology_and_Messaging_Guide.pdf - DRAFT, TIER_1, Marketing, v1.0
+    INSERT INTO knowledge_documents (
+        id, name, file_path, department_id, organisation_id,
+        approval_status, authority_tier, version, effective_date, expiry_date,
+        product_scope, region, channel, category, chunk_count, uploaded_by, created_at
+    ) VALUES (
+        'dc000010-0000-0000-0000-000000000010',
+        'Terminology_and_Messaging_Guide.pdf',
+        'uploads/documents/Terminology_and_Messaging_Guide.pdf',
+        v_mkt_dept_id,
+        v_org_id,
+        'DRAFT',
+        'TIER_1',
+        '1.0',
+        '2026-11-01',
+        '2027-10-31',
+        'ALL',
+        'GLOBAL',
+        'ALL',
+        'TERMINOLOGY',
+        2,
+        v_admin_id,
+        CURRENT_TIMESTAMP
+    ) ON CONFLICT (id) DO UPDATE SET 
+        approval_status = EXCLUDED.approval_status,
+        authority_tier = EXCLUDED.authority_tier,
+        category = EXCLUDED.category,
+        chunk_count = EXCLUDED.chunk_count;
 END $$;

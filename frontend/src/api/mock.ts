@@ -229,34 +229,112 @@ function log(id: string, actor: User, action: ActionType, comment?: string) {
 
 function evidenceFor(claimId: string): Evidence[] {
   return [
-    { id: `${claimId}-e1`, documentName: 'Product_Master_Catalog_v4.2.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 3,
-      excerpt: 'Nexora Pro — ₹999 per user per month, billed annually. Effective 1 Jan 2026.' },
-    { id: `${claimId}-e2`, documentName: 'Nexora_Sales_Proposal_v2.pdf', authorityTier: 'TIER_2', authoritative: false, pageNumber: 2,
-      excerpt: 'Special proposal price for the Acme deal: ₹899 per user per month.' },
+    { id: `${claimId}-e1`, documentName: 'Product_Master_Catalogue_v4.2.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 1,
+      excerpt: 'The authoritative enterprise subscription price for Nexora Pro is ₹999 per month (or billed annually). Guaranteed 99.9% uptime SLA.' },
+    { id: `${claimId}-e2`, documentName: 'Nexora_Sales_Proposal_v2.pdf', authorityTier: 'TIER_2', authoritative: false, pageNumber: 1,
+      excerpt: 'Authorized Tier 2 exception specifically negotiated for Acme Corp: approved deal price is ₹899 per user per month (min 100 seats).' },
     { id: `${claimId}-e3`, documentName: 'Nexora_Old_Brochure_v1.pdf', authorityTier: 'TIER_3', authoritative: false, pageNumber: 1,
-      excerpt: 'Nexora Pro starts at ₹799 per month. (Superseded)' },
+      excerpt: 'Introductory promotional launch rate is ₹799 per month. (Superseded by Product Master Catalogue v4.2).' },
   ]
 }
 
 function analyse(content: string): { claims: Claim[]; status: Submission['status'] } {
   const claims: Claim[] = []
+
+  // 1. Price analysis
   const price = /₹\s?(\d{3,4})(?:\s*(?:per|\/)\s*(?:user\s*)?(?:per\s*)?(?:month|mo))?/i.exec(content)
   if (price) {
-    const ok = price[1] === '999'
+    const val = price[1]
+    const id = `c${seq++}`
+    const isAcme = /acme/i.test(content)
+
+    if (val === '999') {
+      claims.push({
+        id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'VERIFIED',
+        explanation: 'Matches the current authoritative Nexora Pro price in Tier 1 Product Master Catalogue v4.2.',
+        suggestedCorrection: null, aiConfidence: 0.98, evidence: evidenceFor(id),
+      })
+    } else if (val === '899' && isAcme) {
+      claims.push({
+        id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'VERIFIED',
+        explanation: 'Verified against Tier 2 Nexora Sales Proposal v2.1: authorized ₹899 exception specifically negotiated for Acme Corp volume contract.',
+        suggestedCorrection: null, aiConfidence: 0.96, evidence: [
+          { id: `${id}-e1`, documentName: 'Nexora_Sales_Proposal_v2.pdf', authorityTier: 'TIER_2', authoritative: true, pageNumber: 1,
+            excerpt: 'Authorized Tier 2 exception specifically negotiated for Acme Corp: approved deal price is ₹899 per user per month billed annually (min 100 seats).' },
+          { id: `${id}-e2`, documentName: 'Product_Master_Catalogue_v4.2.pdf', authorityTier: 'TIER_1', authoritative: false, pageNumber: 1,
+            excerpt: 'Standard catalogue base price is ₹999 per month. Scoped departmental volume exceptions require Acme agreement reference.' },
+        ],
+      })
+    } else if (val === '899' && !isAcme) {
+      claims.push({
+        id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'CONFLICT',
+        explanation: 'The ₹899 rate is an authorized Tier 2 scoped exception restricted exclusively to Acme Corp contracts. General enterprise pricing requires master rate of ₹999.',
+        suggestedCorrection: '₹999 per month (or specify Acme Corp contract qualification)', aiConfidence: 0.94, evidence: evidenceFor(id),
+      })
+    } else {
+      claims.push({
+        id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'VIOLATION',
+        explanation: `Violation against authoritative Tier 1 Master Catalogue: approved price is ₹999/month, not ₹${val}. Outdated brochure rate of ₹799 is superseded.`,
+        suggestedCorrection: '₹999 per user per month', aiConfidence: 0.97, evidence: evidenceFor(id),
+      })
+    }
+  }
+
+  // 2. Unsubstantiated Guarantees & Superlative Claims
+  const guarantee = /\b(100%\s*error-free|foolproof|zero\s*risk|zero\s*mistakes|guaranteed\s*perfection|flawless)\b/i.exec(content)
+  if (guarantee) {
     const id = `c${seq++}`
     claims.push({
-      id, claimText: price[0], claimType: 'PRICE', verificationStatus: ok ? 'VERIFIED' : 'VIOLATION',
-      explanation: ok ? 'Matches the current approved Nexora Pro price.' : `The approved Nexora Pro price is ₹999/month, not ₹${price[1]}.`,
-      suggestedCorrection: ok ? null : '₹999 per month', aiConfidence: 0.97, evidence: evidenceFor(id),
+      id, claimText: guarantee[0], claimType: 'PROMOTION', verificationStatus: 'VIOLATION',
+      explanation: 'Unsupported promotional guarantee. Section 2 of Approved Claims Register strictly prohibits unsubstantiated absolute guarantees such as "100% error-free" or "foolproof compliance".',
+      suggestedCorrection: 'verified brand governance with deterministic multi-tier checking', aiConfidence: 0.95, evidence: [
+        { id: `${id}-e1`, documentName: 'Approved_Claims_Register.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
+          excerpt: 'Prohibited Claims: Claims promising absolute, unsubstantiated guarantees (e.g., "100% error-free guarantee", "foolproof compliance", "zero risk") are strictly prohibited under brand governance.' },
+      ],
     })
+  } else {
+    const fast = /\b(fastest|best|#1|number one|unbeatable|infinitely superior)\b/i.exec(content)
+    if (fast) {
+      const id = `c${seq++}`
+      claims.push({
+        id, claimText: fast[0], claimType: 'PROMOTION', verificationStatus: 'UNVERIFIED',
+        explanation: 'Unsupported superiority claim. Approved Claims Register requires third-party certified benchmark evidence for comparative claims.',
+        suggestedCorrection: 'enterprise-grade brand governance platform', aiConfidence: 0.88, evidence: [
+          { id: `${id}-e1`, documentName: 'Approved_Claims_Register.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
+            excerpt: 'Unsupported superiority claims (e.g. "the only real AI brand solution" or "infinitely superior") are prohibited without certified independent third-party market validation.' },
+        ],
+      })
+    }
   }
-  const fast = /\b(fastest|best|#1|number one|guaranteed)\b/i.exec(content)
-  if (fast) {
+
+  // 3. Tone & Prohibited Language
+  const tone = /\b(scam|junk|foolish|regret it|idiotic|stupid)\b/i.exec(content)
+  if (tone) {
+    const id = `c${seq++}`
     claims.push({
-      id: `c${seq++}`, claimText: fast[0], claimType: 'PROMOTION', verificationStatus: 'UNVERIFIED',
-      explanation: 'No approved source supports this superlative claim.', suggestedCorrection: null, aiConfidence: 0.71, evidence: [],
+      id, claimText: tone[0], claimType: 'TONE', verificationStatus: 'VIOLATION',
+      explanation: 'Tone and conduct violation. Section 2 of Brand Guidelines strictly prohibits insults, aggressive expressions, and disrespectful communication toward competitors or customers.',
+      suggestedCorrection: 'respectful, objective professional phrasing', aiConfidence: 0.96, evidence: [
+        { id: `${id}-e1`, documentName: 'Brand_Guidelines_v3.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
+          excerpt: 'Insults, offensive expressions, aggressive language, and disrespectful communication are strictly prohibited. Maintain respectful, confident, and customer-focused tone.' },
+      ],
     })
   }
+
+  // 4. Terminology & Unapproved Product Names
+  const term = /\b(Nexora Standard|Nexora Lite|Nexora Basic|Nexora App|The Nexora Tool|AI Judge|Grammar Cop)\b/i.exec(content)
+  if (term) {
+    const id = `c${seq++}`
+    claims.push({
+      id, claimText: term[0], claimType: 'TERMINOLOGY', verificationStatus: 'VIOLATION',
+      explanation: `Terminology violation. Terminology & Messaging Guide designates "${term[0]}" as unapproved or deprecated. The official product name is strictly "Nexora Pro" or "Nexora Pro Elite".`,
+      suggestedCorrection: 'Nexora Pro', aiConfidence: 0.98, evidence: [
+        { id: `${id}-e1`, documentName: 'Terminology_and_Messaging_Guide.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 1,
+          excerpt: 'Official Product Names: The primary brand governance offering must always be named "Nexora Pro" or "Nexora Pro Elite". Strictly prohibited names include "Nexora Standard", "Nexora Lite", "Nexora Basic".' },
+      ],
+    })
+  }
+
   const bad = claims.some((c) => c.verificationStatus !== 'VERIFIED')
   return { claims, status: bad ? 'FLAGGED' : 'VERIFIED' }
 }
@@ -288,6 +366,23 @@ async function create(title: string, content: string, type: 'TEXT' | 'PDF', depa
 const docAudits = new Map<string, AuditEntry[]>()
 
 // Pre-seed document audit logs
+docAudits.set('dc000008-0000-0000-0000-000000000008', [
+  { id: 'da-bg3', submissionId: undefined, actorName: 'Arjun Sharma', actorEmail: 'admin@nexora.com', actorRole: 'ADMIN', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded Brand Guidelines v3.0 covering personality, tone, prohibited language, and accessibility for governance review.', createdAt: '2026-11-09T10:00:00Z' },
+])
+
+docAudits.set('dc000009-0000-0000-0000-000000000009', [
+  { id: 'da-acr1', submissionId: undefined, actorName: 'Arjun Sharma', actorEmail: 'admin@nexora.com', actorRole: 'ADMIN', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded Approved Claims Register v1.0 with certified evidence, required qualifications, and prohibited claims.', createdAt: '2026-11-09T10:30:00Z' },
+])
+
+docAudits.set('dc000010-0000-0000-0000-000000000010', [
+  { id: 'da-tmg1', submissionId: undefined, actorName: 'Arjun Sharma', actorEmail: 'admin@nexora.com', actorRole: 'ADMIN', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded Terminology and Messaging Guide v1.0 with approved product nomenclature, company boilerplate, and positioning.', createdAt: '2026-11-09T11:00:00Z' },
+])
+
+docAudits.set('dc000002-0000-0000-0000-000000000002', [
+  { id: 'da-sp1', submissionId: undefined, actorName: 'Rahul Verma', actorEmail: 'manager@nexora.com', actorRole: 'Sales Manager', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded Nexora Sales Proposal v2.1 with authorized Acme Corp ₹899 exception.', createdAt: '2026-01-15T12:00:00Z' },
+  { id: 'da-sp2', submissionId: undefined, actorName: 'Arjun Sharma', actorEmail: 'admin@nexora.com', actorRole: 'ADMIN', action: 'KNOWLEDGE_APPROVED', comment: 'Approved departmental Tier 2 exception scoped strictly to Acme Corp contract.', createdAt: '2026-01-16T09:00:00Z' },
+])
+
 docAudits.set('dc000005-0000-0000-0000-000000000005', [
   { id: 'da1', submissionId: undefined, actorName: 'Priya Menon', actorEmail: 'creator@nexora.com', actorRole: 'HR Specialist', action: 'KNOWLEDGE_UPLOADED', comment: 'Uploaded regional compensation addendum v1.2 for departmental review.', createdAt: '2026-11-07T11:00:00Z' },
 ])
@@ -338,13 +433,196 @@ const userAudits: AuditEntry[] = [
 ]
 
 let MOCK_DOCS: KnowledgeDoc[] = [
-  { id: 'dc000005-0000-0000-0000-000000000005', name: 'Nexora_Regional_Compensation_Addendum_2026.pdf', category: 'DEPARTMENTAL', approvalStatus: 'DRAFT' as const, authorityTier: 'TIER_2' as const, version: '1.2', productScope: 'All Products', region: 'GLOBAL', channel: 'INTERNAL', departmentId: DEPARTMENTS[2].id, departmentName: 'HR & Compensation', effectiveDate: '2026-11-01', expiryDate: '2027-10-31', uploadedBy: 'Priya Menon', chunkCount: 2, createdAt: '2026-11-07T11:00:00Z' },
-  { id: 'dc000006-0000-0000-0000-000000000006', name: 'Nexora_Q4_Social_Media_Copywriting_Kit.pdf', category: 'BRAND', approvalStatus: 'DRAFT' as const, authorityTier: 'TIER_3' as const, version: '1.0', productScope: 'Nexora Pro', region: 'APAC', channel: 'SOCIAL', departmentId: MKT.id, departmentName: 'Marketing', effectiveDate: '2026-11-01', expiryDate: '2027-03-31', uploadedBy: 'Kiran Mehta', chunkCount: 1, createdAt: '2026-11-08T09:30:00Z' },
-  { id: 'dc000007-0000-0000-0000-000000000007', name: 'Nexora_APAC_Promotional_Discount_Scheme_Outdated.pdf', category: 'ASSETS', approvalStatus: 'REJECTED' as const, authorityTier: 'TIER_3' as const, version: '0.9', productScope: 'Nexora Pro', region: 'APAC', channel: 'PARTNER', departmentId: SALES.id, departmentName: 'Sales', effectiveDate: '2025-06-01', expiryDate: '2025-12-31', uploadedBy: 'Rahul Verma', chunkCount: 1, createdAt: '2026-11-04T14:00:00Z' },
-  { id: 'dc000003-0000-0000-0000-000000000003', name: 'Product_Master_Catalogue_v4.2.pdf', category: 'PRODUCTS', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '4.2', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', departmentId: SALES.id, departmentName: 'Sales', effectiveDate: '2026-11-01', expiryDate: '2027-10-31', uploadedBy: 'Arjun Sharma', chunkCount: 3, createdAt: '2026-11-01T08:00:00Z' },
-  { id: 'dc000004-0000-0000-0000-000000000004', name: 'Brand_Guidelines_v2.pdf', category: 'BRAND', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_1' as const, version: '2.0', productScope: 'ALL', region: 'GLOBAL', channel: 'ALL', departmentId: MKT.id, departmentName: 'Marketing', effectiveDate: '2026-06-01', expiryDate: '2027-06-30', uploadedBy: 'Arjun Sharma', chunkCount: 2, createdAt: '2026-06-01T10:00:00Z' },
-  { id: 'dc000002-0000-0000-0000-000000000002', name: 'Nexora_Sales_Proposal_v2.pdf', category: 'DEPARTMENTAL', approvalStatus: 'APPROVED' as const, authorityTier: 'TIER_2' as const, version: '2.1', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', departmentId: SALES.id, departmentName: 'Sales', effectiveDate: '2026-01-01', expiryDate: '2026-12-31', uploadedBy: 'Rahul Verma', chunkCount: 2, createdAt: '2026-01-15T12:00:00Z' },
-  { id: 'dc000001-0000-0000-0000-000000000001', name: 'Nexora_Old_Brochure_v1.pdf', category: 'ASSETS', approvalStatus: 'SUPERSEDED' as const, authorityTier: 'TIER_3' as const, version: '1.0', productScope: 'Nexora Pro', region: 'GLOBAL', channel: 'ALL', departmentId: MKT.id, departmentName: 'Marketing', effectiveDate: '2025-01-01', expiryDate: '2026-06-30', uploadedBy: 'Kiran Mehta', chunkCount: 1, createdAt: '2025-01-01T09:00:00Z' },
+  // 1. Brand Guidelines v3.0 (Tier 1, DRAFT)
+  {
+    id: 'dc000008-0000-0000-0000-000000000008',
+    name: 'Brand_Guidelines_v3.pdf',
+    category: 'BRAND',
+    approvalStatus: 'DRAFT',
+    authorityTier: 'TIER_1',
+    version: '3.0',
+    productScope: 'ALL',
+    region: 'GLOBAL',
+    channel: 'ALL',
+    departmentId: MKT.id,
+    departmentName: 'Marketing',
+    effectiveDate: '2026-11-01',
+    expiryDate: '2027-10-31',
+    uploadedBy: 'Arjun Sharma',
+    chunkCount: 3,
+    createdAt: '2026-11-09T10:00:00Z',
+  },
+  // 2. Approved Claims Register (Tier 1, DRAFT)
+  {
+    id: 'dc000009-0000-0000-0000-000000000009',
+    name: 'Approved_Claims_Register.pdf',
+    category: 'BRAND',
+    approvalStatus: 'DRAFT',
+    authorityTier: 'TIER_1',
+    version: '1.0',
+    productScope: 'Nexora Pro',
+    region: 'GLOBAL',
+    channel: 'ALL',
+    departmentId: MKT.id,
+    departmentName: 'Marketing',
+    effectiveDate: '2026-11-01',
+    expiryDate: '2027-10-31',
+    uploadedBy: 'Arjun Sharma',
+    chunkCount: 2,
+    createdAt: '2026-11-09T10:30:00Z',
+  },
+  // 3. Terminology & Messaging Guide (Tier 1, DRAFT)
+  {
+    id: 'dc000010-0000-0000-0000-000000000010',
+    name: 'Terminology_and_Messaging_Guide.pdf',
+    category: 'TERMINOLOGY',
+    approvalStatus: 'DRAFT',
+    authorityTier: 'TIER_1',
+    version: '1.0',
+    productScope: 'ALL',
+    region: 'GLOBAL',
+    channel: 'ALL',
+    departmentId: MKT.id,
+    departmentName: 'Marketing',
+    effectiveDate: '2026-11-01',
+    expiryDate: '2027-10-31',
+    uploadedBy: 'Arjun Sharma',
+    chunkCount: 2,
+    createdAt: '2026-11-09T11:00:00Z',
+  },
+  // 4. Product Master Catalogue (Tier 1, APPROVED)
+  {
+    id: 'dc000003-0000-0000-0000-000000000003',
+    name: 'Product_Master_Catalogue_v4.2.pdf',
+    category: 'PRODUCTS',
+    approvalStatus: 'APPROVED',
+    authorityTier: 'TIER_1',
+    version: '4.2',
+    productScope: 'Nexora Pro',
+    region: 'GLOBAL',
+    channel: 'ALL',
+    departmentId: SALES.id,
+    departmentName: 'Sales',
+    effectiveDate: '2026-11-01',
+    expiryDate: '2027-10-31',
+    uploadedBy: 'Arjun Sharma',
+    chunkCount: 2,
+    createdAt: '2026-11-01T08:00:00Z',
+  },
+  // 5. Brand Guidelines v2.0 (Tier 1, APPROVED)
+  {
+    id: 'dc000004-0000-0000-0000-000000000004',
+    name: 'Brand_Guidelines_v2.pdf',
+    category: 'BRAND',
+    approvalStatus: 'APPROVED',
+    authorityTier: 'TIER_1',
+    version: '2.0',
+    productScope: 'ALL',
+    region: 'GLOBAL',
+    channel: 'ALL',
+    departmentId: MKT.id,
+    departmentName: 'Marketing',
+    effectiveDate: '2026-06-01',
+    expiryDate: '2027-06-30',
+    uploadedBy: 'Arjun Sharma',
+    chunkCount: 2,
+    createdAt: '2026-06-01T10:00:00Z',
+  },
+  // 6. Nexora Sales Proposal v2.1 (Tier 2, APPROVED - Acme Corp Exception)
+  {
+    id: 'dc000002-0000-0000-0000-000000000002',
+    name: 'Nexora_Sales_Proposal_v2.pdf',
+    category: 'DEPARTMENTAL',
+    approvalStatus: 'APPROVED',
+    authorityTier: 'TIER_2',
+    version: '2.1',
+    productScope: 'Nexora Pro',
+    region: 'GLOBAL',
+    channel: 'ALL',
+    departmentId: SALES.id,
+    departmentName: 'Sales',
+    effectiveDate: '2026-01-01',
+    expiryDate: '2026-12-31',
+    uploadedBy: 'Rahul Verma',
+    chunkCount: 2,
+    createdAt: '2026-01-15T12:00:00Z',
+  },
+  // 7. Nexora Regional Compensation Addendum (Tier 2, DRAFT)
+  {
+    id: 'dc000005-0000-0000-0000-000000000005',
+    name: 'Nexora_Regional_Compensation_Addendum_2026.pdf',
+    category: 'DEPARTMENTAL',
+    approvalStatus: 'DRAFT',
+    authorityTier: 'TIER_2',
+    version: '1.2',
+    productScope: 'All Products',
+    region: 'GLOBAL',
+    channel: 'INTERNAL',
+    departmentId: DEPARTMENTS[2].id,
+    departmentName: 'HR & Compensation',
+    effectiveDate: '2026-11-01',
+    expiryDate: '2027-10-31',
+    uploadedBy: 'Priya Menon',
+    chunkCount: 2,
+    createdAt: '2026-11-07T11:00:00Z',
+  },
+  // 8. Nexora Old Brochure (Tier 3, SUPERSEDED)
+  {
+    id: 'dc000001-0000-0000-0000-000000000001',
+    name: 'Nexora_Old_Brochure_v1.pdf',
+    category: 'ASSETS',
+    approvalStatus: 'SUPERSEDED',
+    authorityTier: 'TIER_3',
+    version: '1.0',
+    productScope: 'Nexora Pro',
+    region: 'GLOBAL',
+    channel: 'ALL',
+    departmentId: MKT.id,
+    departmentName: 'Marketing',
+    effectiveDate: '2025-01-01',
+    expiryDate: '2026-06-30',
+    uploadedBy: 'Kiran Mehta',
+    chunkCount: 1,
+    createdAt: '2025-01-01T09:00:00Z',
+  },
+  // 9. APAC Promotional Discount Scheme (Tier 3, REJECTED)
+  {
+    id: 'dc000007-0000-0000-0000-000000000007',
+    name: 'Nexora_APAC_Promotional_Discount_Scheme_Outdated.pdf',
+    category: 'ASSETS',
+    approvalStatus: 'REJECTED',
+    authorityTier: 'TIER_3',
+    version: '0.9',
+    productScope: 'Nexora Pro',
+    region: 'APAC',
+    channel: 'PARTNER',
+    departmentId: SALES.id,
+    departmentName: 'Sales',
+    effectiveDate: '2025-06-01',
+    expiryDate: '2025-12-31',
+    uploadedBy: 'Rahul Verma',
+    chunkCount: 1,
+    createdAt: '2026-11-04T14:00:00Z',
+  },
+  // 10. Q4 Social Media Copywriting Kit (Tier 3, DRAFT)
+  {
+    id: 'dc000006-0000-0000-0000-000000000006',
+    name: 'Nexora_Q4_Social_Media_Copywriting_Kit.pdf',
+    category: 'BRAND',
+    approvalStatus: 'DRAFT',
+    authorityTier: 'TIER_3',
+    version: '1.0',
+    productScope: 'Nexora Pro',
+    region: 'APAC',
+    channel: 'SOCIAL',
+    departmentId: MKT.id,
+    departmentName: 'Marketing',
+    effectiveDate: '2026-11-01',
+    expiryDate: '2027-03-31',
+    uploadedBy: 'Kiran Mehta',
+    chunkCount: 1,
+    createdAt: '2026-11-08T09:30:00Z',
+  },
 ]
 
 export const mockApi: Api = {
@@ -496,10 +774,52 @@ export const mockApi: Api = {
   },
   async getDocumentChunks(id) {
     await wait(150)
+    if (id === 'dc000008-0000-0000-0000-000000000008') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Brand Personality, Tone, and Voice Standards: Brand Personality: Nexora is strictly defined as professional, trustworthy, helpful, and approachable. Tone and Voice: Our communication voice must be consistently respectful, confident, clear, and customer-focused across all marketing copy, sales documents, and public statements. Writing Style: Communicate with formality and precision. Avoid confusing technical jargon, ungrounded superlatives, and passive bureaucratic phrasing. Always prioritize actionable, clear, and direct explanations.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Prohibited Language and Conduct Guidelines: Insults, offensive expressions, aggressive language, and disrespectful communication are strictly prohibited. Unacceptable Example: "Our competitor\'s junk software is a scam and anyone using it is foolish." Approved Example: "Nexora Pro delivers 99.9% verified uptime with enterprise governance, helping teams transition from legacy spreadsheets with ease." Unacceptable Example: "Buy today or regret it immediately." Approved Example: "Explore how Nexora Pro streamlines brand assurance for your enterprise." Slogans and Messaging Pillars: Official Slogan: "Create with confidence. Publish with consistency." Official Positioning: Nexora Technologies is the pioneer in deterministic brand-governance infrastructure.', pageNumber: 2, hasEmbedding: true },
+        { id: `${id}-c3`, documentId: id, chunkIndex: 2, content: 'Visual Standards and Digital Accessibility (WCAG 2.1 AA): Logo Usage: The Nexora monogram ("CL" monogram) requires clear space equal to 50% of its height on all sides. Minimum reproduction height is 24px digital and 12mm print. Never recolour, distort, stretch, or rotate the logo. Brand Colour Palette: Deep Navy (#0A1F36 - Primary), Brand Teal (#0F766E - Secondary), Light Teal (#5EEAD4 - Accent), Canvas Slate (#F8FAFC). Typography: Inter (UI/Body) and Plus Jakarta Sans (Headings). Digital Accessibility: All digital content must meet WCAG 2.1 AA contrast standards (minimum 4.5:1 text-to-background contrast ratio). All images and graphics require descriptive alternative text (alt text). Form controls and interactive elements must feature visible high-contrast focus rings.', pageNumber: 3, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000009-0000-0000-0000-000000000009') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Approved Promotional Claims Register: The following promotional claims are officially approved for commercial and marketing use: (1) "99.9% guaranteed uptime SLA backed by 24/7 dedicated enterprise support" — Supporting Evidence: Documented infrastructure telemetry and SLA commitment in Product Master Catalogue v4.2. (2) "Certified SOC 2 Type II, ISO 27001, and fully GDPR compliant" — Supporting Evidence: Independent third-party security audit reports issued Q3 2026. (3) "System throughput supports 50,000 document governance verifications per hour" — Supporting Evidence: Official enterprise load-testing benchmark report certified by engineering. (4) "Military-grade AES-256 encryption at rest and TLS 1.3 in transit" — Supporting Evidence: Architecture security specification document.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Qualified Claims vs Unsupported & Prohibited Claims: Claims Requiring Qualifications: (1) Speed and efficiency claims such as "up to 2x faster verification" must always include the mandatory qualification: "when compared to traditional manual review of 50+ page documents; certified by internal productivity benchmark study". (2) Volume pricing claims must specify: "applicable exclusively to enterprise contracts exceeding 100 seats". Prohibited & Unsupported Claims: Claims promising absolute, unsubstantiated guarantees (e.g., "100% error-free guarantee", "foolproof compliance", "zero risk guaranteed", or "flawless brand protection") are strictly prohibited under brand governance. Unsupported superiority claims (e.g., "the only real AI brand solution on Earth" or "infinitely superior to all competitors") are prohibited without certified independent third-party market validation.', pageNumber: 2, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000010-0000-0000-0000-000000000010') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Official Product Names and Terminology Guide: Official Product Names: The primary brand governance offering must always be named "Nexora Pro" or "Nexora Pro Elite". Strictly prohibited product names include "Nexora Standard", "Nexora Lite", "Nexora Basic", "Nexora App", or "The Nexora Tool". Approved Core Terminology: Use "Brand Governance Engine", "Deterministic Authority Hierarchy", "Evidence-Backed Verification", "Automated Compliance Audit", and "Immutable Governance Ledger". Prohibited Informal Terminology: Do not use informal, colloquial, or punitive terms such as "AI Judge", "Grammar Cop", "Cheat Checker", or "Fact Bot". Refer instead to "Automated Verification" or "Authorised Human Reviewer".', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Official Corporate Descriptions and Messaging Pillars: 25-Word Official Description: "Nexora Technologies provides enterprise-grade AI brand governance platforms that deterministically audit content claims against authoritative multi-tier corporate guidelines before publication." 50-Word Official Boilerplate: "Founded to safeguard organisational reputation, Nexora Technologies builds deterministic brand-governance infrastructure. Its flagship platform, ClaimLedger, enables content creators and brand reviewers to verify marketing copy, sales proposals, and corporate communications against strict hierarchical standards in real time." Core Messaging Pillars: (1) Deterministic Authority: Multi-tier hierarchy ensures company-wide truth supersedes departmental variants. (2) Seamless Workflow: Instant feedback empowers creators while preserving reviewer authority. (3) Immutable Auditability: Cryptographic logs ensure regulatory compliance.', pageNumber: 2, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000002-0000-0000-0000-000000000002') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Pro Corporate Sales Proposal (v2.1): Authorized Tier 2 exception specifically negotiated for Acme Corp enterprise agreement. Approved deal price is ₹899 per user per month billed annually (reflecting an approved 10% volume discount from the Tier 1 Master Catalogue base rate of ₹999). Approval conditions: Valid exclusively for Acme Corp account contracts with minimum 100 licensed seats, executed between 2026-01-01 and 2026-12-31. Department scope: Sales Department. Product scope: Nexora Pro. This departmental exception is strictly scoped to Acme Corp and does not alter the universal master price of ₹999 for other accounts.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Acme Corp Service Level Agreement & Deployment Scope: Deployment includes dedicated enterprise onboarding, 99.5% uptime commitment, and priority support routing. Security: All client data is segregated within tenant partitions with AES-256 encryption. Validity: This contract exception expires on 31 December 2026, after which standard Tier 1 catalogue renewal pricing applies.', pageNumber: 2, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000003-0000-0000-0000-000000000003') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Pro Official Master Specifications: The authoritative enterprise subscription price for Nexora Pro is ₹999 per month (or billed annually). All pricing includes guaranteed 99.9% uptime SLA with 24/7 dedicated enterprise support. Effective date: 01 November 2026. This catalogue is the sole authoritative corporate source of truth for Nexora Pro pricing.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Security and Compliance Certification: Nexora Pro is certified SOC 2 Type II, ISO 27001, and fully GDPR compliant. High-performance AES-256 encryption is enforced at rest and TLS 1.3 in transit. Brand governance audit trails are preserved immutably for 7 years. System throughput supports 50,000 document governance verifications per hour.', pageNumber: 2, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000004-0000-0000-0000-000000000004') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Brand Guidelines - Product Nomenclature and Messaging: The official product name is strictly "Nexora Pro" or "Nexora Pro Elite". Unapproved informal variant names such as "Nexora Standard", "Nexora Lite", or "Nexora Basic" are brand terminology violations. Brand tone must remain authoritative, professional, and factual.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Performance and Promotional Claims: Any claim asserting performance improvements (such as "100% faster", "fastest solution", or "2x speedup") must cite an approved certified laboratory benchmark study. Unsupported superlative claims are strictly prohibited without compliance sign-off.', pageNumber: 2, hasEmbedding: true },
+      ]
+    }
     if (id === 'dc000005-0000-0000-0000-000000000005') {
       return [
-        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Regional Remote Work and Compensation Addendum (2026): Base salaries are calibrated according to local economic tier indices. Remote employees in Tier A metro locations receive benchmark compensation, while satellite regional roles are subject to approved geographic parity factors.', pageNumber: 1, hasEmbedding: true },
-        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Mandatory Adjustment Clauses: Compensation bands must reflect documented cost-of-living differentials approved by the executive remuneration committee.', pageNumber: 2, hasEmbedding: true },
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Regional Remote Work and Compensation Addendum (2026): Base salaries and remote worker allowances are calibrated according to local economic tier indices. Remote employees in Tier A metro locations receive benchmark compensation, while satellite regional roles are subject to approved geographic parity factors. Department Scope: HR & Compensation. Product Scope: All Products / Universal Workforce.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Mandatory Adjustment Clauses: Compensation bands and living adjustments must reflect documented cost-of-living differentials approved by the executive remuneration committee. Effective from 2026-11-01 to 2027-10-31.', pageNumber: 2, hasEmbedding: true },
+      ]
+    }
+    if (id === 'dc000001-0000-0000-0000-000000000001') {
+      return [
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Pro Legacy Promotional Brochure: Introductory promotional launch rate is ₹799 per month. Target system uptime is 99.0%. SUPERSEDED STATUS: This brochure was retired on 30 June 2026 and is no longer valid. Superseded by Product Master Catalogue v4.2.', pageNumber: 1, hasEmbedding: true },
       ]
     }
     if (id === 'dc000006-0000-0000-0000-000000000006') {
@@ -509,12 +829,11 @@ export const mockApi: Api = {
     }
     if (id === 'dc000007-0000-0000-0000-000000000007') {
       return [
-        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora APAC Promotional Partner Discount Scheme (2025 - Outdated): Regional resellers may quote an introductory discounted tier of ₹699/user/month upon executive signoff.', pageNumber: 1, hasEmbedding: true },
+        { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora APAC Promotional Partner Discount Scheme (2025 - Outdated): Regional resellers may quote an introductory discounted tier of ₹699/user/month upon executive signoff. REJECTED: Contains outdated promotional discount rate conflicting with Tier 1 Master Catalogue pricing.', pageNumber: 1, hasEmbedding: true },
       ]
     }
     return [
-      { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Nexora Pro delivers 99.99% uptime with enterprise governance.', pageNumber: 1, hasEmbedding: true },
-      { id: `${id}-c2`, documentId: id, chunkIndex: 1, content: 'Nexora Pro costs ₹999 per user per month billed annually as certified in Product Master Catalogue v4.2.', pageNumber: 2, hasEmbedding: true },
+      { id: `${id}-c1`, documentId: id, chunkIndex: 0, content: 'Authoritative knowledge base document registered in ClaimLedger.', pageNumber: 1, hasEmbedding: true },
     ]
   },
   async getDocumentAudit(id) {

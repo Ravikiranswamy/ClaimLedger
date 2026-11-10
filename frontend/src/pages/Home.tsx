@@ -41,14 +41,15 @@ const ACTION_LABEL: Partial<Record<ActionType, { label: string; badgeClass: stri
 export function Home() {
   const { user } = useAuth()
 
+  const isCreator = user?.role === 'CREATOR'
+  const submissionsQ = useQuery({ queryKey: ['submissions'], queryFn: api.listSubmissions, enabled: !isCreator })
+  const documentsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments(), enabled: !isCreator })
+  const auditQ = useQuery({ queryKey: ['global-audit'], queryFn: api.listGlobalAudit, enabled: !isCreator })
+
   // Content Creator Dashboard is strictly scoped to the creator persona
-  if (user?.role === 'CREATOR') {
+  if (isCreator) {
     return <CreatorDashboard />
   }
-
-  const submissionsQ = useQuery({ queryKey: ['submissions'], queryFn: api.listSubmissions })
-  const documentsQ = useQuery({ queryKey: ['documents'], queryFn: () => api.listDocuments() })
-  const auditQ = useQuery({ queryKey: ['global-audit'], queryFn: api.listGlobalAudit })
 
   const submissions = submissionsQ.data ?? []
   const documents = documentsQ.data ?? []

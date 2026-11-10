@@ -123,8 +123,9 @@ public class ClaimExtractionService {
 
         Pattern pricePattern = Pattern.compile("(?i)(\\$|€|£|₹|\\bprice\\b|\\bcost\\b|\\bmonth\\b|\\bannual\\b|\\bfree\\b|\\bdiscount\\b)");
         Pattern featurePattern = Pattern.compile("(?i)(\\buptime\\b|\\bsla\\b|\\bguarantee\\b|\\bfeatures\\b|\\bsecurity\\b|\\bcapacity\\b|\\bencryption\\b|\\bsupport\\b)");
-        Pattern promoPattern = Pattern.compile("(?i)(\\boffer\\b|\\bdeal\\b|\\bpromotion\\b|\\blimited\\b|\\bsave\\b|\\bspecial\\b)");
-        Pattern termPattern = Pattern.compile("(?i)(\\btrademark\\b|\\bcopyright\\b|\\bofficial\\b|\\bcertified\\b|\\bcompliant\\b)");
+        Pattern promoPattern = Pattern.compile("(?i)(\\boffer\\b|\\bdeal\\b|\\bpromotion\\b|\\blimited\\b|\\bsave\\b|\\bspecial\\b|\\b100% error-free\\b|\\bfoolproof\\b|\\bzero risk\\b|\\bfastest\\b|\\bbest\\b|\\b#1\\b)");
+        Pattern termPattern = Pattern.compile("(?i)(\\btrademark\\b|\\bcopyright\\b|\\bofficial\\b|\\bcertified\\b|\\bcompliant\\b|\\bNexora Pro\\b|\\bNexora Standard\\b|\\bNexora Lite\\b|\\bNexora Basic\\b|\\bAI Judge\\b|\\bGrammar Cop\\b|\\bCheat Checker\\b)");
+        Pattern tonePattern = Pattern.compile("(?i)(\\bscam\\b|\\bjunk\\b|\\bfoolish\\b|\\bidiotic\\b|\\bstupid\\b|\\bregret it\\b|\\binsult\\b|\\bdisrespectful\\b)");
 
         for (String sentence : sentences) {
             String trimmed = sentence.trim();
@@ -136,15 +137,18 @@ public class ClaimExtractionService {
             if (pricePattern.matcher(trimmed).find()) {
                 type = ClaimType.PRICE;
                 confidence = BigDecimal.valueOf(0.98);
-            } else if (featurePattern.matcher(trimmed).find()) {
-                type = ClaimType.FEATURE;
+            } else if (tonePattern.matcher(trimmed).find()) {
+                type = ClaimType.TONE;
+                confidence = BigDecimal.valueOf(0.96);
+            } else if (termPattern.matcher(trimmed).find()) {
+                type = ClaimType.TERMINOLOGY;
                 confidence = BigDecimal.valueOf(0.95);
             } else if (promoPattern.matcher(trimmed).find()) {
                 type = ClaimType.PROMOTION;
                 confidence = BigDecimal.valueOf(0.92);
-            } else if (termPattern.matcher(trimmed).find()) {
-                type = ClaimType.TERMINOLOGY;
-                confidence = BigDecimal.valueOf(0.90);
+            } else if (featurePattern.matcher(trimmed).find()) {
+                type = ClaimType.FEATURE;
+                confidence = BigDecimal.valueOf(0.95);
             }
 
             claims.add(new ExtractedClaim(trimmed, type, confidence));
