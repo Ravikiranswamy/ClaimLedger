@@ -19,3 +19,7 @@ Thumbs.db
 # Sensitive environment variables
 *.env.local
 
+# Generation scripts
+build_round2_ppt.py
+
+
