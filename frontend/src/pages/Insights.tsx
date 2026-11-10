@@ -28,10 +28,22 @@ import {
   XCircle,
 } from 'lucide-react'
 import { api } from '../api'
+import { useAuth } from '../auth/AuthContext'
 import { DEPARTMENTS, type GuidelineHealthIssue } from '../types'
 
 export function Insights() {
-  const [selectedDept, setSelectedDept] = useState<string>('ALL')
+  const { user } = useAuth()
+  const isManager = user?.role === 'DEPT_MANAGER'
+  const managerDeptId =
+    user?.departmentId ||
+    DEPARTMENTS.find((d) => d.name.toLowerCase() === (user?.departmentName ?? '').toLowerCase())?.id ||
+    'd0000001-0000-0000-0000-000000000001'
+  const managerDeptName =
+    user?.departmentName ||
+    DEPARTMENTS.find((d) => d.id === managerDeptId)?.name ||
+    'Marketing'
+
+  const [selectedDept, setSelectedDept] = useState<string>(isManager ? managerDeptId : 'ALL')
   const [dateRange, setDateRange] = useState<string>('30d')
   const [activeTab, setActiveTab] = useState<'overview' | 'health' | 'recommendations'>('overview')
   const [priorityFilter, setPriorityFilter] = useState<'ALL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL')
@@ -96,11 +108,12 @@ export function Insights() {
               Deterministic Intelligence Engine
             </div>
             <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl font-display">
-              Insights & Guideline Health
+              {isManager ? 'Compliance Insights' : 'Insights & Guideline Health'}
             </h1>
             <p className="mt-2 max-w-2xl text-sm text-[#D6E3EF] leading-relaxed">
-              Identify recurring brand violations, detect cross-document knowledge conflicts, and maintain reliable
-              organisational truth across Nexora Technologies.
+              {isManager
+                ? `Identify recurring brand violations, monitor compliance patterns, and review health metrics for the ${managerDeptName} department.`
+                : 'Identify recurring brand violations, detect cross-document knowledge conflicts, and maintain reliable organisational truth across the organisation.'}
             </p>
           </div>
 
@@ -130,33 +143,39 @@ export function Insights() {
             <span className="text-xs font-medium text-[#8EA5BC] flex items-center gap-1.5">
               <Filter size={13} /> Department Scope:
             </span>
-            <div className="inline-flex rounded-xl bg-white/5 p-1 border border-white/10">
-              <button
-                type="button"
-                onClick={() => setSelectedDept('ALL')}
-                className={`rounded-lg px-3 py-1 text-xs font-medium transition cursor-pointer ${
-                  selectedDept === 'ALL'
-                    ? 'bg-[#5EEAD4] text-[#0A1F36] font-semibold shadow-sm'
-                    : 'text-[#D6E3EF] hover:text-white'
-                }`}
-              >
-                All Departments
-              </button>
-              {DEPARTMENTS.map((dept) => (
+            {isManager ? (
+              <div className="inline-flex items-center gap-2 rounded-xl bg-[#5EEAD4]/20 border border-[#5EEAD4]/40 px-3 py-1 text-xs font-semibold text-[#5EEAD4]">
+                <span>{managerDeptName} Department</span>
+              </div>
+            ) : (
+              <div className="inline-flex rounded-xl bg-white/5 p-1 border border-white/10">
                 <button
-                  key={dept.id}
                   type="button"
-                  onClick={() => setSelectedDept(dept.id)}
+                  onClick={() => setSelectedDept('ALL')}
                   className={`rounded-lg px-3 py-1 text-xs font-medium transition cursor-pointer ${
-                    selectedDept === dept.id
+                    selectedDept === 'ALL'
                       ? 'bg-[#5EEAD4] text-[#0A1F36] font-semibold shadow-sm'
                       : 'text-[#D6E3EF] hover:text-white'
                   }`}
                 >
-                  {dept.name}
+                  All Departments
                 </button>
-              ))}
-            </div>
+                {DEPARTMENTS.map((dept) => (
+                  <button
+                    key={dept.id}
+                    type="button"
+                    onClick={() => setSelectedDept(dept.id)}
+                    className={`rounded-lg px-3 py-1 text-xs font-medium transition cursor-pointer ${
+                      selectedDept === dept.id
+                        ? 'bg-[#5EEAD4] text-[#0A1F36] font-semibold shadow-sm'
+                        : 'text-[#D6E3EF] hover:text-white'
+                    }`}
+                  >
+                    {dept.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2">

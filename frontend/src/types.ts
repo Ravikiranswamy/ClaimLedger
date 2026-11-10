@@ -161,7 +161,7 @@ export const DEPARTMENTS = [
 export const ROLE_LABEL: Record<Role, string> = {
   ADMIN: 'Admin',
   CREATOR: 'Content Creator',
-  DEPT_MANAGER: 'Manager',
+  DEPT_MANAGER: 'DEPARTMENT MANAGER',
   REVIEWER: 'Authorised Reviewer',
 }
 

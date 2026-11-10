@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
   ArrowRight,
+  BarChart3,
   BookOpen,
   CheckCircle2,
   Clock,
@@ -109,18 +110,27 @@ export function Home() {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              to={user?.role === 'ADMIN' ? '/admin/submissions' : '/review'}
+              to={user?.role === 'DEPT_MANAGER' ? '/department/submissions' : user?.role === 'ADMIN' ? '/admin/submissions' : '/review'}
               className="inline-flex items-center gap-2 rounded-xl bg-[#5EEAD4] px-5 py-2.5 font-semibold text-[#0A1F36] shadow-sm transition hover:bg-[#4ddac4] cursor-pointer text-sm"
             >
-              <FileCheck2 size={17} aria-hidden /> View Submissions
+              <FileCheck2 size={17} aria-hidden /> {user?.role === 'DEPT_MANAGER' ? 'Department Submissions' : 'View Submissions'}
             </Link>
 
-            <Link
-              to="/knowledge-base"
-              className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 font-semibold text-white backdrop-blur transition hover:bg-white/20 border border-white/15 text-sm"
-            >
-              <BookOpen size={17} aria-hidden /> Knowledge Base
-            </Link>
+            {user?.role === 'DEPT_MANAGER' ? (
+              <Link
+                to="/department/insights"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 font-semibold text-white backdrop-blur transition hover:bg-white/20 border border-white/15 text-sm"
+              >
+                <BarChart3 size={17} aria-hidden /> Compliance Insights
+              </Link>
+            ) : (
+              <Link
+                to="/knowledge-base"
+                className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-5 py-2.5 font-semibold text-white backdrop-blur transition hover:bg-white/20 border border-white/15 text-sm"
+              >
+                <BookOpen size={17} aria-hidden /> Knowledge Base
+              </Link>
+            )}
 
             {user?.role === 'ADMIN' && (
               <Link
@@ -128,6 +138,15 @@ export function Home() {
                 className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-2.5 font-semibold text-white transition hover:bg-white/10 text-sm"
               >
                 <Layers size={17} aria-hidden /> Document Approvals ({pendingDocApprovals})
+              </Link>
+            )}
+
+            {user?.role === 'DEPT_MANAGER' && (
+              <Link
+                to="/department/activity"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-2.5 font-semibold text-white transition hover:bg-white/10 text-sm"
+              >
+                <History size={17} aria-hidden /> Department Activity
               </Link>
             )}
           </div>
@@ -266,7 +285,7 @@ export function Home() {
               </p>
             </div>
             <Link
-              to={user?.role === 'ADMIN' ? '/admin/submissions' : '/review'}
+              to={user?.role === 'DEPT_MANAGER' ? '/department/submissions' : user?.role === 'ADMIN' ? '/admin/submissions' : '/review'}
               className="inline-flex items-center gap-1 text-sm font-semibold text-brand hover:text-brand-strong"
             >
               View all <ArrowRight size={16} />
@@ -286,7 +305,12 @@ export function Home() {
           <div className="space-y-3">
             {submissionsRequiringAttention.slice(0, 5).map((s) => {
               const violations = s.claims.filter((c) => c.verificationStatus === 'VIOLATION').length
-              const detailUrl = user?.role === 'ADMIN' ? `/admin/submissions/${s.id}` : `/review/${s.id}`
+              const detailUrl =
+                user?.role === 'DEPT_MANAGER'
+                  ? `/department/submissions/${s.id}`
+                  : user?.role === 'ADMIN'
+                    ? `/admin/submissions/${s.id}`
+                    : `/review/${s.id}`
 
               return (
                 <Link

@@ -20,7 +20,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { NAV_BY_ROLE, useAuth } from '../auth/AuthContext'
 import { ClaimLedgerLogo } from './ClaimLedgerLogo'
-import { ROLE_LABEL } from '../types'
+import { DEPARTMENTS, ROLE_LABEL } from '../types'
 
 interface NavItemConfig {
   to: string
@@ -38,6 +38,12 @@ const ITEMS: Record<string, NavItemConfig> = {
   knowledge: { to: '/knowledge-base', label: 'Knowledge Base', Icon: LibraryBig },
   guidelines: { to: '/guidelines', label: 'Brand Guidelines', Icon: BookOpen },
   history: { to: '/history', label: 'Activity & History', Icon: History },
+
+  // Department Manager: 4 sections for departmental oversight
+  'dept-home': { to: '/', label: 'Home', Icon: Home },
+  'dept-submissions': { to: '/department/submissions', label: 'Department Submissions', Icon: FileText },
+  'dept-insights': { to: '/department/insights', label: 'Compliance Insights', Icon: BarChart3 },
+  'dept-activity': { to: '/department/activity', label: 'Department Activity', Icon: History },
 
   // Admin Workspace: 7 core sections + Organisation Settings
   'admin-overview': { to: '/', label: 'Overview', Icon: LayoutDashboard },
@@ -76,6 +82,15 @@ export function AppShell() {
   }
 
   const isAdmin = user.role === 'ADMIN'
+  const isManager = user.role === 'DEPT_MANAGER'
+
+  const managerDeptName =
+    user.departmentName ||
+    DEPARTMENTS.find((d) => d.id === user.departmentId)?.name ||
+    'Marketing'
+  const managerDeptDisplay = managerDeptName.toLowerCase().includes('department')
+    ? managerDeptName
+    : `${managerDeptName} Department`
 
   return (
     <div className="flex h-screen w-full flex-col lg:flex-row overflow-hidden bg-canvas">
@@ -96,7 +111,7 @@ export function AppShell() {
           </div>
         </div>
         <span className="rounded-md bg-navy/5 px-2.5 py-1 text-xs font-semibold text-navy">
-          {ROLE_LABEL[user.role]}
+          {isManager ? 'DEPARTMENT MANAGER' : ROLE_LABEL[user.role]}
         </span>
       </header>
 
@@ -122,7 +137,7 @@ export function AppShell() {
             <div>
               <p className="font-display text-lg font-bold leading-none text-white tracking-tight">ClaimLedger</p>
               <p className="mt-1 text-[11px] font-semibold text-[#5EEAD4] tracking-wide uppercase">
-                {isAdmin ? 'Organisation Admin' : 'Brand Governance'}
+                {isAdmin ? 'Organisation Admin' : isManager ? 'DEPARTMENT MANAGER' : 'Brand Governance'}
               </p>
             </div>
           </div>
@@ -141,6 +156,11 @@ export function AppShell() {
           {isAdmin && (
             <div className="px-3.5 pb-2 pt-1 text-[11px] font-bold uppercase tracking-wider text-[#8EA5BC]">
               Governance Navigation
+            </div>
+          )}
+          {isManager && (
+            <div className="px-3.5 pb-2 pt-1 text-[11px] font-bold uppercase tracking-wider text-[#8EA5BC]">
+              Department Oversight
             </div>
           )}
 
@@ -186,7 +206,18 @@ export function AppShell() {
         <div className="shrink-0 border-t border-white/10 px-5 py-4 mt-auto">
           <div className="flex flex-col">
             <p className="font-semibold text-sm text-white truncate tracking-tight">{user.fullName}</p>
-            <p className="text-xs text-[#8EA5BC] mt-0.5 font-medium">{ROLE_LABEL[user.role]}</p>
+            {isManager ? (
+              <div className="mt-1 flex flex-col gap-0.5">
+                <p className="text-[11px] font-bold tracking-wider text-[#5EEAD4] uppercase">
+                  DEPARTMENT MANAGER
+                </p>
+                <p className="text-xs text-[#8EA5BC] font-medium truncate">
+                  {managerDeptDisplay}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-[#8EA5BC] mt-0.5 font-medium">{ROLE_LABEL[user.role]}</p>
+            )}
             <button
               onClick={logout}
               className="mt-3.5 inline-flex items-center gap-2 rounded-lg py-1 text-xs font-medium text-[#D6E3EF] hover:text-[#5EEAD4] cursor-pointer transition w-fit"

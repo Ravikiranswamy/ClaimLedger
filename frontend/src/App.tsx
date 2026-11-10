@@ -48,6 +48,10 @@ export default function App() {
               <Route path="review/:id" element={<ReviewDetail />} />
               <Route path="knowledge-base" element={<KnowledgeBase />} />
               <Route path="history" element={<History />} />
+              <Route path="department/submissions" element={<AdminSubmissions />} />
+              <Route path="department/submissions/:id" element={<AdminSubmissionDetail />} />
+              <Route path="department/insights" element={<Insights />} />
+              <Route path="department/activity" element={<History />} />
               <Route path="admin/submissions" element={<AdminSubmissions />} />
               <Route path="admin/submissions/:id" element={<AdminSubmissionDetail />} />
               <Route path="admin/users" element={<UserManagement />} />

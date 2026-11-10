@@ -166,6 +166,13 @@ export function History() {
 }
 
 function AdminHistory() {
+  const { user } = useAuth()
+  const isManager = user?.role === 'DEPT_MANAGER'
+  const managerDeptName =
+    user?.departmentName ||
+    DEPARTMENTS.find((d) => d.id === user?.departmentId)?.name ||
+    'Marketing'
+
   // Filters State
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<ActivityCategory>('ALL')
@@ -242,7 +249,14 @@ function AdminHistory() {
       if (actorFilter !== 'ALL' && entry.actorName !== actorFilter) return false
 
       // Department filter
-      if (deptFilter !== 'ALL') {
+      if (isManager) {
+        const subDept = entry.submissionId ? subMap.get(entry.submissionId)?.departmentName : null
+        const docDept = entry.documentId ? docMap.get(entry.documentId)?.departmentName : null
+        const itemDept = entry.departmentName || subDept || docDept
+        if (itemDept && itemDept.toLowerCase() !== managerDeptName.toLowerCase() && itemDept !== 'Organisation-wide') {
+          return false
+        }
+      } else if (deptFilter !== 'ALL') {
         const subDept = entry.submissionId ? subMap.get(entry.submissionId)?.departmentName : null
         const docDept = entry.documentId ? docMap.get(entry.documentId)?.departmentName : null
         const itemDept = entry.departmentName || subDept || docDept
@@ -354,17 +368,19 @@ function AdminHistory() {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F766E] text-white text-xs font-bold font-mono">
-                06
+                {isManager ? 'DO' : '06'}
               </span>
               <span className="text-xs font-bold uppercase tracking-wider text-[#0F766E]">
-                Accountability & Compliance
+                {isManager ? 'Department Oversight' : 'Accountability & Compliance'}
               </span>
             </div>
             <h1 className="font-display text-3xl font-bold tracking-tight text-[#0A1F36]">
-              Audit & Activity
+              {isManager ? 'Department Activity' : 'Audit & Activity'}
             </h1>
             <p className="mt-1 text-sm text-muted max-w-3xl">
-              Append-only regulatory audit ledger. Every content submission, deterministic AI verification run, human reviewer decision, knowledge document change, and user permission modification is immutably recorded.
+              {isManager
+                ? `Append-only activity log for the ${managerDeptName} department. Track submissions, claim verification decisions, revisions, and truth governance events.`
+                : 'Append-only regulatory audit ledger. Every content submission, deterministic AI verification run, human reviewer decision, knowledge document change, and user permission modification is immutably recorded.'}
             </p>
           </div>
 
@@ -549,19 +565,25 @@ function AdminHistory() {
             </select>
 
             {/* Department Filter */}
-            <select
-              aria-label="Filter by Department"
-              value={deptFilter}
-              onChange={(e) => setDeptFilter(e.target.value)}
-              className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
-            >
-              <option value="ALL">All Departments</option>
-              {DEPARTMENTS.map((d) => (
-                <option key={d.id} value={d.name}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            {isManager ? (
+              <div className="flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50/70 px-2.5 py-1.5 font-medium text-teal-900">
+                <span>Dept: <strong className="text-[#0F766E] font-semibold">{managerDeptName}</strong></span>
+              </div>
+            ) : (
+              <select
+                aria-label="Filter by Department"
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
+              >
+                <option value="ALL">All Departments</option>
+                {DEPARTMENTS.map((d) => (
+                  <option key={d.id} value={d.name}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            )}
 
             {/* Actor Filter */}
             <select

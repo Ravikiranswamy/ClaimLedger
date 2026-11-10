@@ -35,7 +35,7 @@ interface DemoAccount {
 const DEMO: DemoAccount[] = [
   { role: 'CREATOR', label: 'Content Creator', email: 'creator@nexora.com', Icon: UserPen },
   { role: 'REVIEWER', label: 'Authorised Reviewer', email: 'reviewer@nexora.com', Icon: ShieldCheck },
-  { role: 'DEPT_MANAGER', label: 'Manager', email: 'manager@nexora.com', Icon: Users },
+  { role: 'DEPT_MANAGER', label: 'Department Manager', email: 'manager@nexora.com', Icon: Users },
   { role: 'ADMIN', label: 'Admin', email: 'admin@nexora.com', Icon: Settings },
 ]
 

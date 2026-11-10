@@ -16,6 +16,7 @@ import {
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../auth/AuthContext'
 import { formatWhen } from '../components/AuditTimeline'
 import { DEPARTMENTS, type Submission, type SubmissionStatus } from '../types'
 
@@ -25,6 +26,13 @@ type SortOrder = 'NEWEST' | 'OLDEST' | 'MOST_FLAGS'
 const AWAITING_STATUSES: SubmissionStatus[] = ['FLAGGED', 'IN_REVIEW', 'VERIFIED', 'ANALYZING']
 
 export function AdminSubmissions() {
+  const { user } = useAuth()
+  const isManager = user?.role === 'DEPT_MANAGER'
+  const managerDeptName =
+    user?.departmentName ||
+    DEPARTMENTS.find((d) => d.id === user?.departmentId)?.name ||
+    'Marketing'
+
   // Filters state
   const [search, setSearch] = useState('')
   const [deptFilter, setDeptFilter] = useState<string>('ALL')
@@ -40,23 +48,33 @@ export function AdminSubmissions() {
 
   const submissions = submissionsQ.data ?? []
 
+  // Visible submissions for this user (if manager, strictly scoped to their department)
+  const scopedSubmissions = useMemo(() => {
+    if (!isManager) return submissions
+    return submissions.filter(
+      (s) =>
+        s.departmentId === user?.departmentId ||
+        (s.departmentName && s.departmentName.toLowerCase() === managerDeptName.toLowerCase())
+    )
+  }, [submissions, isManager, user?.departmentId, managerDeptName])
+
   // Overview metrics computed from actual backend data
   const metrics = useMemo(() => {
-    const total = submissions.length
-    const awaiting = submissions.filter((s) => AWAITING_STATUSES.includes(s.status)).length
-    const changesRequested = submissions.filter((s) => s.status === 'CHANGES_REQUESTED').length
-    const approved = submissions.filter((s) => s.status === 'APPROVED').length
-    const rejected = submissions.filter((s) => s.status === 'REJECTED').length
-    const totalViolations = submissions.reduce(
+    const total = scopedSubmissions.length
+    const awaiting = scopedSubmissions.filter((s) => AWAITING_STATUSES.includes(s.status)).length
+    const changesRequested = scopedSubmissions.filter((s) => s.status === 'CHANGES_REQUESTED').length
+    const approved = scopedSubmissions.filter((s) => s.status === 'APPROVED').length
+    const rejected = scopedSubmissions.filter((s) => s.status === 'REJECTED').length
+    const totalViolations = scopedSubmissions.reduce(
       (acc, s) => acc + s.claims.filter((c) => c.verificationStatus === 'VIOLATION').length,
       0
     )
     return { total, awaiting, changesRequested, approved, rejected, totalViolations }
-  }, [submissions])
+  }, [scopedSubmissions])
 
   // Filtered and sorted submissions
   const filteredSubmissions = useMemo(() => {
-    return submissions
+    return scopedSubmissions
       .filter((s) => {
         // Search filter
         if (search.trim()) {
@@ -130,21 +148,23 @@ export function AdminSubmissions() {
           <div>
             <div className="flex items-center gap-2 mb-1.5">
               <span className="text-xs font-bold uppercase tracking-wider text-[#0F766E]">
-                Organisation Governance
+                {isManager ? 'Department Oversight' : 'Organisation Governance'}
               </span>
             </div>
             <h1 className="font-display text-3xl font-bold tracking-tight text-[#0A1F36]">
-              Content & Submissions
+              {isManager ? 'Department Submissions' : 'Content & Submissions'}
             </h1>
             <p className="mt-1 text-sm text-muted max-w-3xl">
-              Real-time oversight of all marketing, sales, and HR submissions across Nexora Technologies. Monitor deterministic AI claim extraction, authority resolution against Tier 1 catalogues, and reviewer decision history.
+              {isManager
+                ? `Real-time oversight of all submissions, truth verifications, and reviews for the ${managerDeptName} department.`
+                : 'Real-time oversight of all marketing, sales, and HR submissions across the organisation. Monitor deterministic AI claim extraction, authority resolution against Tier 1 catalogues, and reviewer decision history.'}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-800">
               <ShieldCheck size={14} className="text-emerald-600" />
-              Admin Oversight Mode
+              {isManager ? 'Department Oversight' : 'Admin Oversight Mode'}
             </span>
           </div>
         </div>
@@ -284,22 +304,29 @@ export function AdminSubmissions() {
           {/* Filter Dropdowns */}
           <div className="flex flex-wrap items-center gap-2.5">
             {/* Department Filter */}
-            <div className="flex items-center gap-1.5 text-xs text-muted">
-              <Filter size={14} />
-              <select
-                aria-label="Filter by department"
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-xs font-medium text-ink focus:border-[#0F766E] focus:outline-none"
-              >
-                <option value="ALL">All Departments</option>
-                {DEPARTMENTS.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {isManager ? (
+              <div className="flex items-center gap-1.5 rounded-lg border border-teal-200 bg-teal-50/70 px-2.5 py-1.5 text-xs font-medium text-teal-900">
+                <Filter size={14} className="text-[#0F766E]" />
+                <span>Department: <strong className="text-[#0F766E] font-semibold">{managerDeptName}</strong></span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-muted">
+                <Filter size={14} />
+                <select
+                  aria-label="Filter by department"
+                  value={deptFilter}
+                  onChange={(e) => setDeptFilter(e.target.value)}
+                  className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-xs font-medium text-ink focus:border-[#0F766E] focus:outline-none"
+                >
+                  <option value="ALL">All Departments</option>
+                  {DEPARTMENTS.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Content Type Filter */}
             <select

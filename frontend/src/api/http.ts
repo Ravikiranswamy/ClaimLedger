@@ -75,12 +75,29 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T
 }
 
+function normalizeUser(user: any): User {
+  if (!user) return user
+  if (user.role === 'MANAGER') {
+    return { ...user, role: 'DEPT_MANAGER' }
+  }
+  return user
+}
+
 export const httpApi: Api = {
-  login: (email, password) =>
-    request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
-  register: (data) =>
-    request<LoginResponse>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
-  me: () => request<User>('/auth/me'),
+  login: async (email, password) => {
+    const res = await request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+    if (res?.user) res.user = normalizeUser(res.user)
+    return res
+  },
+  register: async (data) => {
+    const res = await request<LoginResponse>('/auth/register', { method: 'POST', body: JSON.stringify(data) })
+    if (res?.user) res.user = normalizeUser(res.user)
+    return res
+  },
+  me: async () => {
+    const user = await request<User>('/auth/me')
+    return normalizeUser(user)
+  },
   createTextSubmission: ({ title, content, departmentId }) =>
     request<Submission>('/submissions', {
       method: 'POST',

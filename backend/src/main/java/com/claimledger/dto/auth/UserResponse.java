@@ -30,12 +30,8 @@ public class UserResponse {
         response.setFullName(user.getFullName());
         response.setName(user.getFullName());
 
-        // Map role string: DEPT_MANAGER -> MANAGER for frontend compatibility
-        if (user.getRole() == Role.DEPT_MANAGER) {
-            response.setRole("MANAGER");
-        } else {
-            response.setRole(user.getRole() != null ? user.getRole().name() : "CREATOR");
-        }
+        // Role string
+        response.setRole(user.getRole() != null ? user.getRole().name() : "CREATOR");
 
         // Map department name
         if (user.getDepartmentId() != null) {
