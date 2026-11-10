@@ -78,20 +78,29 @@ public class KnowledgeDocumentService {
         this.fileStorageService = fileStorageService;
     }
 
+    private String resolveMimeType(String name) {
+        if (name == null) return "application/pdf";
+        String lower = name.toLowerCase();
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".txt")) return "text/plain";
+        return "application/pdf";
+    }
+
     /**
-     * Uploads a PDF document, stores the file, extracts pages, chunks text, generates embeddings, and saves to pgvector.
+     * Uploads a document (PDF or Visual Brand Asset Image), stores file, extracts/embeds chunks, and saves to pgvector.
      */
     @Transactional
     public DocumentResponse uploadDocument(MultipartFile file, DocumentUploadRequest request, UUID organisationId, UUID uploadedBy) {
         if (file == null || file.isEmpty()) {
-            throw new BadRequestException("PDF file is required for document upload.");
+            throw new BadRequestException("File is required for document upload.");
         }
 
         String storedPath;
         try {
             storedPath = fileStorageService.storeFile(file, "documents");
         } catch (IOException e) {
-            throw new BadRequestException("Failed to store uploaded PDF file: " + e.getMessage());
+            throw new BadRequestException("Failed to store uploaded file: " + e.getMessage());
         }
 
         // Create KnowledgeDocument entity
@@ -124,26 +133,46 @@ public class KnowledgeDocumentService {
                         " (Tier: " + savedDoc.getAuthorityTier() + ", Category: " + savedDoc.getCategory() + ")"
         ));
 
-        // Extract and chunk text from PDF
-        try {
-            List<PdfExtractionService.PageText> pages = pdfExtractionService.extractTextByPage(new File(storedPath));
-            List<DocumentChunkingService.Chunk> chunks = chunkingService.chunkPages(pages);
+        // Process based on file type: PDF extraction or Visual Asset metadata
+        String originalNameLower = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
+        boolean isImage = originalNameLower.endsWith(".png") || originalNameLower.endsWith(".jpg") || originalNameLower.endsWith(".jpeg");
 
-            log.info("Generating embeddings and storing {} chunks for document '{}'", chunks.size(), savedDoc.getName());
-            for (DocumentChunkingService.Chunk chunk : chunks) {
-                String embeddingString = embeddingService.getEmbeddingString(chunk.content());
-                chunkRepository.insertWithVector(
-                        UUID.randomUUID(),
-                        savedDoc.getId(),
-                        chunk.chunkIndex(),
-                        chunk.content(),
-                        chunk.pageNumber(),
-                        embeddingString
-                );
+        if (isImage || "ASSETS".equalsIgnoreCase(savedDoc.getCategory())) {
+            // For visual assets, store authoritative visual reference metadata chunk
+            String assetDescription = String.format("Approved Visual Brand Asset: %s. Category: %s. Version: %s. Authority: %s. Authoritative visual identity reference, corporate colors, and approved promotional imagery for %s.",
+                    savedDoc.getName(), savedDoc.getCategory(), savedDoc.getVersion(), savedDoc.getAuthorityTier(),
+                    savedDoc.getProductScope() != null ? savedDoc.getProductScope() : "Global Brand Collateral");
+            String embeddingString = embeddingService.getEmbeddingString(assetDescription);
+            chunkRepository.insertWithVector(
+                    UUID.randomUUID(),
+                    savedDoc.getId(),
+                    0,
+                    assetDescription,
+                    1,
+                    embeddingString
+            );
+        } else {
+            // Extract and chunk text from PDF
+            try {
+                List<PdfExtractionService.PageText> pages = pdfExtractionService.extractTextByPage(new File(storedPath));
+                List<DocumentChunkingService.Chunk> chunks = chunkingService.chunkPages(pages);
+
+                log.info("Generating embeddings and storing {} chunks for document '{}'", chunks.size(), savedDoc.getName());
+                for (DocumentChunkingService.Chunk chunk : chunks) {
+                    String embeddingString = embeddingService.getEmbeddingString(chunk.content());
+                    chunkRepository.insertWithVector(
+                            UUID.randomUUID(),
+                            savedDoc.getId(),
+                            chunk.chunkIndex(),
+                            chunk.content(),
+                            chunk.pageNumber(),
+                            embeddingString
+                    );
+                }
+            } catch (IOException e) {
+                log.error("Failed to extract or chunk PDF text", e);
+                throw new BadRequestException("Failed to extract text from PDF: " + e.getMessage());
             }
-        } catch (IOException e) {
-            log.error("Failed to extract or chunk PDF text", e);
-            throw new BadRequestException("Failed to extract text from PDF: " + e.getMessage());
         }
 
         long chunkCount = chunkRepository.countByDocumentId(savedDoc.getId());
@@ -352,12 +381,12 @@ public class KnowledgeDocumentService {
         if (doc.getFilePath() != null && !doc.getFilePath().isBlank()) {
             Path path = Paths.get(doc.getFilePath());
             if (Files.exists(path) && Files.isRegularFile(path)) {
-                String contentType = doc.getName().toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+                String contentType = resolveMimeType(doc.getName());
                 return new DocumentFileResult(new FileSystemResource(path), doc.getName(), contentType);
             }
             Path rootPath = fileStorageService.loadFile(doc.getFilePath());
             if (Files.exists(rootPath) && Files.isRegularFile(rootPath)) {
-                String contentType = doc.getName().toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+                String contentType = resolveMimeType(doc.getName());
                 return new DocumentFileResult(new FileSystemResource(rootPath), doc.getName(), contentType);
             }
         }
@@ -366,7 +395,7 @@ public class KnowledgeDocumentService {
         Path uploadDir = Paths.get("uploads/documents").toAbsolutePath().normalize();
         Path candidateInUploads = uploadDir.resolve(doc.getName());
         if (Files.exists(candidateInUploads) && Files.isRegularFile(candidateInUploads)) {
-            String contentType = doc.getName().toLowerCase().endsWith(".txt") ? "text/plain" : "application/pdf";
+            String contentType = resolveMimeType(doc.getName());
             return new DocumentFileResult(new FileSystemResource(candidateInUploads), doc.getName(), contentType);
         }
 

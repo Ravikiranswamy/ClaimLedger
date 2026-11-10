@@ -11,6 +11,7 @@ import {
   FileText,
   Filter,
   Loader2,
+  Palette,
   Plus,
   RotateCcw,
   Shield,
@@ -127,6 +128,7 @@ export function KnowledgeBase() {
   const { user } = useAuth()
   const qc = useQueryClient()
   const [tierFilter, setTierFilter] = useState<string>('ALL')
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL')
   const [selectedDoc, setSelectedDoc] = useState<KnowledgeDoc | null>(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showEngineGuide, setShowEngineGuide] = useState(false)
@@ -140,7 +142,11 @@ export function KnowledgeBase() {
   }
 
   const baseDocs = docs
-  const filtered = baseDocs.filter((d) => tierFilter === 'ALL' || d.authorityTier === tierFilter)
+  const filtered = baseDocs.filter((d) => {
+    const matchesTier = tierFilter === 'ALL' || d.authorityTier === tierFilter
+    const matchesCategory = categoryFilter === 'ALL' || (d.category && d.category.toUpperCase() === categoryFilter.toUpperCase())
+    return matchesTier && matchesCategory
+  })
 
   return (
     <div className="space-y-6">
@@ -301,6 +307,47 @@ export function KnowledgeBase() {
         ))}
       </div>
 
+      {/* Category Navigation Bar */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
+        <span className="text-xs font-bold uppercase tracking-wider text-muted mr-1">Category:</span>
+        {[
+          { id: 'ALL', label: 'All Knowledge', icon: Database },
+          { id: 'ASSETS', label: 'Visual Brand Assets', icon: Palette },
+          { id: 'BRAND', label: 'Brand & Voice', icon: Shield },
+          { id: 'PRODUCTS', label: 'Product Truth', icon: Tag },
+          { id: 'TERMINOLOGY', label: 'Terminology', icon: FileText },
+          { id: 'DEPARTMENTAL', label: 'Departmental', icon: Building2 },
+        ].map((cat) => {
+          const Icon = cat.icon
+          const count = cat.id === 'ALL'
+            ? baseDocs.length
+            : baseDocs.filter((d) => d.category && d.category.toUpperCase() === cat.id).length
+          const isActive = categoryFilter === cat.id
+
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setCategoryFilter(cat.id)}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                isActive
+                  ? 'bg-brand text-white shadow-xs'
+                  : 'bg-surface border border-line text-slate-700 hover:bg-canvas'
+              }`}
+            >
+              <Icon size={14} className={isActive ? 'text-white' : 'text-muted'} />
+              <span>{cat.label}</span>
+              <span
+                className={`ml-1 rounded-full px-1.5 py-0.2 text-[10px] font-mono font-bold ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-canvas text-muted'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* Documents List */}
       {docsQ.isLoading && <p className="py-12 text-center text-muted">Loading knowledge documents…</p>}
       {docsQ.isError && (
@@ -320,6 +367,7 @@ export function KnowledgeBase() {
             doc.approvalStatus === 'REJECTED' ||
             doc.approvalStatus === 'EXPIRED' ||
             Boolean(doc.expiryDate && new Date(doc.expiryDate) < new Date())
+          const isVisualAsset = doc.category?.toUpperCase() === 'ASSETS'
 
           const deptLabel =
             doc.name.includes('Compensation') || doc.departmentName?.includes('Compensation')
@@ -337,17 +385,26 @@ export function KnowledgeBase() {
                   ? 'border-amber-200 bg-amber-50/10'
                   : isRejectedOrExpired && doc.approvalStatus !== 'APPROVED'
                   ? 'border-rose-200 bg-rose-50/10'
+                  : isVisualAsset
+                  ? 'border-teal-200/80 bg-teal-50/10'
                   : 'border-line'
               }`}
             >
               <div>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-2.5">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-canvas text-navy">
-                      <FileText size={18} />
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${isVisualAsset ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-canvas text-navy'}`}>
+                      {isVisualAsset ? <Palette size={18} /> : <FileText size={18} />}
                     </span>
                     <div>
-                      <h3 className="font-semibold text-ink leading-tight">{doc.name}</h3>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-semibold text-ink leading-tight">{doc.name}</h3>
+                        {isVisualAsset && (
+                          <span className="rounded-md bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.2 text-[10px] font-bold uppercase">
+                            Visual Asset
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted">Version {doc.version} · {doc.channel ?? 'All Channels'}</p>
                     </div>
                   </div>
@@ -357,6 +414,20 @@ export function KnowledgeBase() {
                     {statusInfo.badgeLabel}
                   </span>
                 </div>
+
+                {/* Approved Palette Ribbon for Visual Assets */}
+                {isVisualAsset && (
+                  <div className="mt-3 flex items-center gap-2 rounded-xl bg-canvas p-2.5 border border-line/60">
+                    <span className="text-[11px] font-bold text-muted uppercase">Palette:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="inline-block h-4 w-4 rounded-full bg-[#0A1F36] border border-line shadow-xs" title="Deep Navy (#0A1F36)" />
+                      <span className="inline-block h-4 w-4 rounded-full bg-[#0F766E] border border-line shadow-xs" title="Primary Teal (#0F766E)" />
+                      <span className="inline-block h-4 w-4 rounded-full bg-[#14B8A6] border border-line shadow-xs" title="Teal Accent (#14B8A6)" />
+                      <span className="inline-block h-4 w-4 rounded-full bg-[#5EEAD4] border border-line shadow-xs" title="Vibrant Mint (#5EEAD4)" />
+                    </div>
+                    <span className="text-[10px] text-muted font-mono ml-auto">#0A1F36 · #0F766E · #5EEAD4</span>
+                  </div>
+                )}
 
                 <div className="mt-4 space-y-2 text-xs text-muted">
                   <div className="flex items-center gap-2">
@@ -566,19 +637,23 @@ function ChunkInspectorModal({ doc, onClose }: { doc: KnowledgeDoc; onClose: () 
 function UploadDocModal({ onClose, onUploaded }: { onClose: () => void; onUploaded: () => void }) {
   const [name, setName] = useState('')
   const [tier, setTier] = useState<AuthorityTier>('TIER_1')
+  const [category, setCategory] = useState<string>('ASSETS')
   const [departmentId, setDepartmentId] = useState('')
   const [version, setVersion] = useState('v1.0')
   const [productScope, setProductScope] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [err, setErr] = useState<string | null>(null)
 
+  const isVisualAsset = category === 'ASSETS'
+
   const uploadM = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error('Please select a PDF file')
+      if (!file) throw new Error(isVisualAsset ? 'Please select an image or PDF asset file' : 'Please select a PDF file')
       const fd = new FormData()
       fd.append('file', file)
       fd.append('name', name.trim() || file.name)
       fd.append('authorityTier', tier)
+      fd.append('category', category)
       fd.append('version', version.trim())
       if (departmentId) fd.append('departmentId', departmentId)
       if (productScope.trim()) fd.append('productScope', productScope.trim())
@@ -595,16 +670,34 @@ function UploadDocModal({ onClose, onUploaded }: { onClose: () => void; onUpload
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
       <div className="w-full max-w-lg rounded-3xl bg-surface p-7 shadow-2xl border border-line">
         <div className="flex items-center justify-between border-b border-line pb-4">
-          <h2 className="font-display font-bold text-xl">Upload Authoritative Document</h2>
+          <div>
+            <h2 className="font-display font-bold text-xl">Upload Authoritative Asset or Document</h2>
+            <p className="text-xs text-muted">Authorised Admin Knowledge Base Repository</p>
+          </div>
           <button onClick={onClose} className="rounded-xl p-1 text-muted hover:text-ink"><X size={20} /></button>
         </div>
 
         <div className="mt-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">Document Name</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">Knowledge Category</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm font-medium"
+            >
+              <option value="ASSETS">Visual Brand Assets (Logos, Color Palettes & Graphics)</option>
+              <option value="BRAND">Brand Guidelines & Voice Standards</option>
+              <option value="PRODUCTS">Product Truth & Master Specifications</option>
+              <option value="TERMINOLOGY">Approved Terminology & Dictionaries</option>
+              <option value="DEPARTMENTAL">Departmental Scoped Materials</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">Document / Asset Name</label>
             <input
               type="text"
-              placeholder="e.g. Enterprise_Pricing_Matrix_2026.pdf"
+              placeholder={isVisualAsset ? 'e.g. Official_Brand_Logomark_v2.png' : 'e.g. Enterprise_Pricing_Matrix_2026.pdf'}
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-xl border border-line px-3.5 py-2.5 text-sm"
@@ -640,7 +733,7 @@ function UploadDocModal({ onClose, onUploaded }: { onClose: () => void; onUpload
             <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">Product Scope</label>
             <input
               type="text"
-              placeholder="e.g. Nexora Pro, Nexora Enterprise"
+              placeholder="e.g. Nexora Pro, Nexora Enterprise, All"
               value={productScope}
               onChange={(e) => setProductScope(e.target.value)}
               className="w-full rounded-xl border border-line px-3.5 py-2.5 text-sm"
@@ -662,13 +755,18 @@ function UploadDocModal({ onClose, onUploaded }: { onClose: () => void; onUpload
           </div>
 
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">PDF File</label>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-muted mb-1">
+              {isVisualAsset ? 'Visual Asset File (PNG, JPG, or PDF)' : 'PDF File'}
+            </label>
             <input
               type="file"
-              accept=".pdf,application/pdf"
+              accept={isVisualAsset ? '.pdf,.png,.jpg,.jpeg,image/png,image/jpeg,application/pdf' : '.pdf,application/pdf'}
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="w-full rounded-xl border border-line bg-canvas p-2.5 text-sm"
             />
+            {isVisualAsset && (
+              <p className="mt-1 text-[11px] text-muted">Upload approved logo variations, promotional graphics, or brand colour references.</p>
+            )}
           </div>
 
           {err && <p className="rounded-lg bg-violation-soft p-3 text-xs text-violation">{err}</p>}
@@ -683,7 +781,7 @@ function UploadDocModal({ onClose, onUploaded }: { onClose: () => void; onUpload
               className="inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-2 text-sm font-semibold text-white disabled:opacity-60 hover:bg-brand-strong"
             >
               {uploadM.isPending && <Loader2 size={16} className="animate-spin" />}
-              Extract, Chunk & Embed
+              Upload & Index Knowledge Asset
             </button>
           </div>
         </div>
