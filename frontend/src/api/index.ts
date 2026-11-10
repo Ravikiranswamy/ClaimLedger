@@ -41,7 +41,8 @@ const directApi: Api = {
   getSubmission: (id) => (isEvaluationMode() ? mockApi.getSubmission(id) : httpApi.getSubmission(id)),
   listSubmissions: () => (isEvaluationMode() ? mockApi.listSubmissions() : httpApi.listSubmissions()),
   reviewSubmission: (id, action, comment) => (isEvaluationMode() ? mockApi.reviewSubmission(id, action, comment) : httpApi.reviewSubmission(id, action, comment)),
-  reviseSubmission: (id, content, comment) => (isEvaluationMode() ? mockApi.reviseSubmission(id, content, comment) : httpApi.reviseSubmission(id, content, comment)),
+  reviseSubmission: (id, content, comment, file) =>
+    isEvaluationMode() ? mockApi.reviseSubmission(id, content, comment, file) : httpApi.reviseSubmission(id, content, comment, file),
   getAudit: (id) => (isEvaluationMode() ? mockApi.getAudit(id) : httpApi.getAudit(id)),
   listGlobalAudit: () => (isEvaluationMode() ? mockApi.listGlobalAudit() : httpApi.listGlobalAudit()),
   listDocuments: (filters) => (isEvaluationMode() ? mockApi.listDocuments(filters) : httpApi.listDocuments(filters)),

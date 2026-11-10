@@ -297,12 +297,14 @@ function analyse(
       const isOffBrandColor = /pink|neon|ff1493|google|yellow|red|purple|orange/i.test(fullContext)
 
       // Logo / Brand Mark Check
-      if (isExternalBrand || (!isApprovedNexoraLogo && /logo/i.test(fullContext))) {
+      if (isExternalBrand || !isApprovedNexoraLogo) {
         const detectedBrand = /google/i.test(fullContext)
           ? 'Google'
           : /amazon/i.test(fullContext)
             ? 'Amazon'
-            : 'External Brand'
+            : /apple/i.test(fullContext)
+              ? 'Apple'
+              : 'Unapproved Visual Mark'
         claims.push({
           id: `c${seq++}`,
           claimText: `Official Brand Identity: Unapproved Logo / Third-Party Mark (${detectedBrand})`,
@@ -315,8 +317,8 @@ function analyse(
           evidence: [
             {
               id: `c${seq++}-e1`,
-              documentName: approvedVisualDocs[0].name,
-              authorityTier: approvedVisualDocs[0].authorityTier,
+              documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
+              authorityTier: approvedVisualDocs[0]?.authorityTier || 'TIER_1',
               authoritative: true,
               pageNumber: 1,
               excerpt:
@@ -337,8 +339,8 @@ function analyse(
           evidence: [
             {
               id: `c${seq++}-e1`,
-              documentName: approvedVisualDocs[0].name,
-              authorityTier: approvedVisualDocs[0].authorityTier,
+              documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
+              authorityTier: approvedVisualDocs[0]?.authorityTier || 'TIER_1',
               authoritative: true,
               pageNumber: 1,
               excerpt:
@@ -349,12 +351,14 @@ function analyse(
       }
 
       // Brand Color Palette Check
-      if (isOffBrandColor || isExternalBrand) {
+      if (isOffBrandColor || isExternalBrand || !isApprovedNexoraLogo) {
         const detectedHex = /pink|neon|ff1493/i.test(fullContext)
           ? '#FF1493'
           : /google/i.test(fullContext)
             ? '#EA4335'
-            : '#FF9900'
+            : /amazon/i.test(fullContext)
+              ? '#FF9900'
+              : '#E2E8F0'
         claims.push({
           id: `c${seq++}`,
           claimText: `Brand Colour Palette Compliance: Off-Brand Color (${detectedHex})`,
@@ -367,8 +371,8 @@ function analyse(
           evidence: [
             {
               id: `c${seq++}-e2`,
-              documentName: approvedVisualDocs[0].name,
-              authorityTier: approvedVisualDocs[0].authorityTier,
+              documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
+              authorityTier: approvedVisualDocs[0]?.authorityTier || 'TIER_1',
               authoritative: true,
               pageNumber: 1,
               excerpt:
@@ -389,8 +393,8 @@ function analyse(
           evidence: [
             {
               id: `c${seq++}-e2`,
-              documentName: approvedVisualDocs[0].name,
-              authorityTier: approvedVisualDocs[0].authorityTier,
+              documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
+              authorityTier: approvedVisualDocs[0]?.authorityTier || 'TIER_1',
               authoritative: true,
               pageNumber: 1,
               excerpt:
@@ -1024,7 +1028,7 @@ export const mockApi: Api = {
     log(id, user, action, comment)
     return structuredClone(s)
   },
-  async reviseSubmission(id, content, comment) {
+  async reviseSubmission(id, content, comment, file) {
     await wait(1800)
     const user = me()
     const s = subs.get(id)
@@ -1033,72 +1037,97 @@ export const mockApi: Api = {
       throw new ApiError('Creators are only permitted to revise their own submissions.', 403)
     }
 
-    let { claims, status } = analyse(content, s.contentType, undefined, s.title)
+    // If replacement file was provided, update fileUrl and filePath
+    if (file) {
+      s.filePath = `uploads/documents/submissions/${s.id}_${file.name}`
+      try {
+        s.fileUrl = URL.createObjectURL(file)
+      } catch {
+        // ignore
+      }
+    }
 
-    // If it is an IMAGE submission, handle visual governance resolution
+    // Determine the active file to analyze
+    const activeFileName = file
+      ? file.name
+      : s.filePath
+        ? s.filePath.split('/').pop() || ''
+        : ''
+
+    const fileForAnalysis: File | undefined = file || (activeFileName ? ({ name: activeFileName } as File) : undefined)
+
+    let { claims, status } = analyse(content, s.contentType, fileForAnalysis, s.title)
+
+    // IMPORTANT VISUAL GOVERNANCE RULE:
+    // If this is an IMAGE submission and the original visual asset had visual brand violations:
+    // Visual brand violations (unapproved logo / unapproved colors) CANNOT be resolved by editing text copy alone!
+    // If the creator did not provide a replacement image file, ClaimLedger MUST NOT agree and MUST maintain the violations.
     if (s.contentType === 'IMAGE') {
-      const hadVisualViolations = s.claims.some(
+      const previouslyHadVisualViolations = s.claims.some(
         (c) => c.claimType === 'VISUAL_BRAND' && c.verificationStatus !== 'VERIFIED'
       )
 
-      const approvedVisualDocs = MOCK_DOCS.filter(
-        (d) =>
-          (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId &&
-          d.category === 'ASSETS' &&
-          d.approvalStatus === 'APPROVED'
-      )
+      if (previouslyHadVisualViolations && !file) {
+        // Visual asset was NOT replaced: maintain violations and explicitly explain why ClaimLedger rejected clearance
+        const approvedVisualDocs = MOCK_DOCS.filter(
+          (d) =>
+            (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId &&
+            d.category === 'ASSETS' &&
+            d.approvalStatus === 'APPROVED'
+        )
 
-      if (hadVisualViolations) {
-        // Creator applied the corrections and rectified visual branding
         claims = claims.filter((c) => c.claimType !== 'VISUAL_BRAND')
 
         claims.push({
           id: `c${seq++}`,
-          claimText: 'Official Brand Identity: Logo Placement & Clear Space Rectified',
+          claimText: 'Official Brand Identity: Visual Asset Not Replaced (Unapproved Branding)',
           claimType: 'VISUAL_BRAND',
-          verificationStatus: 'VERIFIED',
+          verificationStatus: 'VIOLATION',
           explanation:
-            'Visual identity rectified: displays the official approved company mark with required clear space and isolation margins.',
-          suggestedCorrection: null,
-          aiConfidence: 0.98,
+            'Revision rejected by visual governance: Visual asset was not replaced. Editing text copy does not resolve visual brand violations. You must replace the image file with an official approved company mark.',
+          suggestedCorrection: 'Upload or select an official approved corporate logo asset before resubmitting.',
+          aiConfidence: 0.99,
           evidence: [
             {
               id: `c${seq++}-e1`,
               documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
-              authorityTier: 'TIER_1',
+              authorityTier: approvedVisualDocs[0]?.authorityTier || 'TIER_1',
               authoritative: true,
               pageNumber: 1,
               excerpt:
-                'Brand Guidelines - Section 1.2: Official Logo Placement: Official primary logo mark verified with clear space adherence.',
+                'Brand Guidelines - Section 1.2: Official Logo Placement: Every public promotional banner, social graphic, and digital ad must include the approved company logo mark with minimum clear space. Unapproved third-party or competitor logos are strictly prohibited.',
             },
           ],
         })
 
         claims.push({
           id: `c${seq++}`,
-          claimText: 'Brand Colour Palette Compliance: Rectified Approved Colors (#0A1F36, #0F766E)',
+          claimText: 'Brand Colour Palette Compliance: Unapproved Palette Retained',
           claimType: 'VISUAL_BRAND',
-          verificationStatus: 'VERIFIED',
+          verificationStatus: 'VIOLATION',
           explanation:
-            'Dominant colors in the graphic conform to the approved corporate brand palette (#0A1F36 Primary Navy, #0F766E Teal).',
-          suggestedCorrection: null,
-          aiConfidence: 0.95,
+            'Visual brand palette compliance remains unresolved because the underlying graphic asset was not replaced with an approved corporate visual asset.',
+          suggestedCorrection:
+            'Re-export marketing graphics using official corporate primary navy (#0A1F36) and dark teal (#0F766E).',
+          aiConfidence: 0.97,
           evidence: [
             {
               id: `c${seq++}-e2`,
               documentName: approvedVisualDocs[0]?.name || 'Nexora_Official_Visual_Brand_Assets_v2.0.pdf',
-              authorityTier: 'TIER_1',
+              authorityTier: approvedVisualDocs[0]?.authorityTier || 'TIER_1',
               authoritative: true,
               pageNumber: 1,
               excerpt:
-                'Nexora Corporate Brand Palette: Primary Navy (#0A1F36), Dark Teal (#0F766E). Corporate promotional collateral conforms to approved color swatches.',
+                'Nexora Corporate Brand Palette: Primary Navy (#0A1F36), Dark Teal (#0F766E), Light Teal Accent (#5EEAD4). Unapproved neon and off-palette hues are strictly disallowed in customer-facing collateral.',
             },
           ],
         })
-      }
 
-      const hasBad = claims.some((c) => c.verificationStatus !== 'VERIFIED')
-      status = hasBad ? 'FLAGGED' : 'VERIFIED'
+        status = 'FLAGGED'
+      } else {
+        const hasBad = claims.some((c) => c.verificationStatus !== 'VERIFIED')
+        status = hasBad ? 'FLAGGED' : 'VERIFIED'
+      }
     }
 
     Object.assign(s, {

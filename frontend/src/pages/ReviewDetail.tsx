@@ -22,6 +22,8 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  UploadCloud,
   User as UserIcon,
   Wand2,
   X,
@@ -1220,12 +1222,20 @@ function RevisePanel({ s, onDone }: { s: Submission; onDone: (s: Submission) => 
   const [open, setOpen] = useState(false)
   const [text, setText] = useState('')
   const [applied, setApplied] = useState(0)
+  const [replacementFile, setReplacementFile] = useState<File | null>(null)
+  const [replacementPreview, setReplacementPreview] = useState<string | null>(null)
+
+  const hasVisualViolations =
+    s.contentType === 'IMAGE' &&
+    s.claims.some((c) => c.claimType === 'VISUAL_BRAND' && c.verificationStatus !== 'VERIFIED')
 
   const m = useMutation({
-    mutationFn: () => api.reviseSubmission(s.id, text.trim()),
+    mutationFn: () => api.reviseSubmission(s.id, text.trim(), undefined, replacementFile || undefined),
     onSuccess: (n) => {
       onDone(n)
       setOpen(false)
+      setReplacementFile(null)
+      setReplacementPreview(null)
     },
   })
 
@@ -1258,41 +1268,150 @@ function RevisePanel({ s, onDone }: { s: Submission; onDone: (s: Submission) => 
   }
 
   return (
-    <div className="mt-4 space-y-3 rounded-xl border border-line bg-canvas p-4 text-xs">
-      <p className="font-semibold text-ink">
-        {s.contentType === 'IMAGE'
-          ? 'Confirm your revised submission to rectify visual brand guidelines and resubmit for verification.'
-          : applied > 0
-            ? `${applied} suggested correction${applied === 1 ? '' : 's'} applied automatically. Edit as needed, then resubmit.`
-            : 'Edit your content text below and resubmit for verification.'}
-      </p>
-      <label htmlFor="revised-text" className="sr-only">
-        Revised content
-      </label>
-      <textarea
-        id="revised-text"
-        rows={6}
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        className="w-full rounded-xl border border-line bg-surface p-3 text-sm text-ink leading-relaxed"
-      />
+    <div className="mt-4 space-y-4 rounded-xl border border-line bg-canvas p-4 text-xs">
+      {/* If Image submission with visual violations, show clear governance alert */}
+      {s.contentType === 'IMAGE' && (
+        <div
+          className={`rounded-xl border p-3.5 space-y-1.5 ${
+            hasVisualViolations
+              ? 'border-amber-300 bg-amber-50/90 text-amber-950'
+              : 'border-slate-200 bg-white text-slate-800'
+          }`}
+        >
+          <div className="flex items-center gap-2 font-bold">
+            <AlertTriangle size={15} className={hasVisualViolations ? 'text-amber-600' : 'text-slate-500'} />
+            <span>Visual Brand Governance Notice</span>
+          </div>
+          <p className="text-xs leading-relaxed">
+            {hasVisualViolations
+              ? 'Visual brand violations (such as unapproved third-party logos or off-brand colors) cannot be resolved by editing text copy alone. To achieve compliance clearance, you must replace the submitted image file with an official approved company mark.'
+              : 'You can update the image copy or upload a replacement visual asset before resubmitting for verification.'}
+          </p>
+        </div>
+      )}
+
+      {/* Image Replacement Controls for IMAGE submissions */}
+      {s.contentType === 'IMAGE' && (
+        <div className="space-y-2 rounded-xl border border-line bg-surface p-3.5">
+          <span className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+            Replace Visual Asset (Required to clear visual violations)
+          </span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <label className="flex items-center gap-2 rounded-xl border border-line bg-canvas hover:bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 cursor-pointer transition shadow-2xs">
+              <UploadCloud size={14} className="text-[#0F766E]" />
+              <span>{replacementFile ? `Selected: ${replacementFile.name}` : 'Choose replacement image…'}</span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) {
+                    setReplacementFile(f)
+                    setReplacementPreview(URL.createObjectURL(f))
+                  }
+                }}
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={() => {
+                // Generate official Nexora approved emblem asset
+                const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200"><rect width="400" height="200" rx="16" fill="#0A1F36"/><path d="M 60 140 L 100 60 L 140 140 Z" fill="#0F766E"/><circle cx="100" cy="100" r="15" fill="#5EEAD4"/><text x="170" y="115" font-family="system-ui, sans-serif" font-weight="bold" font-size="34" fill="#FFFFFF">NEXORA</text><text x="172" y="145" font-family="system-ui, sans-serif" font-weight="600" font-size="14" fill="#5EEAD4" letter-spacing="3">OFFICIAL EMBLEM</text></svg>`
+                const blob = new Blob([svgContent], { type: 'image/svg+xml' })
+                const file = new File([blob], 'Nexora_Official_Brand_Emblem.png', { type: 'image/png' })
+                setReplacementFile(file)
+                setReplacementPreview(`data:image/svg+xml;utf8,${encodeURIComponent(svgContent)}`)
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer shadow-2xs"
+            >
+              <Sparkles size={14} className="text-emerald-600" />
+              <span>Use Official Nexora Emblem & Palette</span>
+            </button>
+
+            {replacementFile && (
+              <button
+                type="button"
+                onClick={() => {
+                  setReplacementFile(null)
+                  setReplacementPreview(null)
+                }}
+                className="text-xs text-rose-600 hover:underline font-semibold cursor-pointer"
+              >
+                Clear replacement
+              </button>
+            )}
+          </div>
+
+          {replacementPreview && (
+            <div className="flex items-center gap-3 mt-2 p-2 rounded-lg bg-canvas border border-line">
+              <img
+                src={replacementPreview}
+                alt="Replacement preview"
+                className="w-14 h-14 object-contain rounded border border-line bg-white"
+              />
+              <div className="text-xs">
+                <p className="font-bold text-ink">{replacementFile?.name}</p>
+                <p className="text-[11px] text-emerald-700 font-medium">
+                  Replacement image queued — will replace unapproved visual asset upon resubmission
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Text Copy Area */}
+      <div className="space-y-1.5">
+        <label htmlFor="revised-text" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+          {s.contentType === 'IMAGE' ? 'In-Image OCR Extracted Text & Copy' : 'Revised Content Copy'}
+        </label>
+        <textarea
+          id="revised-text"
+          rows={4}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="w-full rounded-xl border border-line bg-surface p-3 text-sm text-ink leading-relaxed focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20"
+        />
+        {applied > 0 && s.contentType !== 'IMAGE' && (
+          <p className="text-[11px] text-muted">
+            {applied} suggested correction{applied === 1 ? '' : 's'} applied automatically. Edit as needed, then resubmit.
+          </p>
+        )}
+      </div>
+
+      {hasVisualViolations && !replacementFile && (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 p-2.5 text-xs text-amber-900 flex items-center gap-2">
+          <AlertCircle size={14} className="text-amber-600 shrink-0" />
+          <span>
+            <strong>Warning:</strong> You have not selected a replacement image. ClaimLedger will re-verify the unapproved image and maintain the visual violation.
+          </span>
+        </div>
+      )}
+
       {m.isError && (
         <p role="alert" className="rounded-lg bg-rose-50 p-3 text-rose-800">
           {m.error instanceof Error ? m.error.message : 'Could not resubmit revision.'}
         </p>
       )}
-      <div className="flex items-center gap-2">
+
+      <div className="flex items-center gap-2 pt-1">
         <button
           type="button"
-          disabled={text.trim().length < 3}
+          disabled={text.trim().length < 3 || m.isPending}
           onClick={() => m.mutate()}
-          className="rounded-xl bg-brand px-4 py-2 font-bold text-white hover:bg-brand-strong disabled:opacity-60 cursor-pointer"
+          className="rounded-xl bg-brand px-4 py-2 font-bold text-white hover:bg-brand-strong disabled:opacity-60 cursor-pointer shadow-2xs"
         >
-          Resubmit Revision
+          {m.isPending ? 'Verifying Revision…' : 'Resubmit Revision'}
         </button>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpen(false)
+            setReplacementFile(null)
+            setReplacementPreview(null)
+          }}
           className="rounded-xl border border-line px-4 py-2 font-semibold text-muted hover:text-ink cursor-pointer"
         >
           Cancel

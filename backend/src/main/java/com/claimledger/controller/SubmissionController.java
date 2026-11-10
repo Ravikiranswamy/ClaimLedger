@@ -148,4 +148,20 @@ public class SubmissionController {
         SubmissionResponse response = workflowService.reviseSubmission(id, request, principal);
         return ResponseEntity.ok(ApiResponse.ok("Revision analyzed successfully", response));
     }
+
+    @PostMapping(value = "/{id}/revise", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Creator submits revised content with optional replacement image file")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> reviseSubmissionMultipart(
+            @PathVariable UUID id,
+            @RequestParam("content") String content,
+            @RequestParam(value = "revisionComment", required = false) String revisionComment,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        SubmissionReviseRequest request = new SubmissionReviseRequest();
+        request.setContent(content);
+        request.setRevisionComment(revisionComment);
+        SubmissionResponse response = workflowService.reviseSubmission(id, request, file, principal);
+        return ResponseEntity.ok(ApiResponse.ok("Revision analyzed successfully", response));
+    }
 }

@@ -30,7 +30,7 @@ export interface Api {
   getSubmission(id: string): Promise<Submission>
   listSubmissions(): Promise<Submission[]>
   reviewSubmission(id: string, action: ReviewAction, comment?: string): Promise<Submission>
-  reviseSubmission(id: string, content: string, comment?: string): Promise<Submission>
+  reviseSubmission(id: string, content: string, comment?: string, file?: File): Promise<Submission>
   getAudit(id: string): Promise<AuditEntry[]>
   listGlobalAudit(): Promise<AuditEntry[]>
   listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }): Promise<KnowledgeDoc[]>

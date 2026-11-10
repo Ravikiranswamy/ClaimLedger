@@ -123,11 +123,22 @@ export const httpApi: Api = {
   listSubmissions: () => request<Submission[]>('/submissions'),
   reviewSubmission: (id, action, comment) =>
     request<Submission>(`/submissions/${id}/review`, { method: 'POST', body: JSON.stringify({ action, comment }) }),
-  reviseSubmission: (id, content, comment) =>
-    request<Submission>(`/submissions/${id}/revise`, {
+  reviseSubmission: (id, content, comment, file) => {
+    if (file) {
+      const fd = new FormData()
+      fd.append('content', content)
+      if (comment) fd.append('revisionComment', comment)
+      fd.append('file', file)
+      return request<Submission>(`/submissions/${id}/revise`, {
+        method: 'POST',
+        body: fd,
+      })
+    }
+    return request<Submission>(`/submissions/${id}/revise`, {
       method: 'PUT',
       body: JSON.stringify({ content, revisionComment: comment, contentType: 'TEXT' }),
-    }),
+    })
+  },
   getAudit: (id) => request<AuditEntry[]>(`/submissions/${id}/audit`),
   listGlobalAudit: () => request<AuditEntry[]>('/submissions/audit'),
   listDocuments: (filters) => {

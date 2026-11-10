@@ -191,12 +191,24 @@ public class SubmissionWorkflowService {
     public SubmissionResponse reviseSubmission(
             UUID submissionId,
             SubmissionReviseRequest request,
+            MultipartFile file,
             UserPrincipal currentUser
     ) {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
 
         validateAccess(submission, currentUser);
+
+        // If replacement file was provided for an IMAGE or PDF submission, store the file and update filePath
+        if (file != null && !file.isEmpty()) {
+            try {
+                String storedPath = fileStorageService.storeFile(file, "submissions");
+                submission.setFilePath(storedPath);
+            } catch (IOException e) {
+                log.error("Failed to store replacement asset for submission {}: {}", submissionId, e.getMessage());
+                throw new RuntimeException("Failed to store replacement asset: " + e.getMessage(), e);
+            }
+        }
 
         // Update content and increment revision number
         submission.setContent(request.getContent());
@@ -214,6 +226,15 @@ public class SubmissionWorkflowService {
         Submission analyzed = claimVerificationService.verifySubmission(updated, currentUser.getId());
 
         return getSubmissionResponse(analyzed.getId());
+    }
+
+    @Transactional
+    public SubmissionResponse reviseSubmission(
+            UUID submissionId,
+            SubmissionReviseRequest request,
+            UserPrincipal currentUser
+    ) {
+        return reviseSubmission(submissionId, request, null, currentUser);
     }
 
     /**
