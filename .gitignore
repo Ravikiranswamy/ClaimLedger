@@ -23,3 +23,10 @@ Thumbs.db
 build_round2_ppt.py
 
 
+
+# Presentation generators
+build_round2_ppt.py
+render_deck_pdf.py
+deck.html
+*.pptx
+*.pdf
