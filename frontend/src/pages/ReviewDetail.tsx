@@ -6,12 +6,17 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  ExternalLink,
   FileCheck2,
   FileText,
   GitMerge,
   HelpCircle,
+  Image as ImageIcon,
+  Layers,
   Lightbulb,
   Loader2,
+  Maximize2,
+  Palette,
   Quote,
   RotateCcw,
   Shield,
@@ -19,6 +24,7 @@ import {
   ShieldCheck,
   User as UserIcon,
   Wand2,
+  X,
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -29,6 +35,7 @@ import { AuditTimeline } from '../components/AuditTimeline'
 import { CheckingView } from '../components/CheckingView'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { applySuggestions, buildSegments } from '../lib/highlight'
+import { getSubmissionMediaUrl } from '../lib/media'
 import type { AuthorityTier, Claim, ClaimState, Evidence, KnowledgeDoc, ReviewAction, Submission } from '../types'
 import { isAuthoritative } from '../types'
 
@@ -178,6 +185,25 @@ export function ReviewDetail() {
   }, [docs])
 
   const [selected, setSelected] = useState<string | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const [findingsTab, setFindingsTab] = useState<'ALL' | 'TEXT' | 'VISUAL'>('ALL')
+
+  const textClaims = useMemo(
+    () => s?.claims.filter((c) => c.claimType !== 'VISUAL_BRAND') ?? [],
+    [s]
+  )
+  const visualClaims = useMemo(
+    () => s?.claims.filter((c) => c.claimType === 'VISUAL_BRAND') ?? [],
+    [s]
+  )
+  const displayedClaims = useMemo(() => {
+    if (!s) return []
+    if (findingsTab === 'TEXT') return textClaims
+    if (findingsTab === 'VISUAL') return visualClaims
+    return s.claims
+  }, [s, findingsTab, textClaims, visualClaims])
+
+  const mediaUrl = s ? getSubmissionMediaUrl(s) : ''
 
   // Select the first claim that needs attention once data arrives
   useEffect(() => {
@@ -470,48 +496,105 @@ export function ReviewDetail() {
           <div className="flex items-center justify-between border-b border-line pb-3">
             <div>
               <h2 id="submitted-content-heading" className="font-display text-lg font-bold text-[#0A1F36]">
-                Original Submitted Content
+                {s.contentType === 'IMAGE' ? 'Submitted Visual Asset' : 'Original Submitted Content'}
               </h2>
               <p className="text-xs text-muted">
-                Interactive highlights correspond to verified claims and flagged discrepancies.
+                {s.contentType === 'IMAGE'
+                  ? 'Visual asset inspection, color analysis, and in-image claim verification.'
+                  : 'Interactive highlights correspond to verified claims and flagged discrepancies.'}
               </p>
             </div>
-            <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-[11px] font-mono text-muted">
-              {s.content.trim().split(/\s+/).filter(Boolean).length} words
+            <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-[11px] font-mono text-muted uppercase">
+              {s.contentType ?? 'TEXT'}
             </span>
           </div>
 
-          {/* Submitted content paragraph with highlighted spans */}
-          <div className="rounded-xl border border-line/80 bg-canvas/60 p-4 min-h-[160px]">
-            <p className="whitespace-pre-wrap text-base leading-8 text-slate-800 font-normal">
-              {segments.map((seg, i) => {
-                if (seg.claimId) {
-                  const matchingClaim = s.claims.find((c) => c.id === seg.claimId)
-                  const status = matchingClaim?.verificationStatus ?? 'UNVERIFIED'
-                  const isSelected = selected === seg.claimId
+          {/* If IMAGE submission, render prominent image preview with Lightbox zoom button */}
+          {s.contentType === 'IMAGE' && (
+            <div className="space-y-3">
+              <div className="relative group rounded-xl border border-line overflow-hidden bg-slate-950/5 flex items-center justify-center min-h-[220px]">
+                <img
+                  src={mediaUrl}
+                  alt={s.title}
+                  onClick={() => setIsLightboxOpen(true)}
+                  className="w-full max-h-[360px] object-contain cursor-pointer transition group-hover:scale-[1.01]"
+                  onError={(e) => {
+                    // Fallback to placeholder if file path is unavailable in dev mock
+                    (e.currentTarget as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="flex items-center gap-1.5 rounded-lg bg-navy/85 hover:bg-navy text-white px-3 py-1.5 text-xs font-semibold backdrop-blur-xs shadow-md transition cursor-pointer"
+                    title="Open full size in Lightbox"
+                  >
+                    <Maximize2 size={13} />
+                    <span>Expand</span>
+                  </button>
+                </div>
+              </div>
 
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => handleSelectClaim(seg.claimId!)}
-                      aria-pressed={isSelected}
-                      title={`Click to inspect Claim: ${matchingClaim?.claimText}`}
-                      className={`rounded px-1.5 py-0.5 mx-0.5 transition-all cursor-pointer ${
-                        HIGHLIGHT_STYLES[status]
-                      } ${
-                        isSelected
-                          ? 'ring-2 ring-slate-900 ring-offset-1 font-semibold shadow-xs'
-                          : ''
-                      }`}
-                    >
-                      {seg.text}
-                    </button>
-                  )
-                }
-                return <span key={i}>{seg.text}</span>
-              })}
-            </p>
+              <div className="flex items-center justify-between text-xs text-muted px-1">
+                <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                  <ImageIcon size={14} className="text-[#0F766E]" />
+                  <span>Visual Reference Asset</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(true)}
+                  className="text-[#0F766E] hover:underline font-semibold cursor-pointer"
+                >
+                  Inspect Full Resolution
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Submitted content paragraph / OCR extracted text with highlighted spans */}
+          <div className="space-y-2">
+            {s.contentType === 'IMAGE' && (
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted">
+                  In-Image OCR Extracted Text:
+                </span>
+                <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-[11px] font-mono text-muted">
+                  {s.content.trim().split(/\s+/).filter(Boolean).length} words
+                </span>
+              </div>
+            )}
+            <div className="rounded-xl border border-line/80 bg-canvas/60 p-4 min-h-[140px]">
+              <p className="whitespace-pre-wrap text-base leading-8 text-slate-800 font-normal">
+                {segments.map((seg, i) => {
+                  if (seg.claimId) {
+                    const matchingClaim = s.claims.find((c) => c.id === seg.claimId)
+                    const status = matchingClaim?.verificationStatus ?? 'UNVERIFIED'
+                    const isSelected = selected === seg.claimId
+
+                    return (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSelectClaim(seg.claimId!)}
+                        aria-pressed={isSelected}
+                        title={`Click to inspect Claim: ${matchingClaim?.claimText}`}
+                        className={`rounded px-1.5 py-0.5 mx-0.5 transition-all cursor-pointer ${
+                          HIGHLIGHT_STYLES[status]
+                        } ${
+                          isSelected
+                            ? 'ring-2 ring-slate-900 ring-offset-1 font-semibold shadow-xs'
+                            : ''
+                        }`}
+                      >
+                        {seg.text}
+                      </button>
+                    )
+                  }
+                  return <span key={i}>{seg.text}</span>
+                })}
+              </p>
+            </div>
           </div>
 
           {/* Unlocated claims notice if any */}
@@ -571,17 +654,59 @@ export function ReviewDetail() {
             </span>
           </div>
 
-          {totalClaims === 0 ? (
+          {/* Sub-filter tabs when visual claims exist or content is IMAGE */}
+          {(visualClaims.length > 0 || s.contentType === 'IMAGE') && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-line pb-3">
+              <button
+                type="button"
+                onClick={() => setFindingsTab('ALL')}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  findingsTab === 'ALL'
+                    ? 'bg-navy text-white shadow-xs'
+                    : 'bg-canvas text-slate-700 hover:bg-slate-100 border border-line'
+                }`}
+              >
+                <Layers size={13} />
+                <span>All Findings ({s.claims.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFindingsTab('TEXT')}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  findingsTab === 'TEXT'
+                    ? 'bg-navy text-white shadow-xs'
+                    : 'bg-canvas text-slate-700 hover:bg-slate-100 border border-line'
+                }`}
+              >
+                <FileText size={13} />
+                <span>Text & In-Image Claims ({textClaims.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFindingsTab('VISUAL')}
+                className={`rounded-xl px-3 py-1.5 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                  findingsTab === 'VISUAL'
+                    ? 'bg-[#0F766E] text-white shadow-xs'
+                    : 'bg-canvas text-slate-700 hover:bg-slate-100 border border-line'
+                }`}
+              >
+                <Palette size={13} />
+                <span>Visual Brand Governance ({visualClaims.length})</span>
+              </button>
+            </div>
+          )}
+
+          {displayedClaims.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-line bg-surface p-8 text-center text-muted">
               <FileCheck2 size={32} className="mx-auto mb-2 text-muted/60" />
-              <p className="font-semibold text-ink">No verifiable claims detected</p>
+              <p className="font-semibold text-ink">No claims in this category</p>
               <p className="text-xs text-muted mt-1">
-                The compliance engine found no objective pricing, specification, or factual statements requiring grounding.
+                Select another findings tab or choose "All Findings" to inspect all verified statements.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {s.claims.map((claim: Claim, idx) => {
+              {displayedClaims.map((claim: Claim, idx) => {
                 const isSelected = selected === claim.id
                 const statusConfig = CLAIM_STATUS_CONFIG[claim.verificationStatus]
                 const StatusIcon = statusConfig.icon
@@ -606,9 +731,16 @@ export function ReviewDetail() {
                           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-100 text-[11px] font-bold text-slate-700">
                             {idx + 1}
                           </span>
-                          <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-                            Extracted Claim
-                          </span>
+                          {claim.claimType === 'VISUAL_BRAND' ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-teal-50 border border-teal-200 px-2 py-0.5 text-[10px] font-bold text-[#0F766E]">
+                              <Palette size={11} />
+                              VISUAL BRAND GOVERNANCE
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold uppercase tracking-wider text-muted">
+                              Extracted Claim
+                            </span>
+                          )}
                         </div>
                         <h3 className="font-display text-base font-bold text-[#0A1F36]">
                           “{claim.claimText}”
@@ -623,6 +755,22 @@ export function ReviewDetail() {
                         {statusConfig.label}
                       </span>
                     </div>
+
+                    {/* Color Swatch Preview for Visual Brand findings if hex code exists */}
+                    {claim.claimType === 'VISUAL_BRAND' && (() => {
+                      const hexMatch = (claim.claimText + ' ' + (claim.explanation ?? '')).match(/#([0-9a-fA-F]{6})/i)
+                      if (!hexMatch) return null
+                      return (
+                        <div className="flex items-center gap-2.5 rounded-xl border border-line bg-canvas/80 px-3 py-2 text-xs">
+                          <span
+                            className="h-5 w-5 rounded-md border border-black/20 shadow-xs shrink-0"
+                            style={{ backgroundColor: hexMatch[0] }}
+                          />
+                          <span className="font-mono font-bold text-slate-900">{hexMatch[0]}</span>
+                          <span className="text-muted">Detected Palette Sample</span>
+                        </div>
+                      )
+                    })()}
 
                     {/* Clear Explanation */}
                     <div className="space-y-1 text-xs">
@@ -823,6 +971,59 @@ export function ReviewDetail() {
 
         <AuditTimeline submissionId={s.id} />
       </section>
+
+      {/* ========================================================================= */}
+      {/* 7. FULLSCREEN IMAGE LIGHTBOX MODAL                                        */}
+      {/* ========================================================================= */}
+      {isLightboxOpen && s.contentType === 'IMAGE' && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-xs animate-fade-in"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <div
+            className="relative max-w-5xl w-full max-h-[92vh] bg-surface rounded-2xl overflow-hidden border border-line shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-line px-5 py-3.5 bg-canvas">
+              <div className="flex items-center gap-2">
+                <ImageIcon size={18} className="text-[#0F766E]" />
+                <h3 className="font-bold text-sm text-ink truncate max-w-lg">{s.title}</h3>
+                <span className="rounded bg-navy-soft text-navy px-2 py-0.5 text-[10px] font-mono font-bold">
+                  IMAGE ASSET
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={mediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-muted hover:text-[#0F766E] font-medium"
+                >
+                  <span>Open Full Size</span>
+                  <ExternalLink size={12} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(false)}
+                  className="rounded-lg p-1.5 text-muted hover:text-ink hover:bg-slate-200 transition cursor-pointer"
+                  aria-label="Close lightbox"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-auto flex items-center justify-center bg-slate-950/20 max-h-[calc(92vh-60px)]">
+              <img
+                src={mediaUrl}
+                alt={s.title}
+                className="max-h-[78vh] w-auto max-w-full object-contain rounded-lg shadow-md"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

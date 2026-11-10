@@ -7,9 +7,14 @@ import {
   ExternalLink,
   FileText,
   HelpCircle,
+  Image as ImageIcon,
+  Layers,
   Lightbulb,
+  Maximize2,
+  Palette,
   ShieldAlert,
   ShieldCheck,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -20,6 +25,7 @@ import { EvidenceCard } from '../components/EvidenceCard'
 import { StatusPill } from '../components/StatusPill'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
 import { buildSegments } from '../lib/highlight'
+import { getSubmissionMediaUrl } from '../lib/media'
 import type { ClaimState } from '../types'
 
 const MARK: Record<ClaimState, string> = {
@@ -36,6 +42,7 @@ const CLAIM_TYPE_LABELS: Record<string, string> = {
   FACTUAL: 'Factual Statement',
   TERMINOLOGY: 'Brand Terminology',
   TONE: 'Tone of Voice',
+  VISUAL_BRAND: 'Visual Brand Asset',
   OTHER: 'General Claim',
 }
 
@@ -47,6 +54,8 @@ export function AdminSubmissionDetail() {
   const backLabel = isManager ? 'Back to Department Submissions' : 'Back to Content & Submissions'
 
   const [selectedClaimId, setSelectedClaimId] = useState<string | null>(null)
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const [findingsTab, setFindingsTab] = useState<'ALL' | 'TEXT' | 'VISUAL'>('ALL')
 
   // Query submission details
   const subQ = useQuery({
@@ -62,6 +71,23 @@ export function AdminSubmissionDetail() {
 
   const s = subQ.data
   const auditEntries = auditQ.data ?? []
+
+  const textClaims = useMemo(
+    () => s?.claims.filter((c) => c.claimType !== 'VISUAL_BRAND') ?? [],
+    [s]
+  )
+  const visualClaims = useMemo(
+    () => s?.claims.filter((c) => c.claimType === 'VISUAL_BRAND') ?? [],
+    [s]
+  )
+  const displayedClaims = useMemo(() => {
+    if (!s) return []
+    if (findingsTab === 'TEXT') return textClaims
+    if (findingsTab === 'VISUAL') return visualClaims
+    return s.claims
+  }, [s, findingsTab, textClaims, visualClaims])
+
+  const mediaUrl = s ? getSubmissionMediaUrl(s) : ''
 
   // Auto-select first flagged claim on load
   useEffect(() => {
@@ -265,13 +291,55 @@ export function AdminSubmissionDetail() {
               <div className="flex items-center gap-2">
                 <FileText size={16} className="text-[#0F766E]" />
                 <h2 id="content-heading" className="font-display text-sm font-bold uppercase tracking-wider text-slate-800">
-                  Original Submitted Content
+                  {s.contentType === 'IMAGE' ? 'Submitted Visual Asset' : 'Original Submitted Content'}
                 </h2>
               </div>
-              <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-xs font-mono font-semibold text-muted">
+              <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-xs font-mono font-semibold text-muted uppercase">
                 {s.contentType ?? 'TEXT'}
               </span>
             </div>
+
+            {/* If IMAGE submission, show image preview with zoom lightbox button */}
+            {s.contentType === 'IMAGE' && (
+              <div className="mb-4 space-y-3">
+                <div className="relative group rounded-xl border border-line overflow-hidden bg-slate-950/5 flex items-center justify-center min-h-[220px]">
+                  <img
+                    src={mediaUrl}
+                    alt={s.title}
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="w-full max-h-[360px] object-contain cursor-pointer transition group-hover:scale-[1.01]"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none'
+                    }}
+                  />
+                  <div className="absolute top-3 right-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsLightboxOpen(true)}
+                      className="flex items-center gap-1.5 rounded-lg bg-navy/85 hover:bg-navy text-white px-3 py-1.5 text-xs font-semibold backdrop-blur-xs shadow-md transition cursor-pointer"
+                      title="Open full size in Lightbox"
+                    >
+                      <Maximize2 size={13} />
+                      <span>Expand</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-muted px-1">
+                  <span className="flex items-center gap-1.5 font-medium text-slate-700">
+                    <ImageIcon size={14} className="text-[#0F766E]" />
+                    <span>Visual Reference Asset</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="text-[#0F766E] hover:underline font-semibold cursor-pointer"
+                  >
+                    Inspect Full Resolution
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* If PDF submission, show PDF metadata card */}
             {s.contentType === 'PDF' && (
@@ -286,6 +354,18 @@ export function AdminSubmissionDetail() {
                 <p className="mt-1 text-slate-600">
                   Content extracted and vectorized into Neon pgvector embeddings for semantic grounding.
                 </p>
+              </div>
+            )}
+
+            {/* In-Image OCR Header */}
+            {s.contentType === 'IMAGE' && (
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted">
+                  In-Image OCR Extracted Text:
+                </span>
+                <span className="rounded-md bg-canvas border border-line px-2 py-0.5 text-[11px] font-mono text-muted">
+                  {s.content.trim().split(/\s+/).filter(Boolean).length} words
+                </span>
               </div>
             )}
 
@@ -365,17 +445,59 @@ export function AdminSubmissionDetail() {
               </span>
             </div>
 
+            {/* Sub-filter tabs when visual claims exist or content is IMAGE */}
+            {(visualClaims.length > 0 || s.contentType === 'IMAGE') && (
+              <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-line pb-3">
+                <button
+                  type="button"
+                  onClick={() => setFindingsTab('ALL')}
+                  className={`rounded-xl px-2.5 py-1 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    findingsTab === 'ALL'
+                      ? 'bg-navy text-white shadow-xs'
+                      : 'bg-canvas text-slate-700 hover:bg-slate-100 border border-line'
+                  }`}
+                >
+                  <Layers size={13} />
+                  <span>All ({s.claims.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFindingsTab('TEXT')}
+                  className={`rounded-xl px-2.5 py-1 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    findingsTab === 'TEXT'
+                      ? 'bg-navy text-white shadow-xs'
+                      : 'bg-canvas text-slate-700 hover:bg-slate-100 border border-line'
+                  }`}
+                >
+                  <FileText size={13} />
+                  <span>Factual ({textClaims.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFindingsTab('VISUAL')}
+                  className={`rounded-xl px-2.5 py-1 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    findingsTab === 'VISUAL'
+                      ? 'bg-[#0F766E] text-white shadow-xs'
+                      : 'bg-canvas text-slate-700 hover:bg-slate-100 border border-line'
+                  }`}
+                >
+                  <Palette size={13} />
+                  <span>Visual Brand ({visualClaims.length})</span>
+                </button>
+              </div>
+            )}
+
             {/* Claim Navigation Tabs */}
-            {totalClaims > 1 && (
+            {displayedClaims.length > 1 && (
               <div className="mb-4 flex flex-wrap gap-1.5">
-                {s.claims.map((c, idx) => {
+                {displayedClaims.map((c, idx) => {
                   const isSelected = c.id === selectedClaimId
                   return (
                     <button
                       key={c.id}
                       type="button"
                       onClick={() => setSelectedClaimId(c.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition cursor-pointer ${
                         isSelected
                           ? 'bg-navy text-white shadow-2xs'
                           : 'bg-canvas text-slate-700 border border-line hover:bg-slate-100'
@@ -405,15 +527,38 @@ export function AdminSubmissionDetail() {
                 {/* Claim Statement & Verdict */}
                 <div className="rounded-xl border border-line bg-canvas p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <span className="rounded bg-slate-200/80 px-2 py-0.5 text-[11px] font-bold text-slate-800 font-mono">
-                      {CLAIM_TYPE_LABELS[currentClaim.claimType ?? 'OTHER'] ?? currentClaim.claimType}
-                    </span>
+                    {currentClaim.claimType === 'VISUAL_BRAND' ? (
+                      <span className="inline-flex items-center gap-1 rounded bg-teal-50 border border-teal-200 px-2 py-0.5 text-[11px] font-bold text-[#0F766E]">
+                        <Palette size={12} />
+                        VISUAL BRAND GOVERNANCE
+                      </span>
+                    ) : (
+                      <span className="rounded bg-slate-200/80 px-2 py-0.5 text-[11px] font-bold text-slate-800 font-mono">
+                        {CLAIM_TYPE_LABELS[currentClaim.claimType ?? 'OTHER'] ?? currentClaim.claimType}
+                      </span>
+                    )}
                     <StatusPill state={currentClaim.verificationStatus} />
                   </div>
 
                   <p className="font-display text-base font-bold text-ink">
                     “{currentClaim.claimText}”
                   </p>
+
+                  {/* Detected Color Swatch Preview for Visual Brand claims */}
+                  {currentClaim.claimType === 'VISUAL_BRAND' && (() => {
+                    const hexMatch = (currentClaim.claimText + ' ' + (currentClaim.explanation ?? '')).match(/#([0-9a-fA-F]{6})/i)
+                    if (!hexMatch) return null
+                    return (
+                      <div className="mt-2.5 flex items-center gap-2.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs">
+                        <span
+                          className="h-4 w-4 rounded border border-black/20 shadow-xs shrink-0"
+                          style={{ backgroundColor: hexMatch[0] }}
+                        />
+                        <span className="font-mono font-bold text-slate-900">{hexMatch[0]}</span>
+                        <span className="text-muted">Detected Palette Sample</span>
+                      </div>
+                    )
+                  })()}
 
                   {currentClaim.aiConfidence != null && (
                     <p className="mt-1 text-xs text-muted">
@@ -527,6 +672,59 @@ export function AdminSubmissionDetail() {
         {/* Chronological Audit Timeline */}
         <AuditTimeline submissionId={s.id} />
       </section>
+
+      {/* ========================================================================= */}
+      {/* 6. FULLSCREEN IMAGE LIGHTBOX MODAL                                        */}
+      {/* ========================================================================= */}
+      {isLightboxOpen && s.contentType === 'IMAGE' && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-xs animate-fade-in"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <div
+            className="relative max-w-5xl w-full max-h-[92vh] bg-surface rounded-2xl overflow-hidden border border-line shadow-2xl flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-line px-5 py-3.5 bg-canvas">
+              <div className="flex items-center gap-2">
+                <ImageIcon size={18} className="text-[#0F766E]" />
+                <h3 className="font-bold text-sm text-ink truncate max-w-lg">{s.title}</h3>
+                <span className="rounded bg-navy-soft text-navy px-2 py-0.5 text-[10px] font-mono font-bold">
+                  IMAGE ASSET
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <a
+                  href={mediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-xs text-muted hover:text-[#0F766E] font-medium"
+                >
+                  <span>Open Full Size</span>
+                  <ExternalLink size={12} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setIsLightboxOpen(false)}
+                  className="rounded-lg p-1.5 text-muted hover:text-ink hover:bg-slate-200 transition cursor-pointer"
+                  aria-label="Close lightbox"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+            <div className="p-4 overflow-auto flex items-center justify-center bg-slate-950/20 max-h-[calc(92vh-60px)]">
+              <img
+                src={mediaUrl}
+                alt={s.title}
+                className="max-h-[78vh] w-auto max-w-full object-contain rounded-lg shadow-md"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

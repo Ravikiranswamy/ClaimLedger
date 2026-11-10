@@ -339,6 +339,7 @@ export function DepartmentSubmissions() {
               <option value="ALL">All Content Types</option>
               <option value="TEXT">Text Content</option>
               <option value="PDF">PDF Document</option>
+              <option value="IMAGE">Image Asset</option>
             </select>
 
             {/* Status Filter */}
@@ -460,6 +461,8 @@ export function DepartmentSubmissions() {
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700">
                           {s.contentType === 'PDF' ? (
                             <span className="font-mono text-[11px] font-bold text-rose-700">PDF</span>
+                          ) : s.contentType === 'IMAGE' ? (
+                            <span className="font-mono text-[11px] font-bold text-purple-700">IMAGE</span>
                           ) : (
                             <span className="font-mono text-[11px] font-bold text-teal-700">TEXT</span>
                           )}

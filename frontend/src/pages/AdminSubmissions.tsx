@@ -8,6 +8,7 @@ import {
   FileCheck2,
   FileText,
   Filter,
+  Image as ImageIcon,
   RotateCcw,
   Search,
   ShieldAlert,
@@ -351,6 +352,7 @@ export function AdminSubmissions() {
               <option value="ALL">All Content Types</option>
               <option value="TEXT">Text Content</option>
               <option value="PDF">PDF Document</option>
+              <option value="IMAGE">Image Asset</option>
             </select>
 
             {/* Status Filter */}
@@ -478,6 +480,10 @@ export function AdminSubmissions() {
                               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-700 border border-rose-200">
                                 <FileText size={14} />
                               </span>
+                            ) : s.contentType === 'IMAGE' ? (
+                              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-700 border border-purple-200">
+                                <ImageIcon size={14} />
+                              </span>
                             ) : (
                               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-50 text-teal-700 border border-teal-200">
                                 <FileCheck2 size={14} />
@@ -538,6 +544,8 @@ export function AdminSubmissions() {
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700">
                           {s.contentType === 'PDF' ? (
                             <span className="font-mono text-[11px] font-bold text-rose-700">PDF</span>
+                          ) : s.contentType === 'IMAGE' ? (
+                            <span className="font-mono text-[11px] font-bold text-purple-700">IMAGE</span>
                           ) : (
                             <span className="font-mono text-[11px] font-bold text-teal-700">TEXT</span>
                           )}
