@@ -513,16 +513,26 @@ export function ReviewDetail() {
           {s.contentType === 'IMAGE' && (
             <div className="space-y-3">
               <div className="relative group rounded-xl border border-line overflow-hidden bg-slate-950/5 flex items-center justify-center min-h-[220px]">
-                <img
-                  src={mediaUrl}
-                  alt={s.title}
-                  onClick={() => setIsLightboxOpen(true)}
-                  className="w-full max-h-[360px] object-contain cursor-pointer transition group-hover:scale-[1.01]"
-                  onError={(e) => {
-                    // Fallback to placeholder if file path is unavailable in dev mock
-                    (e.currentTarget as HTMLImageElement).style.display = 'none'
-                  }}
-                />
+                {mediaUrl ? (
+                  <img
+                    src={mediaUrl}
+                    alt={s.title}
+                    onClick={() => setIsLightboxOpen(true)}
+                    className="w-full max-h-[360px] object-contain cursor-pointer transition group-hover:scale-[1.01]"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none'
+                      const fallback = e.currentTarget.parentElement?.querySelector('.image-fallback-card') as HTMLElement
+                      if (fallback) fallback.style.display = 'flex'
+                    }}
+                  />
+                ) : null}
+                <div
+                  className={`image-fallback-card ${mediaUrl ? 'hidden' : 'flex'} flex-col items-center justify-center p-8 text-center text-muted`}
+                >
+                  <ImageIcon size={44} className="text-[#0F766E]/60 mb-2" />
+                  <p className="font-semibold text-sm text-ink">{s.filePath?.split('/').pop() || s.title}</p>
+                  <p className="text-xs text-muted mt-0.5">Submitted Visual Graphic Asset</p>
+                </div>
                 <div className="absolute top-3 right-3 flex items-center gap-2">
                   <button
                     type="button"

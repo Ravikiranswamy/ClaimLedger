@@ -252,13 +252,155 @@ function evidenceFor(claimId: string): Evidence[] {
   ]
 }
 
-function analyse(content: string): { claims: Claim[]; status: Submission['status'] } {
+function analyse(
+  content: string,
+  type: ContentType = 'TEXT',
+  file?: File,
+  title: string = ''
+): { claims: Claim[]; status: Submission['status'] } {
   const claims: Claim[] = []
 
   // Check if current organisation has approved documents
   const hasApprovedDocs = MOCK_DOCS.some(
     (d) => (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId && d.approvalStatus === 'APPROVED'
   )
+
+  const approvedVisualDocs = MOCK_DOCS.filter(
+    (d) =>
+      (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId &&
+      d.category === 'ASSETS' &&
+      d.approvalStatus === 'APPROVED'
+  )
+
+  const fullContext = `${file?.name || ''} ${title} ${content}`.toLowerCase()
+
+  // 0. Visual Brand Analysis for Image content
+  if (type === 'IMAGE') {
+    if (approvedVisualDocs.length === 0) {
+      claims.push({
+        id: `c${seq++}`,
+        claimText: 'Visual Brand Identity & Palette Verification',
+        claimType: 'VISUAL_BRAND',
+        verificationStatus: 'UNVERIFIED',
+        explanation:
+          'No approved visual reference assets, logos, or color guidelines are currently active for this organisation in the Knowledge Base. Visual brand compliance could not be verified.',
+        suggestedCorrection:
+          'Upload official brand color palettes and logo specifications under the ASSETS category in the Knowledge Base and obtain Admin approval.',
+        aiConfidence: 0.95,
+        evidence: [],
+      })
+    } else {
+      const isExternalBrand = /google|amazon|apple|microsoft|meta|unapproved|competitor|external|dummy|fake/i.test(
+        fullContext
+      )
+      const isApprovedNexoraLogo = /nexora|emblem|approved|official|primary/i.test(fullContext)
+      const isOffBrandColor = /pink|neon|ff1493|google|yellow|red|purple|orange/i.test(fullContext)
+
+      // Logo / Brand Mark Check
+      if (isExternalBrand || (!isApprovedNexoraLogo && /logo/i.test(fullContext))) {
+        const detectedBrand = /google/i.test(fullContext)
+          ? 'Google'
+          : /amazon/i.test(fullContext)
+            ? 'Amazon'
+            : 'External Brand'
+        claims.push({
+          id: `c${seq++}`,
+          claimText: `Official Brand Identity: Unapproved Logo / Third-Party Mark (${detectedBrand})`,
+          claimType: 'VISUAL_BRAND',
+          verificationStatus: 'VIOLATION',
+          explanation: `The submitted visual asset features unapproved external branding ("${detectedBrand}") that contradicts the official brand visual identity guidelines in the Knowledge Base. Only approved company marks and emblems may be displayed in campaign collateral.`,
+          suggestedCorrection:
+            'Replace external logo with the official approved company logo mark with standard clear space.',
+          aiConfidence: 0.96,
+          evidence: [
+            {
+              id: `c${seq++}-e1`,
+              documentName: approvedVisualDocs[0].name,
+              authorityTier: approvedVisualDocs[0].authorityTier,
+              authoritative: true,
+              pageNumber: 1,
+              excerpt:
+                'Brand Guidelines - Section 1.2: Official Logo Placement: Every public promotional banner, social graphic, and digital ad must include the approved company logo mark with minimum clear space. Unapproved third-party or competitor logos are strictly prohibited.',
+            },
+          ],
+        })
+      } else {
+        claims.push({
+          id: `c${seq++}`,
+          claimText: 'Official Brand Identity: Logo Usage & Clear Space',
+          claimType: 'VISUAL_BRAND',
+          verificationStatus: 'VERIFIED',
+          explanation:
+            'Visual asset displays the official primary company mark with required clear space and isolation margins.',
+          suggestedCorrection: null,
+          aiConfidence: 0.98,
+          evidence: [
+            {
+              id: `c${seq++}-e1`,
+              documentName: approvedVisualDocs[0].name,
+              authorityTier: approvedVisualDocs[0].authorityTier,
+              authoritative: true,
+              pageNumber: 1,
+              excerpt:
+                'Brand Guidelines - Section 1.2: Official Logo Placement: Official primary logo mark verified with clear space adherence.',
+            },
+          ],
+        })
+      }
+
+      // Brand Color Palette Check
+      if (isOffBrandColor || isExternalBrand) {
+        const detectedHex = /pink|neon|ff1493/i.test(fullContext)
+          ? '#FF1493'
+          : /google/i.test(fullContext)
+            ? '#EA4335'
+            : '#FF9900'
+        claims.push({
+          id: `c${seq++}`,
+          claimText: `Brand Colour Palette Compliance: Off-Brand Color (${detectedHex})`,
+          claimType: 'VISUAL_BRAND',
+          verificationStatus: 'VIOLATION',
+          explanation: `Dominant color cluster (${detectedHex}) in marketing promotional graphic diverges from approved corporate palette (#0A1F36 Primary Navy, #0F766E Teal, #5EEAD4 Soft Teal). Promotional graphics must adhere to approved brand hues.`,
+          suggestedCorrection:
+            'Re-export marketing graphics using official corporate primary navy (#0A1F36) and dark teal (#0F766E).',
+          aiConfidence: 0.94,
+          evidence: [
+            {
+              id: `c${seq++}-e2`,
+              documentName: approvedVisualDocs[0].name,
+              authorityTier: approvedVisualDocs[0].authorityTier,
+              authoritative: true,
+              pageNumber: 1,
+              excerpt:
+                'Nexora Corporate Brand Palette: Primary Navy (#0A1F36), Dark Teal (#0F766E), Light Teal Accent (#5EEAD4). Unapproved neon and off-palette hues are strictly disallowed in customer-facing collateral.',
+            },
+          ],
+        })
+      } else {
+        claims.push({
+          id: `c${seq++}`,
+          claimText: 'Brand Colour Palette Compliance: Approved Colors (#0A1F36, #0F766E)',
+          claimType: 'VISUAL_BRAND',
+          verificationStatus: 'VERIFIED',
+          explanation:
+            'Dominant colors in the graphic conform to the approved corporate brand palette (#0A1F36 Primary Navy, #0F766E Teal).',
+          suggestedCorrection: null,
+          aiConfidence: 0.95,
+          evidence: [
+            {
+              id: `c${seq++}-e2`,
+              documentName: approvedVisualDocs[0].name,
+              authorityTier: approvedVisualDocs[0].authorityTier,
+              authoritative: true,
+              pageNumber: 1,
+              excerpt:
+                'Nexora Corporate Brand Palette: Primary Navy (#0A1F36), Dark Teal (#0F766E). Corporate promotional collateral conforms to approved color swatches.',
+            },
+          ],
+        })
+      }
+    }
+  }
 
   // 1. Price analysis
   const price = /₹\s?(\d{3,4})(?:\s*(?:per|\/)\s*(?:user\s*)?(?:per\s*)?(?:month|mo))?/i.exec(content)
@@ -409,17 +551,36 @@ function me(): User {
   return strip(u)
 }
 
-async function create(title: string, content: string, type: ContentType, departmentId?: string): Promise<Submission> {
+async function create(
+  title: string,
+  content: string,
+  type: ContentType,
+  departmentId?: string,
+  fileUrl?: string | null,
+  file?: File
+): Promise<Submission> {
   const user = me()
-  await wait(2400) // analysis is synchronous on the real backend, so creation takes a moment
+  await wait(1800) // analysis is synchronous on the real backend, so creation takes a moment
   const id = `sub-${seq++}`
   const depts = mockOrgDepartments.get(currentOrgId) ?? DEPARTMENTS
   const defaultDept = depts[0]?.id ?? SALES.id
   const dep = departmentId ?? user.departmentId ?? defaultDept
-  const { claims, status } = analyse(content)
+  const { claims, status } = analyse(content, type, file, title)
   const s: Submission = {
-    id, title, content, contentType: type, departmentId: dep, departmentName: deptName(dep), submittedBy: user.id,
-    submittedByName: user.fullName, status, revisionNumber: 1, createdAt: new Date().toISOString(), claims,
+    id,
+    title,
+    content,
+    contentType: type,
+    filePath: file ? `uploads/documents/submissions/${id}_${file.name}` : null,
+    fileUrl: fileUrl ?? (type === 'IMAGE' ? fileUrl : null),
+    departmentId: dep,
+    departmentName: deptName(dep),
+    submittedBy: user.id,
+    submittedByName: user.fullName,
+    status,
+    revisionNumber: 1,
+    createdAt: new Date().toISOString(),
+    claims,
     organisationId: currentOrgId,
   }
   subs.set(id, s)
@@ -814,8 +975,18 @@ export const mockApi: Api = {
   createTextSubmission: ({ title, content, departmentId }) => create(title, content, 'TEXT', departmentId),
   createPdfSubmission: ({ title, departmentId }) =>
     create(title, 'Great news! Nexora Pro is now available at ₹799 per month. It is the fastest platform around.', 'PDF', departmentId),
-  createImageSubmission: ({ title, text, departmentId }) =>
-    create(title, text || 'Nexora Pro Graphic Campaign — Visual claim verification test.', 'IMAGE', departmentId),
+  createImageSubmission: ({ title, file, departmentId, text }) => {
+    const fileUrl = file ? URL.createObjectURL(file) : null
+    const textContent =
+      text && text.trim()
+        ? text
+        : file?.name.toLowerCase().includes('799')
+          ? 'Nexora Pro is available for ₹799 per month! Complete enterprise AI brand compliance.'
+          : file?.name.toLowerCase().includes('999')
+            ? 'Nexora Pro is officially available at ₹999 per user per month billed annually.'
+            : `Official Promotional Graphic: ${file?.name || title}`
+    return create(title, textContent, 'IMAGE', departmentId, fileUrl, file)
+  },
   async getSubmission(id) {
     await wait(150)
     const user = me()
