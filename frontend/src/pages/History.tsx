@@ -28,6 +28,7 @@ import {
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
+import { useAuth } from '../auth/AuthContext'
 import { formatWhen } from '../components/AuditTimeline'
 import { DEPARTMENTS, type ActionType, type AuditEntry } from '../types'
 
@@ -153,6 +154,14 @@ const ACTION_CONFIG: Record<
 }
 
 export function History() {
+  const { user } = useAuth()
+  if (user?.role === 'CREATOR') {
+    return <CreatorHistory user={user} />
+  }
+  return <AdminHistory />
+}
+
+function AdminHistory() {
   // Filters State
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<ActivityCategory>('ALL')
@@ -1007,6 +1016,727 @@ function ActivityDetailModal({ activity, subMap, docMap, onClose }: ActivityDeta
             className="rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white hover:bg-navy-soft transition"
           >
             Close Activity Details
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// =========================================================================
+// CREATOR ACTIVITY & HISTORY (PERSONAL WORKSPACE)
+// =========================================================================
+
+const CREATOR_ACTION_CONFIG: Record<
+  string,
+  { label: string; cls: string; icon: any; desc: string }
+> = {
+  SUBMITTED: {
+    label: 'Content Submitted',
+    cls: 'bg-blue-50 text-blue-800 border-blue-200',
+    icon: FileText,
+    desc: 'New content draft submitted for brand compliance verification.',
+  },
+  ANALYZED: {
+    label: 'Compliance Analysis Completed',
+    cls: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+    icon: ShieldCheck,
+    desc: 'ClaimLedger AI Engine verified claims against multi-tier brand rules.',
+  },
+  REVIEWER_CHANGES_REQUESTED: {
+    label: 'Changes Requested',
+    cls: 'bg-amber-50 text-amber-900 border-amber-300',
+    icon: AlertTriangle,
+    desc: 'Authorised reviewer returned content with revision instructions.',
+  },
+  CREATOR_REVISED: {
+    label: 'Revision Submitted',
+    cls: 'bg-teal-50 text-teal-800 border-teal-200',
+    icon: Wand2,
+    desc: 'Updated revision submitted addressing reviewer feedback.',
+  },
+  REVIEWER_APPROVED: {
+    label: 'Content Approved',
+    cls: 'bg-emerald-50 text-emerald-900 border-emerald-300',
+    icon: CheckCircle2,
+    desc: 'Authorised reviewer approved content for publication.',
+  },
+  REVIEWER_REJECTED: {
+    label: 'Content Rejected',
+    cls: 'bg-rose-50 text-rose-900 border-rose-300',
+    icon: XCircle,
+    desc: 'Content rejected due to brand truth violations.',
+  },
+}
+
+interface CreatorHistoryProps {
+  user: any
+}
+
+function CreatorHistory({ user }: CreatorHistoryProps) {
+  // Filters State
+  const [search, setSearch] = useState('')
+  const [actionFilter, setActionFilter] = useState<string>('ALL')
+  const [submissionFilter, setSubmissionFilter] = useState<string>('ALL')
+  const [dateRange, setDateRange] = useState<DateRangeOption>('ALL')
+
+  // Selected Activity for Details Modal
+  const [selectedActivity, setSelectedActivity] = useState<AuditEntry | null>(null)
+
+  // Queries
+  const submissionsQ = useQuery({ queryKey: ['submissions'], queryFn: api.listSubmissions })
+  const auditQ = useQuery({ queryKey: ['audit-all'], queryFn: api.listGlobalAudit })
+
+  // Submissions filtered strictly to logged-in Creator
+  const allSubmissions = submissionsQ.data ?? []
+  const creatorSubmissions = useMemo(() => {
+    if (!user?.id) return allSubmissions
+    return allSubmissions.filter((s) => !s.submittedBy || s.submittedBy === user.id)
+  }, [allSubmissions, user])
+
+  const creatorSubIds = useMemo(
+    () => new Set(creatorSubmissions.map((s) => s.id)),
+    [creatorSubmissions]
+  )
+
+  const subMap = useMemo(
+    () => new Map(creatorSubmissions.map((s) => [s.id, s])),
+    [creatorSubmissions]
+  )
+
+  // Audit records filtered strictly to Creator's submissions and Creator actions
+  const rawAuditLogs = auditQ.data ?? []
+  const creatorAuditLogs = useMemo(() => {
+    return rawAuditLogs.filter((entry) => {
+      if (!entry.submissionId || !creatorSubIds.has(entry.submissionId)) {
+        return false
+      }
+      return [
+        'SUBMITTED',
+        'ANALYZED',
+        'REVIEWER_CHANGES_REQUESTED',
+        'CREATOR_REVISED',
+        'REVIEWER_APPROVED',
+        'REVIEWER_REJECTED',
+      ].includes(entry.action)
+    })
+  }, [rawAuditLogs, creatorSubIds])
+
+  // Personal Activity Summary Metrics
+  const metrics = useMemo(() => {
+    const totalSubmissions = creatorSubmissions.length
+    const analysesCompleted = creatorAuditLogs.filter((a) => a.action === 'ANALYZED').length
+    const changesRequested = creatorAuditLogs.filter(
+      (a) => a.action === 'REVIEWER_CHANGES_REQUESTED'
+    ).length
+    const approvedSubmissions = creatorSubmissions.filter((s) => s.status === 'APPROVED').length
+
+    return {
+      totalSubmissions,
+      analysesCompleted,
+      changesRequested,
+      approvedSubmissions,
+    }
+  }, [creatorSubmissions, creatorAuditLogs])
+
+  // Filtered Logs
+  const filteredLogs = useMemo(() => {
+    const now = new Date().getTime()
+    const oneDay = 24 * 60 * 60 * 1000
+    const sevenDays = 7 * oneDay
+    const thirtyDays = 30 * oneDay
+
+    return creatorAuditLogs.filter((entry) => {
+      // Action type filter
+      if (actionFilter !== 'ALL' && entry.action !== actionFilter) return false
+
+      // Submission filter
+      if (submissionFilter !== 'ALL' && entry.submissionId !== submissionFilter) return false
+
+      // Date range filter
+      if (dateRange !== 'ALL') {
+        const entryTime = new Date(entry.createdAt).getTime()
+        const diff = now - entryTime
+        if (dateRange === 'TODAY' && diff > oneDay) return false
+        if (dateRange === '7_DAYS' && diff > sevenDays) return false
+        if (dateRange === '30_DAYS' && diff > thirtyDays) return false
+      }
+
+      // Search query
+      if (search.trim()) {
+        const q = search.toLowerCase()
+        const subTitle = entry.submissionId ? subMap.get(entry.submissionId)?.title.toLowerCase() ?? '' : ''
+        const matchTitle = subTitle.includes(q)
+        const matchActor = (entry.actorName || '').toLowerCase().includes(q)
+        const matchComment = (entry.comment || '').toLowerCase().includes(q)
+        if (!matchTitle && !matchActor && !matchComment) return false
+      }
+
+      return true
+    })
+  }, [creatorAuditLogs, actionFilter, submissionFilter, dateRange, search, subMap])
+
+  const hasActiveFilters =
+    search.trim() !== '' ||
+    actionFilter !== 'ALL' ||
+    submissionFilter !== 'ALL' ||
+    dateRange !== 'ALL'
+
+  const resetFilters = () => {
+    setSearch('')
+    setActionFilter('ALL')
+    setSubmissionFilter('ALL')
+    setDateRange('ALL')
+  }
+
+  return (
+    <div className="space-y-8 pb-16">
+      {/* 1. Header (Creator-Focused, No Admin Export or Storage Panels) */}
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[#0F766E] text-white text-xs font-bold font-mono">
+                04
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-[#0F766E]">
+                Personal Activity History
+              </span>
+            </div>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-[#0A1F36]">
+              Activity & History
+            </h1>
+            <p className="mt-1 text-sm text-muted max-w-3xl">
+              Chronological log of your personal submissions, automated compliance verifications, reviewer feedback, and revision history.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Personal Activity Summary Ribbon (4 Creator-Specific Cards) */}
+      <section aria-labelledby="creator-metrics-heading">
+        <h2 id="creator-metrics-heading" className="sr-only">Personal Activity Metrics</h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* Total Submissions */}
+          <button
+            type="button"
+            onClick={() => {
+              setActionFilter('ALL')
+              setSubmissionFilter('ALL')
+            }}
+            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+              actionFilter === 'ALL' && submissionFilter === 'ALL'
+                ? 'border-blue-500 bg-blue-50/60 ring-2 ring-blue-500/20 shadow-xs'
+                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-900">Total Submissions</span>
+              <FileText size={16} className="text-blue-600" />
+            </div>
+            <div className="mt-3">
+              <span className="font-display text-2xl font-bold text-blue-950">{metrics.totalSubmissions}</span>
+              <p className="mt-0.5 text-xs text-blue-700">Personal content submitted</p>
+            </div>
+          </button>
+
+          {/* Analyses Completed */}
+          <button
+            type="button"
+            onClick={() => setActionFilter(actionFilter === 'ANALYZED' ? 'ALL' : 'ANALYZED')}
+            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+              actionFilter === 'ANALYZED'
+                ? 'border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20 shadow-xs'
+                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-indigo-900">Analyses Completed</span>
+              <ShieldCheck size={16} className="text-indigo-600" />
+            </div>
+            <div className="mt-3">
+              <span className="font-display text-2xl font-bold text-indigo-950">{metrics.analysesCompleted}</span>
+              <p className="mt-0.5 text-xs text-indigo-700">Deterministic compliance checks</p>
+            </div>
+          </button>
+
+          {/* Changes Requested */}
+          <button
+            type="button"
+            onClick={() => setActionFilter(actionFilter === 'REVIEWER_CHANGES_REQUESTED' ? 'ALL' : 'REVIEWER_CHANGES_REQUESTED')}
+            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+              actionFilter === 'REVIEWER_CHANGES_REQUESTED'
+                ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20 shadow-xs'
+                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-amber-900">Changes Requested</span>
+              <AlertTriangle size={16} className="text-amber-600" />
+            </div>
+            <div className="mt-3">
+              <span className="font-display text-2xl font-bold text-amber-950">{metrics.changesRequested}</span>
+              <p className="mt-0.5 text-xs text-amber-700">Revisions requested by reviewer</p>
+            </div>
+          </button>
+
+          {/* Approved Submissions */}
+          <button
+            type="button"
+            onClick={() => setActionFilter(actionFilter === 'REVIEWER_APPROVED' ? 'ALL' : 'REVIEWER_APPROVED')}
+            className={`flex flex-col justify-between rounded-2xl border p-4 text-left transition-all cursor-pointer ${
+              actionFilter === 'REVIEWER_APPROVED'
+                ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20 shadow-xs'
+                : 'border-line bg-surface hover:border-gray-300 hover:bg-canvas'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-900">Approved Submissions</span>
+              <CheckCircle2 size={16} className="text-emerald-600" />
+            </div>
+            <div className="mt-3">
+              <span className="font-display text-2xl font-bold text-emerald-950">{metrics.approvedSubmissions}</span>
+              <p className="mt-0.5 text-xs text-emerald-700">Passed verification & approved</p>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      {/* 3. Search & Creator Filters */}
+      <section aria-labelledby="creator-filters" className="rounded-2xl border border-line bg-surface p-4 shadow-xs space-y-3">
+        <h2 id="creator-filters" className="sr-only">Activity Log Filters</h2>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" size={16} />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search your activities by submission title, reviewer comment, or actor…"
+              className="w-full rounded-xl border border-line bg-canvas pl-9 pr-4 py-2 text-sm text-ink placeholder:text-muted focus:border-[#0F766E] focus:outline-none focus:ring-2 focus:ring-[#0F766E]/20"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted hover:text-ink cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          {/* Filter Dropdowns */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* Activity Type Filter */}
+            <select
+              aria-label="Filter by Activity Type"
+              value={actionFilter}
+              onChange={(e) => setActionFilter(e.target.value)}
+              className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
+            >
+              <option value="ALL">All Activity Types</option>
+              <option value="SUBMITTED">Content Submitted</option>
+              <option value="ANALYZED">Compliance Analysis Completed</option>
+              <option value="REVIEWER_CHANGES_REQUESTED">Changes Requested</option>
+              <option value="CREATOR_REVISED">Revision Submitted</option>
+              <option value="REVIEWER_APPROVED">Content Approved</option>
+              <option value="REVIEWER_REJECTED">Content Rejected</option>
+            </select>
+
+            {/* Submission Filter */}
+            <select
+              aria-label="Filter by Submission"
+              value={submissionFilter}
+              onChange={(e) => setSubmissionFilter(e.target.value)}
+              className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none max-w-xs truncate"
+            >
+              <option value="ALL">All Submissions</option>
+              {creatorSubmissions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+            </select>
+
+            {/* Date Range Filter */}
+            <select
+              aria-label="Filter by Date Range"
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value as DateRangeOption)}
+              className="rounded-lg border border-line bg-canvas px-2.5 py-1.5 font-medium text-ink focus:border-[#0F766E] focus:outline-none"
+            >
+              <option value="ALL">All Time</option>
+              <option value="TODAY">Today</option>
+              <option value="7_DAYS">Past 7 Days</option>
+              <option value="30_DAYS">Past 30 Days</option>
+            </select>
+
+            {/* Reset */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1.5 text-muted hover:bg-canvas hover:text-ink cursor-pointer"
+              >
+                <RotateCcw size={12} /> Reset
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Results Counter */}
+        <div className="flex items-center justify-between border-t border-line/60 pt-2.5 text-xs text-muted">
+          <span>
+            Showing <strong className="text-ink">{filteredLogs.length}</strong> of{' '}
+            <strong className="text-ink">{creatorAuditLogs.length}</strong> personal activity records
+          </span>
+          {hasActiveFilters && (
+            <span className="text-[#0F766E] font-medium">Filtered results active</span>
+          )}
+        </div>
+      </section>
+
+      {/* 4. Creator Activities Table */}
+      <section aria-labelledby="creator-table-heading" className="rounded-2xl border border-line bg-surface overflow-hidden shadow-xs">
+        <h2 id="creator-table-heading" className="sr-only">Creator Activities Table</h2>
+
+        {auditQ.isLoading ? (
+          <div className="p-12 text-center text-muted">
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#0F766E] border-t-transparent mb-2" />
+            <p className="text-sm font-medium">Loading your activity history…</p>
+          </div>
+        ) : filteredLogs.length === 0 ? (
+          <div className="p-12 text-center">
+            <HistoryIcon size={32} className="mx-auto mb-3 text-muted/60" />
+            <p className="font-semibold text-ink">No activity records found</p>
+            <p className="text-xs text-muted mt-1 max-w-sm mx-auto">
+              {hasActiveFilters
+                ? 'Try adjusting or clearing your filters to see more activity records.'
+                : 'You do not have any recorded activities yet.'}
+            </p>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white hover:bg-navy-soft cursor-pointer"
+              >
+                <RotateCcw size={14} /> Clear all filters
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-line bg-canvas text-xs font-semibold uppercase tracking-wider text-muted">
+                  <th scope="col" className="px-5 py-3.5">Activity & Action</th>
+                  <th scope="col" className="px-4 py-3.5">Performed By</th>
+                  <th scope="col" className="px-4 py-3.5">Related Submission</th>
+                  <th scope="col" className="px-4 py-3.5">Timestamp</th>
+                  <th scope="col" className="px-4 py-3.5">Details & Comments</th>
+                  <th scope="col" className="px-5 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line text-sm">
+                {filteredLogs.map((entry) => {
+                  const cfg = CREATOR_ACTION_CONFIG[entry.action] ?? {
+                    label: entry.action,
+                    cls: 'bg-slate-100 text-slate-800 border-slate-300',
+                    icon: HistoryIcon,
+                    desc: 'Activity recorded.',
+                  }
+                  const Icon = cfg.icon
+
+                  const sub = entry.submissionId ? subMap.get(entry.submissionId) : null
+                  const isAI = entry.action === 'ANALYZED'
+                  const actorName = isAI ? 'ClaimLedger AI Engine' : entry.actorName || user?.fullName || 'Creator'
+                  const actorRole = isAI ? 'SYSTEM' : entry.actorRole || 'CREATOR'
+
+                  return (
+                    <tr key={entry.id} className="hover:bg-canvas/60 transition-colors">
+                      {/* 1. Activity & Action */}
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${cfg.cls}`}>
+                            <Icon size={16} />
+                          </span>
+                          <div>
+                            <span className={`inline-block rounded-md border px-2 py-0.5 text-xs font-bold ${cfg.cls}`}>
+                              {cfg.label}
+                            </span>
+                            <p className="text-[11px] text-muted mt-0.5">
+                              {cfg.desc}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 2. Performed By (System activity identified clearly) */}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                              isAI
+                                ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                                : 'bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}
+                          >
+                            {isAI ? 'AI' : actorName.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-ink leading-tight">
+                              {actorName}
+                            </p>
+                            <span
+                              className={`inline-block mt-0.5 rounded px-1.5 py-0.2 text-[10px] font-bold ${
+                                isAI
+                                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                  : actorRole === 'REVIEWER'
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  : 'bg-teal-50 text-teal-700 border border-teal-200'
+                              }`}
+                            >
+                              {isAI ? 'SYSTEM ACTIVITY' : actorRole}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 3. Related Submission (Links to Creator view) */}
+                      <td className="px-4 py-4 max-w-xs">
+                        <div className="flex items-start gap-1.5">
+                          <FileText size={14} className="mt-0.5 shrink-0 text-blue-600" />
+                          <div className="min-w-0">
+                            {entry.submissionId ? (
+                              <Link
+                                to={`/submissions/${entry.submissionId}`}
+                                className="font-semibold text-xs text-ink hover:text-[#0F766E] transition line-clamp-1"
+                              >
+                                {sub?.title ?? entry.resourceName ?? `Submission #${entry.submissionId.slice(0, 8)}`}
+                              </Link>
+                            ) : (
+                              <span className="font-semibold text-xs text-ink line-clamp-1">
+                                {sub?.title ?? entry.resourceName ?? 'Submission'}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1.5 text-[11px] text-muted mt-0.5">
+                              {sub?.revisionNumber && (
+                                <span className="rounded bg-canvas border border-line px-1 py-0.2 text-[10px] font-mono">
+                                  r{sub.revisionNumber}
+                                </span>
+                              )}
+                              <span>{sub?.contentType ?? 'TEXT'}</span>
+                              <span>·</span>
+                              <span>{sub?.departmentName ?? 'Marketing'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 4. Timestamp */}
+                      <td className="px-4 py-4 whitespace-nowrap text-xs text-muted">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-muted/70" />
+                          <span>{formatWhen(entry.createdAt)}</span>
+                        </div>
+                        <span className="font-mono text-[10px] text-muted/80">
+                          {new Date(entry.createdAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </span>
+                      </td>
+
+                      {/* 5. Details & Comments */}
+                      <td className="px-4 py-4 max-w-sm">
+                        {entry.comment ? (
+                          <p className="text-xs text-slate-800 line-clamp-2 leading-relaxed">
+                            “{entry.comment}”
+                          </p>
+                        ) : (
+                          <span className="text-xs text-muted italic">No comments recorded</span>
+                        )}
+                      </td>
+
+                      {/* 6. Action Button */}
+                      <td className="px-5 py-4 whitespace-nowrap text-right">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedActivity(entry)}
+                          className="inline-flex items-center gap-1 rounded-lg bg-canvas border border-line px-2.5 py-1 text-xs font-semibold text-ink hover:border-[#0F766E] hover:text-[#0F766E] transition shadow-2xs cursor-pointer"
+                        >
+                          Inspect <ArrowRight size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* 5. Creator Activity Details Modal */}
+      {selectedActivity && (
+        <CreatorActivityDetailModal
+          activity={selectedActivity}
+          sub={selectedActivity.submissionId ? subMap.get(selectedActivity.submissionId) : null}
+          onClose={() => setSelectedActivity(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// =========================================================================
+// CREATOR ACTIVITY INSPECTION MODAL (PERSONAL DETAIL VIEW)
+// =========================================================================
+interface CreatorActivityDetailModalProps {
+  activity: AuditEntry
+  sub: any
+  onClose: () => void
+}
+
+function CreatorActivityDetailModal({ activity, sub, onClose }: CreatorActivityDetailModalProps) {
+  const cfg = CREATOR_ACTION_CONFIG[activity.action] ?? {
+    label: activity.action,
+    cls: 'bg-slate-100 text-slate-800 border-slate-300',
+    icon: HistoryIcon,
+    desc: 'Activity recorded.',
+  }
+  const Icon = cfg.icon
+  const isAI = activity.action === 'ANALYZED'
+  const actorName = isAI ? 'ClaimLedger AI Engine' : activity.actorName || 'Creator'
+  const actorEmail = isAI ? 'system@claimledger.internal' : activity.actorEmail || 'creator@nexora.com'
+  const actorRole = isAI ? 'SYSTEM' : activity.actorRole || 'CREATOR'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-2xl border border-line overflow-hidden animate-in fade-in zoom-in-95">
+        {/* Header */}
+        <div className="flex items-start justify-between border-b border-line p-6 bg-canvas shrink-0">
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-0.5 text-xs font-bold ${cfg.cls}`}>
+                <Icon size={14} />
+                {cfg.label}
+              </span>
+              <span className="font-mono text-xs text-muted">ID: {activity.id}</span>
+            </div>
+            <h2 className="font-display text-xl font-bold tracking-tight text-[#0A1F36]">
+              {cfg.desc}
+            </h2>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted hover:text-ink hover:bg-slate-200/50 transition cursor-pointer"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto p-6 space-y-5 flex-1 text-xs">
+          {/* Actor Profile */}
+          <div className="rounded-xl border border-line bg-surface p-4">
+            <h3 className="font-display font-bold uppercase tracking-wider text-muted text-[11px] mb-2.5">
+              Actor & System Identification
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-muted block">Performed By</span>
+                <span className="font-bold text-ink text-sm">{actorName}</span>
+              </div>
+              <div>
+                <span className="text-muted block">Email / Entity</span>
+                <span className="font-mono text-slate-700">{actorEmail}</span>
+              </div>
+              <div>
+                <span className="text-muted block">Role / Classification</span>
+                <span
+                  className={`inline-block font-bold text-xs mt-0.5 rounded px-2 py-0.5 ${
+                    isAI
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                      : actorRole === 'REVIEWER'
+                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                      : 'bg-teal-50 text-teal-700 border border-teal-200'
+                  }`}
+                >
+                  {isAI ? 'SYSTEM ACTIVITY' : actorRole}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted block">Timestamp</span>
+                <span className="font-mono text-slate-700">
+                  {new Date(activity.createdAt).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Related Submission */}
+          <div className="rounded-xl border border-line bg-surface p-4">
+            <h3 className="font-display font-bold uppercase tracking-wider text-muted text-[11px] mb-2.5">
+              Related Content Submission
+            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-canvas rounded-lg p-3 border border-line">
+              <div>
+                <p className="font-bold text-sm text-ink">{sub?.title ?? activity.resourceName ?? 'Content Submission'}</p>
+                <p className="text-[11px] text-muted mt-0.5">
+                  Department: <strong>{sub?.departmentName ?? 'Marketing'}</strong> · Status: <strong>{sub?.status ?? 'IN_REVIEW'}</strong>
+                </p>
+              </div>
+
+              {activity.submissionId && (
+                <Link
+                  to={`/submissions/${activity.submissionId}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F766E] text-white px-3 py-1.5 font-semibold hover:bg-teal-800 transition shadow-2xs"
+                >
+                  Inspect Submission <ExternalLink size={12} />
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Details & Comments */}
+          <div className="rounded-xl border border-line bg-surface p-4">
+            <h3 className="font-display font-bold uppercase tracking-wider text-muted text-[11px] mb-2">
+              Feedback, Analysis, or Notes
+            </h3>
+            {activity.comment ? (
+              <blockquote className="rounded-lg border-l-3 border-[#0F766E] bg-canvas p-3 font-mono text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                “{activity.comment}”
+              </blockquote>
+            ) : (
+              <p className="text-muted italic">No comments or additional notes recorded for this event.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-line p-4 bg-canvas shrink-0">
+          <div>
+            {activity.submissionId && (
+              <Link
+                to={`/submissions/${activity.submissionId}`}
+                className="text-xs font-semibold text-[#0F766E] hover:underline flex items-center gap-1"
+              >
+                Go to submission details →
+              </Link>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl bg-navy px-4 py-2 text-xs font-semibold text-white hover:bg-navy-soft transition cursor-pointer"
+          >
+            Close Details
           </button>
         </div>
       </div>

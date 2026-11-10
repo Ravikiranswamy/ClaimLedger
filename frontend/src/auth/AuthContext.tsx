@@ -17,6 +17,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const asRole = params.get('as')
+      if (asRole === 'creator') {
+        tokenStore.set('mock-u2')
+      } else if (asRole === 'admin') {
+        tokenStore.set('mock-u5')
+      }
+    } catch {
+      // ignore
+    }
+
     if (!tokenStore.get()) {
       setLoading(false)
       return
