@@ -78,9 +78,12 @@ public class DocumentController {
             @RequestParam(value = "departmentId", required = false) UUID departmentId,
             @RequestParam(value = "status", required = false) ApprovalStatus status,
             @RequestParam(value = "tier", required = false) AuthorityTier tier,
-            @RequestParam(value = "category", required = false) String category
+            @RequestParam(value = "category", required = false) String category,
+            @AuthenticationPrincipal UserPrincipal principal
     ) {
-        List<DocumentResponse> response = documentService.listDocuments(departmentId, status, tier, category);
+        List<DocumentResponse> response = documentService.listDocuments(
+                departmentId, status, tier, category, principal != null ? principal.getOrganisationId() : null
+        );
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 

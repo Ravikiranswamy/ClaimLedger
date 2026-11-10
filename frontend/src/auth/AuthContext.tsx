@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { tokenStore } from '../api/http'
+import type { RegisterRequest } from '../api/types'
 import type { Role, User } from '../types'
 
 interface AuthState {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  register: (data: RegisterRequest) => Promise<void>
   logout: () => void
 }
 
@@ -47,12 +49,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user)
   }, [])
 
+  const register = useCallback(async (data: RegisterRequest) => {
+    const res = await api.register(data)
+    tokenStore.set(res.token)
+    setUser(res.user)
+  }, [])
+
   const logout = useCallback(() => {
     tokenStore.clear()
     setUser(null)
   }, [])
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading, login, logout])
+  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

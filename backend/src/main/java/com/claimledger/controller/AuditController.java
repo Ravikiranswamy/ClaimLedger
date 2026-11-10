@@ -37,7 +37,7 @@ public class AuditController {
         if (principal != null && principal.getRole() == Role.CREATOR) {
             history = reviewService.getAuditHistoryForCreator(principal.getId());
         } else {
-            history = reviewService.getAllAuditHistory();
+            history = reviewService.getAllAuditHistory(principal != null ? principal.getOrganisationId() : null);
         }
         return ResponseEntity.ok(ApiResponse.ok(history));
     }

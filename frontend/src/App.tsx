@@ -13,6 +13,7 @@ import { Insights } from './pages/Insights'
 import { KnowledgeBase } from './pages/KnowledgeBase'
 import { Login } from './pages/Login'
 import { MyContent } from './pages/MyContent'
+import { Register } from './pages/Register'
 import { ReviewDetail } from './pages/ReviewDetail'
 import { ReviewList } from './pages/ReviewList'
 import { Submit } from './pages/Submit'
@@ -34,8 +35,10 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             <Route element={<Protected />}>
               <Route index element={<Home />} />
+              <Route path="admin" element={<Navigate to="/" replace />} />
               <Route path="submit" element={<Submit />} />
               <Route path="my-content" element={<MyContent />} />
               <Route path="guidelines" element={<BrandGuidelines />} />

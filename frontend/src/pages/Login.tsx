@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Navigate } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { z } from 'zod'
 import { useAuth } from '../auth/AuthContext'
 import { ClaimLedgerLogo } from '../components/ClaimLedgerLogo'
@@ -210,12 +210,12 @@ export function Login() {
           <div className="pt-2 text-center border-t border-line/60">
             <p className="text-xs text-muted">
               Don't have an account?{' '}
-              <button
-                type="button"
+              <Link
+                to="/register"
                 className="font-bold text-[#0F766E] hover:text-[#0D9488] hover:underline cursor-pointer transition"
               >
                 Create new account
-              </button>
+              </Link>
             </p>
           </div>
 

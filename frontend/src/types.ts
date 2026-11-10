@@ -91,6 +91,7 @@ export interface Submission {
   contentType?: 'TEXT' | 'PDF'
   departmentId?: string | null
   departmentName?: string | null
+  organisationId?: string
   submittedBy?: string
   submittedByName?: string
   status: SubmissionStatus

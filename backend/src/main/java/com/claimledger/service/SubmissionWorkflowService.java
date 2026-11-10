@@ -135,6 +135,12 @@ public class SubmissionWorkflowService {
             }
         }
 
+        if (currentUser.getOrganisationId() != null) {
+            submissions = submissions.stream()
+                    .filter(s -> currentUser.getOrganisationId().equals(s.getOrganisationId()))
+                    .toList();
+        }
+
         return submissions.stream()
                 .map(s -> getSubmissionResponse(s.getId()))
                 .toList();

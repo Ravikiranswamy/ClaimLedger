@@ -31,8 +31,8 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "List all organisation users")
-    public ResponseEntity<ApiResponse<List<UserResponse>>> listUsers() {
-        List<UserResponse> users = userService.listUsers();
+    public ResponseEntity<ApiResponse<List<UserResponse>>> listUsers(@AuthenticationPrincipal UserPrincipal principal) {
+        List<UserResponse> users = userService.listUsers(principal != null ? principal.getOrganisationId() : null);
         return ResponseEntity.ok(ApiResponse.ok(users));
     }
 

@@ -152,6 +152,11 @@ public class KnowledgeDocumentService {
 
     @Transactional(readOnly = true)
     public List<DocumentResponse> listDocuments(UUID departmentId, ApprovalStatus status, AuthorityTier tier, String category) {
+        return listDocuments(departmentId, status, tier, category, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentResponse> listDocuments(UUID departmentId, ApprovalStatus status, AuthorityTier tier, String category, UUID organisationId) {
         List<KnowledgeDocument> docs;
 
         if (status != null && tier != null) {
@@ -162,6 +167,12 @@ public class KnowledgeDocumentService {
             docs = documentRepository.findByDepartmentId(departmentId);
         } else {
             docs = documentRepository.findAll();
+        }
+
+        if (organisationId != null) {
+            docs = docs.stream()
+                    .filter(d -> organisationId.equals(d.getOrganisationId()))
+                    .toList();
         }
 
         if (category != null && !category.equalsIgnoreCase("ALL")) {
@@ -385,7 +396,7 @@ public class KnowledgeDocumentService {
             // Group chunks by page number
             Map<Integer, List<DocumentChunk>> pageMap = chunks.stream()
                     .collect(Collectors.groupingBy(
-                            c -> c.getPageNumber() != null ? c.getPageNumber() : 1,
+                            DocumentChunk::getPageNumber,
                             TreeMap::new,
                             Collectors.toList()
                     ));
@@ -442,7 +453,7 @@ public class KnowledgeDocumentService {
                             cs.beginText();
                             cs.setFont(fontBold, 9.5f);
                             cs.newLineAtOffset(36, y);
-                            int idx = chunk.getChunkIndex() != null ? chunk.getChunkIndex() + 1 : 1;
+                            int idx = chunk.getChunkIndex() + 1;
                             cs.showText("--- Section / Chunk #" + idx + " (Authoritative Source Chunk) ---");
                             cs.endText();
                             y -= 16;

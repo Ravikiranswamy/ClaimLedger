@@ -12,9 +12,17 @@ import type {
   User,
 } from '../types'
 
+export interface RegisterRequest {
+  fullName: string
+  email: string
+  password: string
+  companyName: string
+}
+
 /** Everything the UI needs from the backend. One implementation is HTTP, one is mock. */
 export interface Api {
   login(email: string, password: string): Promise<LoginResponse>
+  register(data: RegisterRequest): Promise<LoginResponse>
   me(): Promise<User>
   createTextSubmission(input: { title: string; content: string; departmentId?: string }): Promise<Submission>
   createPdfSubmission(input: { title: string; file: File; departmentId?: string }): Promise<Submission>

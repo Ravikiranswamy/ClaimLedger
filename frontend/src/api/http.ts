@@ -78,6 +78,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 export const httpApi: Api = {
   login: (email, password) =>
     request<LoginResponse>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  register: (data) =>
+    request<LoginResponse>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   me: () => request<User>('/auth/me'),
   createTextSubmission: ({ title, content, departmentId }) =>
     request<Submission>('/submissions', {

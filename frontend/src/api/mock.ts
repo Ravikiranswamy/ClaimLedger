@@ -2,21 +2,24 @@
 // Delete this file and set VITE_USE_MOCK=false to use the live backend.
 import type { ActionType, AuditEntry, AuthorityEngineConfig, Claim, DepartmentItem, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, OrganisationProfile, Submission, User } from '../types'
 import { DEPARTMENTS } from '../types'
-import { ApiError, type Api } from './types'
+import { ApiError, type Api, type RegisterRequest } from './types'
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const [MKT, SALES] = [DEPARTMENTS[0], DEPARTMENTS[1]]
 
+export const DEFAULT_NEXORA_ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001'
+let currentOrgId = DEFAULT_NEXORA_ORG_ID
+
 const USERS: (User & { password: string })[] = [
-  { id: 'u1', fullName: 'Asha Rao', email: 'admin@nexora.com', role: 'ADMIN', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-01T00:00:00Z', password: 'Demo@1234' },
-  { id: 'u2', fullName: 'Kiran Mehta', email: 'creator@nexora.com', role: 'CREATOR', departmentId: MKT.id, departmentName: 'Marketing', isActive: true, canApproveKnowledge: false, createdAt: '2026-02-15T00:00:00Z', password: 'Demo@1234' },
-  { id: 'u3', fullName: 'Priya Nair', email: 'manager@nexora.com', role: 'DEPT_MANAGER', departmentId: MKT.id, departmentName: 'Marketing', isActive: true, canApproveKnowledge: false, createdAt: '2026-01-20T00:00:00Z', password: 'Demo@1234' },
-  { id: 'u4', fullName: 'Dev Sharma', email: 'reviewer@nexora.com', role: 'REVIEWER', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-10T00:00:00Z', password: 'Demo@1234' },
-  { id: 'u5', fullName: 'Ravikiran Swamy', email: 'ravikiranswamy550@gmail.com', role: 'ADMIN', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, createdAt: '2026-01-01T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u1', fullName: 'Asha Rao', email: 'admin@nexora.com', role: 'ADMIN', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, organisationId: DEFAULT_NEXORA_ORG_ID, createdAt: '2026-01-01T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u2', fullName: 'Kiran Mehta', email: 'creator@nexora.com', role: 'CREATOR', departmentId: MKT.id, departmentName: 'Marketing', isActive: true, canApproveKnowledge: false, organisationId: DEFAULT_NEXORA_ORG_ID, createdAt: '2026-02-15T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u3', fullName: 'Priya Nair', email: 'manager@nexora.com', role: 'DEPT_MANAGER', departmentId: MKT.id, departmentName: 'Marketing', isActive: true, canApproveKnowledge: false, organisationId: DEFAULT_NEXORA_ORG_ID, createdAt: '2026-01-20T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u4', fullName: 'Dev Sharma', email: 'reviewer@nexora.com', role: 'REVIEWER', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, organisationId: DEFAULT_NEXORA_ORG_ID, createdAt: '2026-01-10T00:00:00Z', password: 'Demo@1234' },
+  { id: 'u5', fullName: 'Ravikiran Swamy', email: 'ravikiranswamy550@gmail.com', role: 'ADMIN', departmentId: null, departmentName: null, isActive: true, canApproveKnowledge: true, organisationId: DEFAULT_NEXORA_ORG_ID, createdAt: '2026-01-01T00:00:00Z', password: 'Demo@1234' },
 ]
 
 let orgProfile: OrganisationProfile = {
-  id: 'a1b2c3d4-0000-0000-0000-000000000001',
+  id: DEFAULT_NEXORA_ORG_ID,
   name: 'Nexora Technologies',
   slug: 'nexora',
   description: 'Enterprise brand truth, automated claim verification, and continuous guideline governance platform.',
@@ -30,6 +33,14 @@ let mockDepartments: DepartmentItem[] = [
   { id: 'd0000002-0000-0000-0000-000000000002', name: 'Sales', code: 'SLS', description: 'Commercial proposals, sales decks, customer quotes, and collateral.', isActive: true, userCount: 1, documentCount: 2 },
   { id: 'd0000003-0000-0000-0000-000000000003', name: 'Human Resources', code: 'HR', description: 'Talent recruitment, employee policies, and regional compensation.', isActive: true, userCount: 1, documentCount: 2 },
 ]
+
+const mockOrganisations = new Map<string, OrganisationProfile>()
+mockOrganisations.set(DEFAULT_NEXORA_ORG_ID, orgProfile)
+
+const mockOrgDepartments = new Map<string, DepartmentItem[]>()
+mockOrgDepartments.set(DEFAULT_NEXORA_ORG_ID, mockDepartments)
+
+const mockOrgAudits = new Map<string, AuditEntry[]>()
 
 let mockAuthorityRules: AuthorityEngineConfig = {
   requireExplicitApproval: true,
@@ -219,7 +230,10 @@ audits.set(SEED_SUB_5_ID, [
 ])
 
 const strip = ({ password, ...u }: User & { password: string }): User => { void password; return u }
-const deptName = (id?: string | null) => DEPARTMENTS.find((d) => d.id === id)?.name ?? null
+const deptName = (id?: string | null) => {
+  const depts = mockOrgDepartments.get(currentOrgId) ?? DEPARTMENTS
+  return depts.find((d) => d.id === id)?.name ?? null
+}
 
 function log(id: string, actor: User, action: ActionType, comment?: string) {
   const list = audits.get(id) ?? []
@@ -241,6 +255,11 @@ function evidenceFor(claimId: string): Evidence[] {
 function analyse(content: string): { claims: Claim[]; status: Submission['status'] } {
   const claims: Claim[] = []
 
+  // Check if current organisation has approved documents
+  const hasApprovedDocs = MOCK_DOCS.some(
+    (d) => (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId && d.approvalStatus === 'APPROVED'
+  )
+
   // 1. Price analysis
   const price = /₹\s?(\d{3,4})(?:\s*(?:per|\/)\s*(?:user\s*)?(?:per\s*)?(?:month|mo))?/i.exec(content)
   if (price) {
@@ -248,7 +267,13 @@ function analyse(content: string): { claims: Claim[]; status: Submission['status
     const id = `c${seq++}`
     const isAcme = /acme/i.test(content)
 
-    if (val === '999') {
+    if (!hasApprovedDocs) {
+      claims.push({
+        id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'UNVERIFIED',
+        explanation: 'No approved pricing catalogue found in your organisation Knowledge Base. Claims cannot be verified until authoritative guidelines are uploaded and approved.',
+        suggestedCorrection: null, aiConfidence: 0.85, evidence: [],
+      })
+    } else if (val === '999') {
       claims.push({
         id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'VERIFIED',
         explanation: 'Matches the current authoritative Nexora Pro price in Tier 1 Product Master Catalogue v4.2.',
@@ -284,25 +309,35 @@ function analyse(content: string): { claims: Claim[]; status: Submission['status
   const guarantee = /\b(100%\s*error-free|foolproof|zero\s*risk|zero\s*mistakes|guaranteed\s*perfection|flawless)\b/i.exec(content)
   if (guarantee) {
     const id = `c${seq++}`
-    claims.push({
-      id, claimText: guarantee[0], claimType: 'PROMOTION', verificationStatus: 'VIOLATION',
-      explanation: 'Unsupported promotional guarantee. Section 2 of Approved Claims Register strictly prohibits unsubstantiated absolute guarantees such as "100% error-free" or "foolproof compliance".',
-      suggestedCorrection: 'verified brand governance with deterministic multi-tier checking', aiConfidence: 0.95, evidence: [
-        { id: `${id}-e1`, documentName: 'Approved_Claims_Register.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
-          excerpt: 'Prohibited Claims: Claims promising absolute, unsubstantiated guarantees (e.g., "100% error-free guarantee", "foolproof compliance", "zero risk") are strictly prohibited under brand governance.' },
-      ],
-    })
+    if (!hasApprovedDocs) {
+      claims.push({
+        id, claimText: guarantee[0], claimType: 'PROMOTION', verificationStatus: 'UNVERIFIED',
+        explanation: 'No approved promotional or brand guidelines found. Upload and approve guidelines in Knowledge Base to verify claims.',
+        suggestedCorrection: null, aiConfidence: 0.85, evidence: [],
+      })
+    } else {
+      claims.push({
+        id, claimText: guarantee[0], claimType: 'PROMOTION', verificationStatus: 'VIOLATION',
+        explanation: 'Unsupported promotional guarantee. Section 2 of Approved Claims Register strictly prohibits unsubstantiated absolute guarantees such as "100% error-free" or "foolproof compliance".',
+        suggestedCorrection: 'verified brand governance with deterministic multi-tier checking', aiConfidence: 0.95, evidence: [
+          { id: `${id}-e1`, documentName: 'Approved_Claims_Register.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
+            excerpt: 'Prohibited Claims: Claims promising absolute, unsubstantiated guarantees (e.g., "100% error-free guarantee", "foolproof compliance", "zero risk") are strictly prohibited under brand governance.' },
+        ],
+      })
+    }
   } else {
     const fast = /\b(fastest|best|#1|number one|unbeatable|infinitely superior)\b/i.exec(content)
     if (fast) {
       const id = `c${seq++}`
       claims.push({
         id, claimText: fast[0], claimType: 'PROMOTION', verificationStatus: 'UNVERIFIED',
-        explanation: 'Unsupported superiority claim. Approved Claims Register requires third-party certified benchmark evidence for comparative claims.',
-        suggestedCorrection: 'enterprise-grade brand governance platform', aiConfidence: 0.88, evidence: [
+        explanation: hasApprovedDocs
+          ? 'Unsupported superiority claim. Approved Claims Register requires third-party certified benchmark evidence for comparative claims.'
+          : 'Missing knowledge source. Upload benchmark documentation to verify comparative superiority claims.',
+        suggestedCorrection: 'enterprise-grade brand governance platform', aiConfidence: 0.88, evidence: hasApprovedDocs ? [
           { id: `${id}-e1`, documentName: 'Approved_Claims_Register.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
             excerpt: 'Unsupported superiority claims (e.g. "the only real AI brand solution" or "infinitely superior") are prohibited without certified independent third-party market validation.' },
-        ],
+        ] : [],
       })
     }
   }
@@ -311,27 +346,53 @@ function analyse(content: string): { claims: Claim[]; status: Submission['status
   const tone = /\b(scam|junk|foolish|regret it|idiotic|stupid)\b/i.exec(content)
   if (tone) {
     const id = `c${seq++}`
-    claims.push({
-      id, claimText: tone[0], claimType: 'TONE', verificationStatus: 'VIOLATION',
-      explanation: 'Tone and conduct violation. Section 2 of Brand Guidelines strictly prohibits insults, aggressive expressions, and disrespectful communication toward competitors or customers.',
-      suggestedCorrection: 'respectful, objective professional phrasing', aiConfidence: 0.96, evidence: [
-        { id: `${id}-e1`, documentName: 'Brand_Guidelines_v3.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
-          excerpt: 'Insults, offensive expressions, aggressive language, and disrespectful communication are strictly prohibited. Maintain respectful, confident, and customer-focused tone.' },
-      ],
-    })
+    if (!hasApprovedDocs) {
+      claims.push({
+        id, claimText: tone[0], claimType: 'TONE', verificationStatus: 'UNVERIFIED',
+        explanation: 'Potentially aggressive phrasing detected. Upload and approve brand tone guidelines to enforce standard vocabulary.',
+        suggestedCorrection: 'respectful professional phrasing', aiConfidence: 0.85, evidence: [],
+      })
+    } else {
+      claims.push({
+        id, claimText: tone[0], claimType: 'TONE', verificationStatus: 'VIOLATION',
+        explanation: 'Tone and conduct violation. Section 2 of Brand Guidelines strictly prohibits insults, aggressive expressions, and disrespectful communication toward competitors or customers.',
+        suggestedCorrection: 'respectful, objective professional phrasing', aiConfidence: 0.96, evidence: [
+          { id: `${id}-e1`, documentName: 'Brand_Guidelines_v3.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 2,
+            excerpt: 'Insults, offensive expressions, aggressive language, and disrespectful communication are strictly prohibited. Maintain respectful, confident, and customer-focused tone.' },
+        ],
+      })
+    }
   }
 
-  // 4. Terminology & Unapproved Product Names
-  const term = /\b(Nexora Standard|Nexora Lite|Nexora Basic|Nexora App|The Nexora Tool|AI Judge|Grammar Cop)\b/i.exec(content)
-  if (term) {
+  // 4. Terminology & Unapproved Product Names (Nexora specific only when in Nexora org)
+  if (currentOrgId === DEFAULT_NEXORA_ORG_ID) {
+    const term = /\b(Nexora Standard|Nexora Lite|Nexora Basic|Nexora App|The Nexora Tool|AI Judge|Grammar Cop)\b/i.exec(content)
+    if (term) {
+      const id = `c${seq++}`
+      claims.push({
+        id, claimText: term[0], claimType: 'TERMINOLOGY', verificationStatus: 'VIOLATION',
+        explanation: `Terminology violation. Terminology & Messaging Guide designates "${term[0]}" as unapproved or deprecated. The official product name is strictly "Nexora Pro" or "Nexora Pro Elite".`,
+        suggestedCorrection: 'Nexora Pro', aiConfidence: 0.98, evidence: [
+          { id: `${id}-e1`, documentName: 'Terminology_and_Messaging_Guide.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 1,
+            excerpt: 'Official Product Names: The primary brand governance offering must always be named "Nexora Pro" or "Nexora Pro Elite". Strictly prohibited names include "Nexora Standard", "Nexora Lite", "Nexora Basic".' },
+        ],
+      })
+    }
+  }
+
+  // If no claims found yet in a workspace without approved documents, detect any factual statements
+  if (claims.length === 0 && !hasApprovedDocs && content.trim().length > 15) {
     const id = `c${seq++}`
+    const snippet = content.trim().split(/[.\n]/)[0].substring(0, 80)
     claims.push({
-      id, claimText: term[0], claimType: 'TERMINOLOGY', verificationStatus: 'VIOLATION',
-      explanation: `Terminology violation. Terminology & Messaging Guide designates "${term[0]}" as unapproved or deprecated. The official product name is strictly "Nexora Pro" or "Nexora Pro Elite".`,
-      suggestedCorrection: 'Nexora Pro', aiConfidence: 0.98, evidence: [
-        { id: `${id}-e1`, documentName: 'Terminology_and_Messaging_Guide.pdf', authorityTier: 'TIER_1', authoritative: true, pageNumber: 1,
-          excerpt: 'Official Product Names: The primary brand governance offering must always be named "Nexora Pro" or "Nexora Pro Elite". Strictly prohibited names include "Nexora Standard", "Nexora Lite", "Nexora Basic".' },
-      ],
+      id,
+      claimText: snippet,
+      claimType: 'FACTUAL',
+      verificationStatus: 'UNVERIFIED',
+      explanation: 'No approved knowledge documents exist in this workspace. Upload and approve knowledge sources (such as Brand Guidelines or Catalogues) in Knowledge Base to verify claims.',
+      suggestedCorrection: null,
+      aiConfidence: 0.75,
+      evidence: [],
     })
   }
 
@@ -344,6 +405,7 @@ function me(): User {
   const u = USERS.find((x) => x.id === stored)
   if (!u) throw new ApiError('Please sign in again.', 401)
   currentUserId = u.id
+  currentOrgId = u.organisationId || DEFAULT_NEXORA_ORG_ID
   return strip(u)
 }
 
@@ -351,11 +413,14 @@ async function create(title: string, content: string, type: 'TEXT' | 'PDF', depa
   const user = me()
   await wait(2400) // analysis is synchronous on the real backend, so creation takes a moment
   const id = `sub-${seq++}`
-  const dep = departmentId ?? user.departmentId ?? SALES.id
+  const depts = mockOrgDepartments.get(currentOrgId) ?? DEPARTMENTS
+  const defaultDept = depts[0]?.id ?? SALES.id
+  const dep = departmentId ?? user.departmentId ?? defaultDept
   const { claims, status } = analyse(content)
   const s: Submission = {
     id, title, content, contentType: type, departmentId: dep, departmentName: deptName(dep), submittedBy: user.id,
     submittedByName: user.fullName, status, revisionNumber: 1, createdAt: new Date().toISOString(), claims,
+    organisationId: currentOrgId,
   }
   subs.set(id, s)
   log(id, user, 'SUBMITTED', 'Initial submission created')
@@ -638,6 +703,7 @@ export const mockApi: Api = {
       // Demo accounts accept Demo@1234 or their password; owner account accepts any password
       if (u.email === 'ravikiranswamy550@gmail.com' || u.password === password || password === 'Demo@1234') {
         currentUserId = u.id
+        currentOrgId = u.organisationId || DEFAULT_NEXORA_ORG_ID
         return { token: `mock-${u.id}`, tokenType: 'Bearer', user: strip(u) }
       }
     } else {
@@ -650,13 +716,85 @@ export const mockApi: Api = {
         email: cleanEmail,
         role: 'ADMIN',
         departmentId: null,
+        departmentName: null,
+        isActive: true,
+        canApproveKnowledge: true,
+        organisationId: DEFAULT_NEXORA_ORG_ID,
+        createdAt: new Date().toISOString(),
         password: password,
       }
       USERS.push(u)
       currentUserId = u.id
+      currentOrgId = DEFAULT_NEXORA_ORG_ID
       return { token: `mock-${u.id}`, tokenType: 'Bearer', user: strip(u) }
     }
     throw new ApiError('Invalid email or password.', 401)
+  },
+  async register(req: RegisterRequest): Promise<LoginResponse> {
+    await wait(400)
+    const cleanEmail = req.email.trim().toLowerCase()
+    if (USERS.some((u) => u.email.toLowerCase() === cleanEmail)) {
+      throw new ApiError('Email address is already registered. Please sign in or use another email.', 400)
+    }
+    const orgId = `org-${Date.now()}`
+    const orgSlug = req.companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'workspace'
+
+    const newOrg: OrganisationProfile = {
+      id: orgId,
+      name: req.companyName.trim(),
+      slug: orgSlug,
+      description: `Workspace for ${req.companyName.trim()}`,
+      website: `https://${orgSlug}.com`,
+      contactEmail: cleanEmail,
+      createdAt: new Date().toISOString(),
+    }
+    mockOrganisations.set(orgId, newOrg)
+
+    const defaultDepts: DepartmentItem[] = [
+      { id: `dept-${orgId}-mkt`, name: 'Marketing', code: 'MKT', description: 'Brand campaigns, product marketing, and public communications.', isActive: true, userCount: 0, documentCount: 0 },
+      { id: `dept-${orgId}-sales`, name: 'Sales', code: 'SALES', description: 'Client proposals, pitch decks, and commercial agreements.', isActive: true, userCount: 0, documentCount: 0 },
+      { id: `dept-${orgId}-hr`, name: 'Human Resources', code: 'HR', description: 'Talent recruitment, internal policies, and culture guidelines.', isActive: true, userCount: 0, documentCount: 0 },
+    ]
+    mockOrgDepartments.set(orgId, defaultDepts)
+
+    const newAdmin: User & { password: string } = {
+      id: `u-${Date.now()}`,
+      fullName: req.fullName.trim(),
+      email: cleanEmail,
+      role: 'ADMIN',
+      departmentId: null,
+      departmentName: null,
+      isActive: true,
+      canApproveKnowledge: true,
+      organisationId: orgId,
+      createdAt: new Date().toISOString(),
+      password: req.password,
+    }
+    USERS.push(newAdmin)
+
+    const orgAuditList: AuditEntry[] = [
+      {
+        id: `aud-${Date.now()}-1`,
+        actorName: newAdmin.fullName,
+        actorEmail: newAdmin.email,
+        actorRole: 'ADMIN',
+        action: 'USER_CREATED',
+        resourceName: `${newAdmin.fullName} (${newAdmin.email})`,
+        departmentName: 'Organisation-wide',
+        comment: 'Initial Organisation Admin account created during workspace registration.',
+        createdAt: new Date().toISOString(),
+      },
+    ]
+    mockOrgAudits.set(orgId, orgAuditList)
+
+    currentUserId = newAdmin.id
+    currentOrgId = orgId
+
+    return {
+      token: `mock-${newAdmin.id}`,
+      tokenType: 'Bearer',
+      user: strip(newAdmin),
+    }
   },
   async me() { await wait(150); return me() },
   createTextSubmission: ({ title, content, departmentId }) => create(title, content, 'TEXT', departmentId),
@@ -666,7 +804,9 @@ export const mockApi: Api = {
     await wait(150)
     const user = me()
     const s = subs.get(id)
-    if (!s) throw new ApiError('Submission not found', 404)
+    if (!s || (s.organisationId && s.organisationId !== currentOrgId)) {
+      throw new ApiError('Submission not found', 404)
+    }
     if (user.role === 'CREATOR' && s.submittedBy !== user.id) {
       throw new ApiError('Creators are only permitted to access their own submissions.', 403)
     }
@@ -675,7 +815,9 @@ export const mockApi: Api = {
   async listSubmissions() {
     await wait(200)
     const user = me()
-    const all = [...subs.values()].reverse()
+    const all = [...subs.values()]
+      .filter((s) => (s.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId)
+      .reverse()
     let visible = all
     if (user.role === 'CREATOR') {
       visible = all.filter((s) => s.submittedBy === user.id)
@@ -721,6 +863,26 @@ export const mockApi: Api = {
   async listGlobalAudit() {
     await wait(150)
     const user = me()
+
+    if (currentOrgId !== DEFAULT_NEXORA_ORG_ID) {
+      const orgAudits = mockOrgAudits.get(currentOrgId) ?? []
+      const subAudits: AuditEntry[] = []
+      audits.forEach((list, subId) => {
+        const sub = subs.get(subId)
+        if (sub && sub.organisationId === currentOrgId) {
+          if (user.role === 'CREATOR' && sub.submittedBy !== user.id) return
+          list.forEach((entry) => {
+            subAudits.push({
+              ...entry,
+              resourceName: sub.title ?? 'Content Submission',
+              departmentName: sub.departmentName ?? 'Marketing',
+            })
+          })
+        }
+      })
+      return [...orgAudits, ...subAudits].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    }
+
     const all: AuditEntry[] = []
 
     // 1. Content & Submissions audit actions
@@ -760,7 +922,7 @@ export const mockApi: Api = {
   },
   async listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }) {
     await wait(200)
-    let res = [...MOCK_DOCS]
+    let res = MOCK_DOCS.filter((d) => (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId)
     if (filters?.category) {
       res = res.filter((d) => d.category === filters.category)
     }
@@ -870,10 +1032,26 @@ export const mockApi: Api = {
       productScope: (formData.get('productScope') as string) || 'ALL',
       region: (formData.get('region') as string) || 'GLOBAL',
       channel: (formData.get('channel') as string) || 'ALL',
+      organisationId: currentOrgId,
       chunkCount: 2,
       createdAt: new Date().toISOString(),
     }
     MOCK_DOCS.unshift(doc)
+    if (currentOrgId !== DEFAULT_NEXORA_ORG_ID) {
+      const list = mockOrgAudits.get(currentOrgId) ?? []
+      list.unshift({
+        id: `aud-${Date.now()}`,
+        actorName: me().fullName,
+        actorEmail: me().email,
+        actorRole: me().role,
+        action: 'KNOWLEDGE_UPLOADED',
+        resourceName: doc.name,
+        departmentName: 'Organisation-wide',
+        comment: `Uploaded and indexed document '${doc.name}' (${doc.authorityTier}).`,
+        createdAt: new Date().toISOString(),
+      })
+      mockOrgAudits.set(currentOrgId, list)
+    }
     return structuredClone(doc)
   },
   async updateDocumentStatus(id, status, reason) {
@@ -953,34 +1131,47 @@ export const mockApi: Api = {
   },
   async listUsers() {
     await wait(200)
-    return USERS.map(strip)
+    return USERS.filter((u) => (u.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId).map(strip)
   },
   async createUser(req) {
     await wait(350)
+    const cleanEmail = req.email.trim().toLowerCase()
+    if (USERS.some((u) => u.email.toLowerCase() === cleanEmail && (u.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId)) {
+      throw new ApiError('Email already exists in this organisation.', 400)
+    }
     const newUser: User & { password: string } = {
       id: `u-${seq++}`,
-      email: req.email.trim().toLowerCase(),
+      email: cleanEmail,
       fullName: req.fullName,
       role: req.role as any,
       departmentId: req.departmentId ?? null,
       departmentName: deptName(req.departmentId),
+      organisationId: currentOrgId,
       isActive: true,
       canApproveKnowledge: req.canApproveKnowledge ?? (req.role === 'ADMIN'),
       createdAt: new Date().toISOString(),
       password: 'Demo@1234',
     }
     USERS.push(newUser)
-    userAudits.push({
+    const actor = me()
+    const audit: AuditEntry = {
       id: `ua-${Date.now()}`,
-      actorName: 'Asha Rao',
-      actorEmail: 'admin@nexora.com',
-      actorRole: 'ADMIN',
+      actorName: actor.fullName,
+      actorEmail: actor.email,
+      actorRole: actor.role,
       action: 'USER_CREATED',
       resourceName: `${newUser.fullName} (${newUser.email})`,
       departmentName: newUser.departmentName ?? 'Organisation-wide',
       comment: `Created user ${newUser.fullName} with ${newUser.role} role.`,
       createdAt: new Date().toISOString(),
-    })
+    }
+    if (currentOrgId === DEFAULT_NEXORA_ORG_ID) {
+      userAudits.push(audit)
+    } else {
+      const list = mockOrgAudits.get(currentOrgId) ?? []
+      list.unshift(audit)
+      mockOrgAudits.set(currentOrgId, list)
+    }
     return strip(newUser)
   },
   async updateUser(id, req) {
@@ -1033,7 +1224,9 @@ export const mockApi: Api = {
   },
   async getInsights(filters) {
     await wait(200)
-    const allSubs = Array.from(subs.values())
+    const allSubs = Array.from(subs.values()).filter(
+      (s) => (s.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId
+    )
     const filteredSubs = filters?.departmentId
       ? allSubs.filter((s) => s.departmentId === filters.departmentId)
       : allSubs
@@ -1053,17 +1246,53 @@ export const mockApi: Api = {
     const now = new Date()
     const sixtyDaysLater = new Date(Date.now() + 60 * 86400000)
 
-    const activeDocs = MOCK_DOCS.filter((d) => d.approvalStatus === 'APPROVED').length
-    const expiredDocs = MOCK_DOCS.filter(
+    const orgDocs = MOCK_DOCS.filter((d) => (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId)
+    const activeDocs = orgDocs.filter((d) => d.approvalStatus === 'APPROVED').length
+    const expiredDocs = orgDocs.filter(
       (d) => d.approvalStatus === 'EXPIRED' || (d.expiryDate && new Date(d.expiryDate) < now)
     ).length
-    const expiringSoonDocs = MOCK_DOCS.filter(
+    const expiringSoonDocs = orgDocs.filter(
       (d) =>
         d.approvalStatus === 'APPROVED' &&
         d.expiryDate &&
         new Date(d.expiryDate) >= now &&
         new Date(d.expiryDate) <= sixtyDaysLater
     ).length
+
+    const currentDepts = mockOrgDepartments.get(currentOrgId) ?? DEPARTMENTS
+
+    if (currentOrgId !== DEFAULT_NEXORA_ORG_ID && filteredSubs.length === 0) {
+      return {
+        overview: {
+          totalSubmissions: 0,
+          flaggedSubmissions: 0,
+          approvedSubmissions: 0,
+          totalClaims: 0,
+          verifiedClaims: 0,
+          violationClaims: 0,
+          unverifiedClaims: 0,
+          conflictClaims: 0,
+          complianceRate: 100.0,
+          activeDocuments: activeDocs,
+          expiredDocuments: expiredDocs,
+          expiringSoonDocuments: expiringSoonDocs,
+        },
+        violationCategories: [],
+        departmentBreakdown: currentDepts.map((dept) => ({
+          departmentId: dept.id,
+          departmentName: dept.name,
+          totalSubmissions: 0,
+          flaggedSubmissions: 0,
+          approvedSubmissions: 0,
+          cleanRate: 100.0,
+          primaryFrictionPoint: 'No submissions yet',
+        })),
+        complianceTrends: [],
+        repeatedIssues: [],
+        guidelineHealthIssues: [],
+        recommendations: [],
+      }
+    }
 
     const complianceRate = totalClaims > 0 ? Math.round((verifiedClaims / totalClaims) * 1000) / 10 : 100.0
 
@@ -1113,7 +1342,7 @@ export const mockApi: Api = {
       },
     ]
 
-    const departmentBreakdown: GovernanceInsights['departmentBreakdown'] = DEPARTMENTS.map((dept) => {
+    const departmentBreakdown: GovernanceInsights['departmentBreakdown'] = currentDepts.map((dept) => {
       const deptSubs = allSubs.filter((s) => s.departmentId === dept.id)
       const total = deptSubs.length
       const flagged = deptSubs.filter(
@@ -1338,19 +1567,27 @@ export const mockApi: Api = {
   },
   getOrganisation: async () => {
     await wait(100)
-    return { ...orgProfile }
+    const org = mockOrganisations.get(currentOrgId) ?? orgProfile
+    return structuredClone(org)
   },
   updateOrganisation: async (req) => {
     await wait(150)
-    orgProfile = { ...orgProfile, ...req }
-    return { ...orgProfile }
+    let org = mockOrganisations.get(currentOrgId) ?? { ...orgProfile }
+    org = { ...org, ...req }
+    mockOrganisations.set(currentOrgId, org)
+    if (currentOrgId === DEFAULT_NEXORA_ORG_ID) {
+      orgProfile = { ...org }
+    }
+    return structuredClone(org)
   },
   listDepartments: async () => {
     await wait(100)
-    return [...mockDepartments]
+    const depts = mockOrgDepartments.get(currentOrgId) ?? mockDepartments
+    return structuredClone(depts)
   },
   createDepartment: async (req) => {
     await wait(150)
+    const depts = mockOrgDepartments.get(currentOrgId) ?? []
     const newDept: DepartmentItem = {
       id: `dept-${Date.now()}`,
       name: req.name,
@@ -1360,21 +1597,24 @@ export const mockApi: Api = {
       userCount: 0,
       documentCount: 0,
     }
-    mockDepartments.push(newDept)
-    return newDept
+    depts.push(newDept)
+    mockOrgDepartments.set(currentOrgId, depts)
+    return structuredClone(newDept)
   },
   updateDepartment: async (id, req) => {
     await wait(150)
-    const idx = mockDepartments.findIndex((d) => d.id === id)
+    const depts = mockOrgDepartments.get(currentOrgId) ?? []
+    const idx = depts.findIndex((d) => d.id === id)
     if (idx === -1) throw new ApiError('Department not found', 404)
-    mockDepartments[idx] = {
-      ...mockDepartments[idx],
-      name: req.name !== undefined ? req.name : mockDepartments[idx].name,
-      code: req.code !== undefined ? req.code : mockDepartments[idx].code,
-      description: req.description !== undefined ? req.description : mockDepartments[idx].description,
-      isActive: req.isActive !== undefined ? req.isActive : mockDepartments[idx].isActive,
+    depts[idx] = {
+      ...depts[idx],
+      name: req.name !== undefined ? req.name : depts[idx].name,
+      code: req.code !== undefined ? req.code : depts[idx].code,
+      description: req.description !== undefined ? req.description : depts[idx].description,
+      isActive: req.isActive !== undefined ? req.isActive : depts[idx].isActive,
     }
-    return { ...mockDepartments[idx] }
+    mockOrgDepartments.set(currentOrgId, depts)
+    return structuredClone(depts[idx])
   },
   getAuthorityRules: async () => {
     await wait(100)

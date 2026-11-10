@@ -119,8 +119,25 @@ public class ReviewService {
      */
     @Transactional(readOnly = true)
     public List<ReviewActionResponse> getAllAuditHistory() {
+        return getAllAuditHistory(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReviewActionResponse> getAllAuditHistory(UUID organisationId) {
         List<ReviewAction> actions = reviewActionRepository.findAllByOrderByCreatedAtDesc();
-        return mapReviewActions(actions);
+        List<ReviewActionResponse> mapped = mapReviewActions(actions);
+        if (organisationId != null) {
+            return mapped.stream()
+                    .filter(a -> {
+                        if (a.getActorEmail() != null && !a.getActorEmail().isEmpty()) {
+                            User actor = userRepository.findByEmail(a.getActorEmail()).orElse(null);
+                            return actor != null && organisationId.equals(actor.getOrganisationId());
+                        }
+                        return false;
+                    })
+                    .toList();
+        }
+        return mapped;
     }
 
     private List<ReviewActionResponse> mapReviewActions(List<ReviewAction> actions) {

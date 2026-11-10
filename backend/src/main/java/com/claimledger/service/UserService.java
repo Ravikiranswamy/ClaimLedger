@@ -41,6 +41,16 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> listUsers() {
+        return listUsers(null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> listUsers(UUID organisationId) {
+        if (organisationId != null) {
+            return userRepository.findByOrganisationId(organisationId).stream()
+                    .map(UserResponse::fromUser)
+                    .toList();
+        }
         return userRepository.findAll().stream()
                 .map(UserResponse::fromUser)
                 .toList();
