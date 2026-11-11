@@ -35,6 +35,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Prevent blinking text cursor on non-editable text/elements */
+* {
+  caret-color: transparent;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+[contenteditable=""] {
+  caret-color: auto;
+}
+
 :focus-visible {
   outline: 3px solid var(--color-brand);
   outline-offset: 2px;
