@@ -116,7 +116,7 @@ public class ClaimExtractionService {
         return Collections.emptyList();
     }
 
-    private List<ExtractedClaim> extractClaimsHeuristic(String content) {
+    public List<ExtractedClaim> extractClaimsHeuristic(String content) {
         List<ExtractedClaim> claims = new ArrayList<>();
         // Split content by sentence terminators
         String[] sentences = content.split("(?<=[.!?])\\s+");

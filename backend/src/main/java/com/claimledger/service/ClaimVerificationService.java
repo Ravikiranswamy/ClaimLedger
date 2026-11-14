@@ -1,11 +1,14 @@
 package com.claimledger.service;
 
+import com.claimledger.dto.diff.ClaimAttributes;
 import com.claimledger.engine.AuthorityResolutionEngine;
 import com.claimledger.engine.AuthorityResolutionResult;
 import com.claimledger.model.Claim;
 import com.claimledger.model.Evidence;
 import com.claimledger.model.Submission;
+import com.claimledger.model.SubmissionRevision;
 import com.claimledger.model.enums.ActionType;
+import com.claimledger.model.enums.ClaimType;
 import com.claimledger.model.enums.ContentType;
 import com.claimledger.model.enums.SubmissionStatus;
 import com.claimledger.model.enums.VerificationStatus;
@@ -13,6 +16,9 @@ import com.claimledger.repository.ClaimRepository;
 import com.claimledger.repository.EvidenceRepository;
 import com.claimledger.repository.ReviewActionRepository;
 import com.claimledger.repository.SubmissionRepository;
+import com.claimledger.repository.SubmissionRevisionRepository;
+import com.claimledger.service.CampaignService.CampaignValidationResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -42,6 +48,10 @@ public class ClaimVerificationService {
     private final ReviewActionRepository reviewActionRepository;
     private final VisualAnalysisService visualAnalysisService;
     private final FileStorageService fileStorageService;
+    private final SubmissionRevisionRepository submissionRevisionRepository;
+    private final ClaimAttributeExtractionService claimAttributeExtractionService;
+    private final CampaignService campaignService;
+    private final ObjectMapper objectMapper;
 
     public ClaimVerificationService(
             RagRetrievalService ragRetrievalService,
@@ -52,7 +62,11 @@ public class ClaimVerificationService {
             SubmissionRepository submissionRepository,
             ReviewActionRepository reviewActionRepository,
             VisualAnalysisService visualAnalysisService,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            SubmissionRevisionRepository submissionRevisionRepository,
+            ClaimAttributeExtractionService claimAttributeExtractionService,
+            CampaignService campaignService,
+            ObjectMapper objectMapper
     ) {
         this.ragRetrievalService = ragRetrievalService;
         this.authorityResolutionEngine = authorityResolutionEngine;
@@ -63,6 +77,10 @@ public class ClaimVerificationService {
         this.reviewActionRepository = reviewActionRepository;
         this.visualAnalysisService = visualAnalysisService;
         this.fileStorageService = fileStorageService;
+        this.submissionRevisionRepository = submissionRevisionRepository;
+        this.claimAttributeExtractionService = claimAttributeExtractionService;
+        this.campaignService = campaignService;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -76,13 +94,62 @@ public class ClaimVerificationService {
         submission.setStatus(SubmissionStatus.ANALYZING);
         submissionRepository.save(submission);
 
-        // Delete existing claims and evidence for re-analysis
-        claimRepository.deleteBySubmissionId(submission.getId());
+        // Delete existing claims for the CURRENT revision number (preserves prior revision history)
+        claimRepository.deleteBySubmissionIdAndRevisionNumber(submission.getId(), submission.getRevisionNumber());
 
         List<Claim> savedClaims = new ArrayList<>();
         boolean hasViolation = false;
         boolean hasConflict = false;
         boolean hasUnverified = false;
+
+        // 0. Campaign Governance Validation — always runs first so a fraudulent campaign code becomes a VIOLATION claim
+        String campaignCode = submission.getCampaignCode();
+        CampaignValidationResult campaignResult =
+                campaignService.validateCampaignForSubmission(campaignCode, submission.getOrganisationId());
+
+        if (campaignResult.getStatus() == CampaignValidationResult.Status.VALID) {
+            // Link submission to the validated campaign record
+            if (campaignResult.getCampaign() != null) {
+                submission.setCampaignId(campaignResult.getCampaign().getId());
+            }
+            log.info("Submission {}: campaign '{}' is VALID — exception applies. {}",
+                    submission.getId(), campaignCode, campaignResult.getMessage());
+            // Create an informational VERIFIED claim so the reviewer sees the campaign exception in context
+            Claim campaignClaim = new Claim();
+            campaignClaim.setSubmissionId(submission.getId());
+            campaignClaim.setClaimType(ClaimType.PROMOTION);
+            campaignClaim.setClaimText("Campaign exception referenced: '" + campaignCode + "'");
+            campaignClaim.setVerificationStatus(VerificationStatus.VERIFIED);
+            campaignClaim.setExplanation(campaignResult.getMessage());
+            campaignClaim.setSuggestedCorrection(null);
+            campaignClaim.setAiConfidence(java.math.BigDecimal.valueOf(1.0));
+            campaignClaim.setRevisionNumber(submission.getRevisionNumber());
+            campaignClaim.setStartIndex(0);
+            campaignClaim.setEndIndex(0);
+            savedClaims.add(claimRepository.save(campaignClaim));
+
+        } else if (campaignResult.getStatus() == CampaignValidationResult.Status.INVALID
+                || campaignResult.getStatus() == CampaignValidationResult.Status.EXPIRED) {
+            // Unregistered or expired campaign codes are always a VIOLATION — creators cannot self-grant exceptions
+            log.warn("Submission {}: campaign '{}' is {} — generating VIOLATION claim.",
+                    submission.getId(), campaignCode, campaignResult.getStatus());
+            Claim campaignViolation = new Claim();
+            campaignViolation.setSubmissionId(submission.getId());
+            campaignViolation.setClaimType(ClaimType.PROMOTION);
+            campaignViolation.setClaimText("Campaign exception referenced: '" + campaignCode + "'");
+            campaignViolation.setVerificationStatus(VerificationStatus.VIOLATION);
+            campaignViolation.setExplanation(campaignResult.getMessage() +
+                    " Campaign governance rule: only registered, approved campaigns may be used as pricing exceptions.");
+            campaignViolation.setSuggestedCorrection(
+                    "Remove the campaign reference, or request an authorised admin/manager to register the campaign.");
+            campaignViolation.setAiConfidence(java.math.BigDecimal.valueOf(1.0));
+            campaignViolation.setRevisionNumber(submission.getRevisionNumber());
+            campaignViolation.setStartIndex(0);
+            campaignViolation.setEndIndex(0);
+            savedClaims.add(claimRepository.save(campaignViolation));
+            hasViolation = true;
+        }
+        // NOT_REFERENCED: no campaign code on submission — normal path, no extra claim needed
 
         // 1. Visual Governance Analysis for IMAGE submissions
         if (submission.getContentType() == ContentType.IMAGE) {
@@ -111,6 +178,11 @@ public class ClaimVerificationService {
                 // Persist visual governance findings (color palette, logo presence, visual style)
                 for (VisualAnalysisService.VisualFindingResult vf : visualResult.visualFindings()) {
                     Claim vc = vf.claim();
+                    vc.setRevisionNumber(submission.getRevisionNumber());
+                    try {
+                        ClaimAttributes attrs = claimAttributeExtractionService.extractAttributes(vc.getClaimText(), vc.getClaimType());
+                        vc.setClaimedAttributes(objectMapper.writeValueAsString(attrs));
+                    } catch (Exception ignored) {}
                     Claim persistedVisualClaim = claimRepository.save(vc);
                     savedClaims.add(persistedVisualClaim);
 
@@ -174,6 +246,11 @@ public class ClaimVerificationService {
 
                 claim.setStartIndex(startIdx);
                 claim.setEndIndex(endIdx);
+                claim.setRevisionNumber(submission.getRevisionNumber());
+                try {
+                    ClaimAttributes attrs = claimAttributeExtractionService.extractAttributes(claim.getClaimText(), claim.getClaimType());
+                    claim.setClaimedAttributes(objectMapper.writeValueAsString(attrs));
+                } catch (Exception ignored) {}
 
                 Claim persistedClaim = claimRepository.save(claim);
                 savedClaims.add(persistedClaim);
@@ -227,6 +304,22 @@ public class ClaimVerificationService {
         }
 
         Submission updated = submissionRepository.save(submission);
+
+        // Snapshot revision state in submission_revisions for immutable audit & diffing
+        submissionRevisionRepository.save(new SubmissionRevision(
+                updated.getId(),
+                updated.getRevisionNumber(),
+                updated.getContent(),
+                updated.getCreatorNotes(),
+                updated.getFilePath(),
+                updated.getContentType(),
+                updated.getTotalClaims(),
+                updated.getVerifiedClaims(),
+                updated.getViolationClaims(),
+                updated.getUnverifiedClaims(),
+                updated.getConflictClaims(),
+                "Revision #" + updated.getRevisionNumber() + " analysis complete (" + updated.getStatus() + ")"
+        ));
 
         // 5. Record Review Audit Action
         String auditComment = String.format("Automated analysis complete: %d claims analyzed. Result: %s (Violations: %d, Conflicts: %d, Unverified: %d, Verified: %d)",

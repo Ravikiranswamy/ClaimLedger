@@ -20,6 +20,7 @@ public class ClaimResponse {
     private String explanation;
     private String suggestedCorrection;
     private BigDecimal aiConfidence;
+    private int revisionNumber;
     private LocalDateTime createdAt;
     private List<EvidenceResponse> evidence = new ArrayList<>();
 
@@ -36,6 +37,7 @@ public class ClaimResponse {
         response.setExplanation(claim.getExplanation());
         response.setSuggestedCorrection(claim.getSuggestedCorrection());
         response.setAiConfidence(claim.getAiConfidence());
+        response.setRevisionNumber(claim.getRevisionNumber());
         response.setCreatedAt(claim.getCreatedAt());
         response.setEvidence(evidenceList != null ? evidenceList : new ArrayList<>());
         return response;
@@ -104,6 +106,14 @@ public class ClaimResponse {
 
     public void setAiConfidence(BigDecimal aiConfidence) {
         this.aiConfidence = aiConfidence;
+    }
+
+    public int getRevisionNumber() {
+        return revisionNumber;
+    }
+
+    public void setRevisionNumber(int revisionNumber) {
+        this.revisionNumber = revisionNumber;
     }
 
     public LocalDateTime getCreatedAt() {

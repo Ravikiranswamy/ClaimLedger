@@ -7,6 +7,8 @@ import { AdminSubmissionDetail } from './pages/AdminSubmissionDetail'
 import { AdminSubmissions } from './pages/AdminSubmissions'
 import { ApprovalManagement } from './pages/ApprovalManagement'
 import { BrandGuidelines } from './pages/BrandGuidelines'
+import CampaignManager from './pages/CampaignManager'
+import PreFlightWorkbench from './pages/PreFlightWorkbench'
 import { DepartmentActivity } from './pages/DepartmentActivity'
 import { DepartmentInsights } from './pages/DepartmentInsights'
 import { DepartmentSubmissions } from './pages/DepartmentSubmissions'
@@ -61,6 +63,9 @@ export default function App() {
               <Route path="admin/approvals" element={<ApprovalManagement />} />
               <Route path="admin/insights" element={<Insights />} />
               <Route path="admin/settings" element={<OrganisationSettings />} />
+              <Route path="campaigns" element={<CampaignManager />} />
+              <Route path="preflight" element={<PreFlightWorkbench />} />
+              <Route path="developer" element={<PreFlightWorkbench />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

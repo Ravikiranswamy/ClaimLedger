@@ -44,6 +44,22 @@ const TEST_SCENARIOS = [
     departmentId: 'd0000001-0000-0000-0000-000000000001',
     text: 'Nexora Pro Official Promotional Graphic — Digital Ad Banner',
   },
+  {
+    badge: '🎉 Test Scenario 5: Diwali Campaign Exception (DIWALI_SPECIAL + ₹799)',
+    mode: 'TEXT' as InputMode,
+    title: 'Nexora Pro Diwali Festive Offer — Social Copy',
+    departmentId: 'd0000001-0000-0000-0000-000000000001',
+    campaignCode: 'DIWALI_SPECIAL',
+    text: 'Celebrate Diwali with Nexora Pro at just ₹799 per user per month under our official festive campaign. Limited-time enterprise pricing approved under DIWALI_SPECIAL.',
+  },
+  {
+    badge: '🚫 Test Scenario 6: Expired Campaign Reference (SUMMER_FLASH_2025)',
+    mode: 'TEXT' as InputMode,
+    title: 'Summer Flash Sale — Expired Campaign',
+    departmentId: 'd0000002-0000-0000-0000-000000000002',
+    campaignCode: 'SUMMER_FLASH_2025',
+    text: 'Get Nexora Pro for just ₹699 per user per month under our summer flash deal — act now before the sale ends!',
+  },
 ]
 
 const schema = z
@@ -52,6 +68,7 @@ const schema = z
     departmentId: z.string().min(1, 'Choose a department'),
     mode: z.enum(['TEXT', 'IMAGE', 'PDF']),
     text: z.string().optional(),
+    campaignCode: z.string().optional(),
     imageFile: z.custom<File | undefined>().optional(),
     pdfFile: z.custom<File | undefined>().optional(),
   })
@@ -131,12 +148,15 @@ export function Submit() {
 
   const create = useMutation({
     mutationFn: (v: Form) => {
+      const campaignCode = v.campaignCode?.trim().toUpperCase() || undefined
       if (v.mode === 'IMAGE') {
         return api.createImageSubmission({
           title: v.title.trim(),
           file: v.imageFile!,
           departmentId: v.departmentId,
           text: (v.text ?? '').trim(),
+          creatorNotes: (v.text ?? '').trim(),
+          campaignCode,
         })
       }
       if (v.mode === 'PDF') {
@@ -144,12 +164,14 @@ export function Submit() {
           title: v.title.trim(),
           file: v.pdfFile!,
           departmentId: v.departmentId,
+          campaignCode,
         })
       }
       return api.createTextSubmission({
         title: v.title.trim(),
         content: (v.text ?? '').trim(),
         departmentId: v.departmentId,
+        campaignCode,
       })
     },
     onSuccess: (s) => {
@@ -189,6 +211,7 @@ export function Submit() {
                 setValue('title', sc.title, { shouldValidate: true })
                 setValue('departmentId', sc.departmentId, { shouldValidate: true })
                 setValue('text', sc.text, { shouldValidate: true })
+                setValue('campaignCode', sc.campaignCode ?? '', { shouldValidate: true })
                 handleModeChange(sc.mode)
               }}
               className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink shadow-2xs transition hover:border-brand hover:bg-brand-soft hover:text-brand cursor-pointer"
@@ -228,6 +251,26 @@ export function Submit() {
               ))}
             </select>
             {errors.departmentId && <p className="mt-1.5 text-xs font-medium text-violation">{errors.departmentId.message}</p>}
+          </div>
+
+          {/* Campaign Code — optional, governance-validated */}
+          <div>
+            <label htmlFor="campaignCode" className="mb-1.5 block text-sm font-semibold text-ink">
+              Campaign Code <span className="ml-1 text-xs font-normal text-muted">(optional)</span>
+            </label>
+            <input
+              id="campaignCode"
+              {...register('campaignCode')}
+              placeholder="e.g. DIWALI_SPECIAL"
+              autoComplete="off"
+              className="w-full rounded-xl border border-line px-4 py-3 font-mono text-sm uppercase shadow-xs focus:border-brand focus:ring-1 focus:ring-brand"
+              onChange={(e) => {
+                e.target.value = e.target.value.toUpperCase()
+              }}
+            />
+            <p className="mt-1 text-xs text-muted">
+              Reference a registered campaign to apply an approved pricing exception. The authority engine always validates this against registered records — it cannot be self-granted.
+            </p>
           </div>
         </div>
 
@@ -381,17 +424,20 @@ export function Submit() {
             )}
             {errors.imageFile && <p className="text-xs font-medium text-violation">{errors.imageFile.message as string}</p>}
 
-            {/* Optional companion caption / context text */}
+            {/* Creator Companion Notes / Campaign Context */}
             <div className="space-y-1.5 pt-2">
-              <label htmlFor="caption" className="block text-xs font-semibold text-muted uppercase tracking-wider">
-                Accompanying Post Text or Headline (Optional)
+              <label htmlFor="caption" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                Creator Notes & Campaign Context (Optional)
               </label>
               <input
                 id="caption"
                 {...register('text')}
-                placeholder="e.g. Social media copy or campaign headline accompanying this banner graphic…"
+                placeholder="e.g. Creator briefing notes, intended social channel, or target market..."
                 className="w-full rounded-xl border border-line px-4 py-2.5 text-sm"
               />
+              <p className="text-[11px] text-muted">
+                Notes provided here are preserved separately for reviewer context and will not be conflated with visual in-image claims.
+              </p>
             </div>
           </div>
         )}

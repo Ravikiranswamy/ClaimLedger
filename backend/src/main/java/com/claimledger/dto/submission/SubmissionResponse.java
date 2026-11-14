@@ -14,6 +14,7 @@ public class SubmissionResponse {
     private UUID id;
     private String title;
     private String content;
+    private String creatorNotes;
     private String filePath;
     private String fileUrl;
     private ContentType contentType;
@@ -27,6 +28,66 @@ public class SubmissionResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ClaimResponse> claims = new ArrayList<>();
+    private List<DominantColorDto> visualColorDetails = new ArrayList<>();
+
+    public static class DominantColorDto {
+        private String hex;
+        private double deltaE;
+        private String nearestApprovedHex;
+        private String nearestApprovedName;
+        private boolean isApproved;
+
+        public DominantColorDto() {
+        }
+
+        public DominantColorDto(String hex, double deltaE, String nearestApprovedHex, String nearestApprovedName, boolean isApproved) {
+            this.hex = hex;
+            this.deltaE = deltaE;
+            this.nearestApprovedHex = nearestApprovedHex;
+            this.nearestApprovedName = nearestApprovedName;
+            this.isApproved = isApproved;
+        }
+
+        public String getHex() {
+            return hex;
+        }
+
+        public void setHex(String hex) {
+            this.hex = hex;
+        }
+
+        public double getDeltaE() {
+            return deltaE;
+        }
+
+        public void setDeltaE(double deltaE) {
+            this.deltaE = deltaE;
+        }
+
+        public String getNearestApprovedHex() {
+            return nearestApprovedHex;
+        }
+
+        public void setNearestApprovedHex(String nearestApprovedHex) {
+            this.nearestApprovedHex = nearestApprovedHex;
+        }
+
+        public String getNearestApprovedName() {
+            return nearestApprovedName;
+        }
+
+        public void setNearestApprovedName(String nearestApprovedName) {
+            this.nearestApprovedName = nearestApprovedName;
+        }
+
+        public boolean isApproved() {
+            return isApproved;
+        }
+
+        public void setApproved(boolean approved) {
+            isApproved = approved;
+        }
+    }
 
     public SubmissionResponse() {
     }
@@ -41,6 +102,7 @@ public class SubmissionResponse {
         response.setId(submission.getId());
         response.setTitle(submission.getTitle());
         response.setContent(submission.getContent());
+        response.setCreatorNotes(submission.getCreatorNotes());
         response.setFilePath(submission.getFilePath());
         response.setFileUrl(submission.getFilePath() != null ? "/api/submissions/" + submission.getId() + "/file" : null);
         response.setContentType(submission.getContentType());
@@ -80,6 +142,14 @@ public class SubmissionResponse {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getCreatorNotes() {
+        return creatorNotes;
+    }
+
+    public void setCreatorNotes(String creatorNotes) {
+        this.creatorNotes = creatorNotes;
     }
 
     public String getFilePath() {
@@ -203,5 +273,13 @@ public class SubmissionResponse {
 
     public void setClaims(List<ClaimResponse> claims) {
         this.claims = claims;
+    }
+
+    public List<DominantColorDto> getVisualColorDetails() {
+        return visualColorDetails;
+    }
+
+    public void setVisualColorDetails(List<DominantColorDto> visualColorDetails) {
+        this.visualColorDetails = visualColorDetails;
     }
 }

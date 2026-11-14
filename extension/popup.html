@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClaimLedger Pre-Flight</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <img src="icons/icon48.png" alt="ClaimLedger" class="brand-logo" />
+        <div>
+          <h1 class="brand-title">ClaimLedger</h1>
+          <span class="brand-tagline">Pre-Flight Brand Governance</span>
+        </div>
+      </div>
+      <div class="status-indicator">
+        <span id="conn-dot" class="dot dot-amber"></span>
+        <span id="conn-text" class="status-label">Checking...</span>
+      </div>
+    </header>
+
+    <!-- Auth Drawer -->
+    <section id="auth-section" class="auth-card">
+      <div id="auth-logged-out" class="auth-unauthed">
+        <div class="auth-header">
+          <span class="auth-title">Authentication Required</span>
+          <span class="auth-subtitle">Choose demo account or sign in to verify claims</span>
+        </div>
+        <div class="demo-buttons">
+          <button id="btn-demo-creator" class="btn btn-secondary btn-sm" title="Log in as Creator (creator@nexora.com)">
+            👤 Demo Creator
+          </button>
+          <button id="btn-demo-admin" class="btn btn-secondary btn-sm" title="Log in as Admin (admin@nexora.com)">
+            🛡️ Demo Admin
+          </button>
+        </div>
+        <details class="custom-login-details">
+          <summary>Backend Endpoint & Custom Login</summary>
+          <div class="login-form">
+            <div style="display: flex; gap: 4px; margin-bottom: 2px;">
+              <button type="button" class="chip" id="btn-set-local" style="font-size: 9px; padding: 2px 6px;">Localhost (8080)</button>
+              <button type="button" class="chip" id="btn-set-render" style="font-size: 9px; padding: 2px 6px;">Live (Render Cloud)</button>
+            </div>
+            <input type="text" id="api-url" class="input input-sm" placeholder="Backend URL" value="http://localhost:8080" />
+            <input type="email" id="login-email" class="input input-sm" placeholder="Email" />
+            <input type="password" id="login-password" class="input input-sm" placeholder="Password" />
+            <button id="btn-custom-login" class="btn btn-primary btn-sm">Sign In</button>
+          </div>
+        </details>
+      </div>
+
+      <div id="auth-logged-in" class="auth-authed hidden">
+        <div class="user-info">
+          <span class="user-badge" id="user-role-badge">CREATOR</span>
+          <span class="user-email" id="user-email-text">creator@nexora.com</span>
+        </div>
+        <button id="btn-sign-out" class="btn-text" title="Sign Out">Sign Out</button>
+      </div>
+    </section>
+
+    <!-- Main Workspace -->
+    <main class="main-content">
+      <!-- Input Section -->
+      <section class="input-section">
+        <div class="section-header">
+          <label for="claim-text" class="input-label">Content to Verify</label>
+          <button id="btn-capture-selection" class="btn-ghost-sm" title="Pull selected text from the active webpage">
+            ✂️ Capture Selection
+          </button>
+        </div>
+
+        <textarea
+          id="claim-text"
+          class="claim-textarea"
+          rows="4"
+          placeholder="Paste marketing copy, ad claims, pricing, or select text on any webpage..."
+        ></textarea>
+
+        <div class="textarea-footer">
+          <div class="quick-scenarios">
+            <span class="chips-label">Quick Scenarios:</span>
+            <button class="chip" data-scenario="outdated" title="Outdated Price ₹799 vs Master ₹999">🚨 ₹799 (Wrong)</button>
+            <button class="chip" data-scenario="master" title="Authoritative Master Price ₹999">✅ ₹999 (Master)</button>
+            <button class="chip" data-scenario="diwali" title="Diwali Exception ₹799 with DIWALI_SPECIAL">🎉 Diwali ₹799</button>
+            <button class="chip" data-scenario="expired" title="Expired Campaign SUMMER_FLASH_2025">🚫 Expired Deal</button>
+          </div>
+        </div>
+
+        <!-- Controls Row -->
+        <div class="controls-row">
+          <div class="control-group">
+            <label for="select-mode" class="control-label">Engine Mode</label>
+            <select id="select-mode" class="select-sm">
+              <option value="LIGHTWEIGHT">⚡ Lightweight (Sub-Second)</option>
+              <option value="FULL">🔍 Full Pipeline (Deep RAG)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <label for="input-campaign" class="control-label">Campaign Code</label>
+            <input
+              type="text"
+              id="input-campaign"
+              class="input-sm uppercase"
+              placeholder="e.g. DIWALI_SPECIAL"
+            />
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="action-row">
+          <button id="btn-verify" class="btn btn-primary btn-block">
+            <span id="btn-verify-text">Verify Content</span>
+            <span id="btn-verify-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Alert / Notice Box -->
+      <div id="notice-box" class="notice-box hidden"></div>
+
+      <!-- Results Section -->
+      <section id="results-section" class="results-section hidden">
+        <div id="results-banner" class="results-banner">
+          <div class="banner-title" id="banner-title">Compliance Evaluation</div>
+          <div class="banner-summary" id="banner-summary">Summary text here</div>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-pill">
+            <span class="metric-val" id="metric-latency">0ms</span>
+            <span class="metric-lbl">Latency</span>
+          </div>
+          <div class="metric-pill">
+            <span class="metric-val text-red" id="metric-violations">0</span>
+            <span class="metric-lbl">Violations</span>
+          </div>
+          <div class="metric-pill">
+            <span class="metric-val text-green" id="metric-verified">0</span>
+            <span class="metric-lbl">Verified</span>
+          </div>
+          <div class="metric-pill">
+            <span class="metric-val text-amber" id="metric-conflicts">0</span>
+            <span class="metric-lbl">Conflicts</span>
+          </div>
+        </div>
+
+        <!-- Findings List -->
+        <div class="findings-header">
+          <span class="findings-title">Claim-by-Claim Findings</span>
+          <span id="findings-count" class="badge-count">0 claims</span>
+        </div>
+        <div id="findings-list" class="findings-list">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-links">
+        <a href="http://localhost:5173/preflight" target="_blank" class="footer-link">Pre-Flight Workbench ↗</a>
+        <span class="footer-divider">•</span>
+        <a href="http://localhost:5173" target="_blank" class="footer-link">ClaimLedger Web App ↗</a>
+      </div>
+      <div class="footer-copy">CodeTitans India 2026</div>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
+

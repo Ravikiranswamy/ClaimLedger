@@ -13,7 +13,11 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
 
     List<Claim> findBySubmissionId(UUID submissionId);
 
+    List<Claim> findBySubmissionIdAndRevisionNumber(UUID submissionId, int revisionNumber);
+
     void deleteBySubmissionId(UUID submissionId);
+
+    void deleteBySubmissionIdAndRevisionNumber(UUID submissionId, int revisionNumber);
 
     long countBySubmissionIdAndVerificationStatus(UUID submissionId, VerificationStatus verificationStatus);
 }

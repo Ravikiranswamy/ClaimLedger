@@ -13,10 +13,14 @@ public class SubmissionCreateRequest {
 
     private String content;
 
+    private String creatorNotes;
+
     @NotNull(message = "Content type is required (TEXT or PDF)")
     private ContentType contentType = ContentType.TEXT;
 
     private UUID departmentId;
+
+    private String campaignCode;
 
     public SubmissionCreateRequest() {
     }
@@ -37,6 +41,14 @@ public class SubmissionCreateRequest {
         this.content = content;
     }
 
+    public String getCreatorNotes() {
+        return creatorNotes;
+    }
+
+    public void setCreatorNotes(String creatorNotes) {
+        this.creatorNotes = creatorNotes;
+    }
+
     public ContentType getContentType() {
         return contentType;
     }
@@ -51,5 +63,13 @@ public class SubmissionCreateRequest {
 
     public void setDepartmentId(UUID departmentId) {
         this.departmentId = departmentId;
+    }
+
+    public String getCampaignCode() {
+        return campaignCode;
+    }
+
+    public void setCampaignCode(String campaignCode) {
+        this.campaignCode = campaignCode;
     }
 }

@@ -1,6 +1,6 @@
 // Development-only mock backend that mirrors the REAL API shapes. All data is synthetic (Nexora).
 // Delete this file and set VITE_USE_MOCK=false to use the live backend.
-import type { ActionType, AuditEntry, AuthorityEngineConfig, Claim, ContentType, DepartmentItem, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, OrganisationProfile, Submission, User } from '../types'
+import type { ActionType, AuditEntry, AuthorityEngineConfig, Campaign, CampaignRequest, CampaignValidationResult, Claim, ContentType, DepartmentItem, Evidence, GovernanceInsights, KnowledgeDoc, LoginResponse, OrganisationProfile, PreFlightRequest, PreFlightResponse, Submission, User } from '../types'
 import { DEPARTMENTS } from '../types'
 import { ApiError, type Api, type RegisterRequest } from './types'
 
@@ -49,6 +49,48 @@ let mockAuthorityRules: AuthorityEngineConfig = {
   tier1OverridesSubordinate: true,
   flagNumericContradictions: true,
 }
+
+// ─── Campaign Governance Mock Data ────────────────────────────────────────────
+// DIWALI_SPECIAL: active campaign that legitimately allows ₹799 for Nexora Pro
+// SUMMER_FLASH_2025: expired campaign — referenced submissions get a VIOLATION
+let mockCampaigns: Campaign[] = [
+  {
+    id: 'cam-diwali-2026',
+    code: 'DIWALI_SPECIAL',
+    name: 'Diwali Festive 2026',
+    description: 'Authorised seasonal discount for Diwali 2026. Allows Nexora Pro at ₹799/user/month during the festive window.',
+    organisationId: DEFAULT_NEXORA_ORG_ID,
+    departmentId: undefined,
+    allowedProductScope: 'Nexora Pro',
+    allowedDiscountPrice: '₹799',
+    startDate: '2026-10-01',
+    endDate: '2026-12-31',
+    isApproved: true,
+    createdBy: 'u1',
+    createdAt: '2026-09-15T10:00:00Z',
+    isActive: true,
+    isExpired: false,
+    governanceNote: 'ACTIVE: Campaign exception window is open. Authorised discount: ₹799 for Nexora Pro.',
+  },
+  {
+    id: 'cam-summer-2025',
+    code: 'SUMMER_FLASH_2025',
+    name: 'Summer Flash Sale 2025 (Expired)',
+    description: 'Short-term summer flash sale — now expired.',
+    organisationId: DEFAULT_NEXORA_ORG_ID,
+    departmentId: undefined,
+    allowedProductScope: 'Nexora Pro',
+    allowedDiscountPrice: '₹699',
+    startDate: '2025-05-01',
+    endDate: '2025-06-30',
+    isApproved: true,
+    createdBy: 'u1',
+    createdAt: '2025-04-20T09:00:00Z',
+    isActive: false,
+    isExpired: true,
+    governanceNote: "EXPIRED: This campaign's exception window has closed. It no longer applies to new submissions.",
+  },
+]
 
 let currentUserId: string | null = null
 let seq = 100
@@ -586,6 +628,29 @@ async function create(
     createdAt: new Date().toISOString(),
     claims,
     organisationId: currentOrgId,
+    visualColorDetails: type === 'IMAGE' ? [
+      {
+        hex: /pink|neon|ff1493/i.test(`${file?.name || ''} ${title} ${content}`) ? '#FF1493' : '#0F766E',
+        deltaE: /pink|neon|ff1493/i.test(`${file?.name || ''} ${title} ${content}`) ? 58.4 : 0.0,
+        nearestApprovedHex: '#0F766E',
+        nearestApprovedName: 'Nexora Teal',
+        isApproved: !/pink|neon|ff1493/i.test(`${file?.name || ''} ${title} ${content}`),
+      },
+      {
+        hex: '#0A1F36',
+        deltaE: 0.0,
+        nearestApprovedHex: '#0A1F36',
+        nearestApprovedName: 'Nexora Navy',
+        isApproved: true,
+      },
+      {
+        hex: '#F8FAFC',
+        deltaE: 0.0,
+        nearestApprovedHex: '#F8FAFC',
+        nearestApprovedName: 'Canvas Slate',
+        isApproved: true,
+      },
+    ] : undefined,
   }
   subs.set(id, s)
   log(id, user, 'SUBMITTED', 'Initial submission created')
@@ -979,7 +1044,7 @@ export const mockApi: Api = {
   createTextSubmission: ({ title, content, departmentId }) => create(title, content, 'TEXT', departmentId),
   createPdfSubmission: ({ title, departmentId }) =>
     create(title, 'Great news! Nexora Pro is now available at ₹799 per month. It is the fastest platform around.', 'PDF', departmentId),
-  createImageSubmission: ({ title, file, departmentId, text }) => {
+  createImageSubmission: async ({ title, file, departmentId, text, creatorNotes }) => {
     const fileUrl = file ? URL.createObjectURL(file) : null
     const textContent =
       text && text.trim()
@@ -988,8 +1053,10 @@ export const mockApi: Api = {
           ? 'Nexora Pro is available for ₹799 per month! Complete enterprise AI brand compliance.'
           : file?.name.toLowerCase().includes('999')
             ? 'Nexora Pro is officially available at ₹999 per user per month billed annually.'
-            : `Official Promotional Graphic: ${file?.name || title}`
-    return create(title, textContent, 'IMAGE', departmentId, fileUrl, file)
+            : ''
+    const sub = await create(title, textContent, 'IMAGE', departmentId, fileUrl, file)
+    sub.creatorNotes = creatorNotes ?? (text && text.trim() ? text : null)
+    return sub
   },
   async getSubmission(id) {
     await wait(150)
@@ -1028,13 +1095,17 @@ export const mockApi: Api = {
     log(id, user, action, comment)
     return structuredClone(s)
   },
-  async reviseSubmission(id, content, comment, file) {
+  async reviseSubmission(id, content, comment, file, creatorNotes) {
     await wait(1800)
     const user = me()
     const s = subs.get(id)
     if (!s) throw new ApiError('Submission not found', 404)
     if (user.role === 'CREATOR' && s.submittedBy !== user.id) {
       throw new ApiError('Creators are only permitted to revise their own submissions.', 403)
+    }
+
+    if (creatorNotes) {
+      s.creatorNotes = creatorNotes
     }
 
     // If replacement file was provided, update fileUrl and filePath
@@ -1140,6 +1211,81 @@ export const mockApi: Api = {
     log(id, user, 'CREATOR_REVISED', comment || 'Content revised')
     log(id, { ...user, fullName: 'System', email: '', role: 'ADMIN' }, 'ANALYZED', `${claims.length} claim(s) checked`)
     return structuredClone(s)
+  },
+  async getSubmissionRevisions(id) {
+    await wait(150)
+    const s = subs.get(id)
+    if (!s) return []
+    return [
+      {
+        id: `rev-${id}-1`,
+        submissionId: id,
+        revisionNumber: s.revisionNumber,
+        content: s.content,
+        creatorNotes: s.creatorNotes,
+        filePath: s.filePath,
+        contentType: s.contentType || 'TEXT',
+        totalClaims: s.claims.length,
+        verifiedClaims: s.claims.filter((c) => c.verificationStatus === 'VERIFIED').length,
+        violationClaims: s.claims.filter((c) => c.verificationStatus === 'VIOLATION').length,
+        unverifiedClaims: s.claims.filter((c) => c.verificationStatus === 'UNVERIFIED').length,
+        conflictClaims: s.claims.filter((c) => c.verificationStatus === 'CONFLICT').length,
+        revisionComment: 'Current active revision snapshot',
+        createdAt: s.createdAt,
+      },
+    ]
+  },
+  async getSubmissionDiff(id: string, fromRev: number, toRev: number) {
+    await wait(200)
+    const s = subs.get(id)
+    const fromContent = "Nexora Pro costs ₹999 per user per month."
+    const toContent = s?.content || "Subscribe to Nexora Pro for just ₹799 monthly."
+    const fromNotes = "Initial creator draft copy"
+    const toNotes = s?.creatorNotes || "Updated pricing per promotional brief"
+
+    const isPriceDrop = /799/.test(toContent)
+
+    return {
+      submissionId: id,
+      fromRevision: fromRev,
+      toRevision: toRev,
+      fromContent,
+      toContent,
+      fromCreatorNotes: fromNotes,
+      toCreatorNotes: toNotes,
+      textDiff: [
+        { type: 'REMOVED', text: 'Nexora Pro costs ' },
+        { type: 'ADDED', text: 'Subscribe to ' },
+        { type: 'UNCHANGED', text: 'Nexora Pro ' },
+        { type: 'ADDED', text: 'for just ' },
+        { type: 'REMOVED', text: '₹999 per user per month.' },
+        { type: 'ADDED', text: '₹799 monthly.' },
+      ],
+      claimDiffs: [
+        {
+          product: 'Nexora Pro',
+          attributeType: 'PRICE',
+          attributeName: 'Subscription Price',
+          previousValue: '₹999',
+          newValue: isPriceDrop ? '₹799' : '₹999',
+          unit: 'Per user',
+          billingPeriod: 'Monthly',
+          changeType: isPriceDrop ? 'MODIFIED' : 'UNCHANGED',
+          reverificationRequired: isPriceDrop,
+          severity: isPriceDrop ? 'HIGH' : 'LOW',
+          summary: isPriceDrop
+            ? 'Price changed from ₹999 to ₹799 per user monthly for Nexora Pro'
+            : 'Price retained at ₹999 monthly',
+          previousStatus: 'VERIFIED',
+          newStatus: isPriceDrop ? 'VIOLATION' : 'VERIFIED',
+        },
+      ],
+      totalClaimsChanged: isPriceDrop ? 1 : 0,
+      reverificationRequired: isPriceDrop,
+      diffSummary: isPriceDrop
+        ? `Detected 1 claim change between Revision #${fromRev} and #${toRev}. Re-verification required due to factual/pricing attribute modification.`
+        : `No substantive claim or attribute changes detected between Revision #${fromRev} and #${toRev}.`,
+    }
   },
   async getAudit(id) {
     await wait(150)
@@ -1931,5 +2077,167 @@ export const mockApi: Api = {
     await wait(150)
     mockAuthorityRules = { ...req }
     return { ...mockAuthorityRules }
+  },
+  listCampaigns: async () => {
+    await wait(200)
+    return structuredClone(mockCampaigns)
+  },
+  registerCampaign: async (req: CampaignRequest) => {
+    await wait(300)
+    const existing = mockCampaigns.find((c) => c.code === req.code.toUpperCase())
+    if (existing) throw new ApiError(`Campaign code '${req.code}' already exists in this organisation.`, 400)
+    const today = new Date().toISOString().split('T')[0]
+    const isActive = req.startDate <= today && today <= req.endDate
+    const isExpired = today > req.endDate
+    const newCampaign: Campaign = {
+      id: `cam-${Date.now()}`,
+      code: req.code.toUpperCase(),
+      name: req.name,
+      description: req.description,
+      organisationId: DEFAULT_NEXORA_ORG_ID,
+      departmentId: req.departmentId,
+      allowedProductScope: req.allowedProductScope ?? 'Nexora Pro',
+      allowedDiscountPrice: req.allowedDiscountPrice,
+      startDate: req.startDate,
+      endDate: req.endDate,
+      isApproved: true,
+      createdBy: 'u1',
+      createdAt: new Date().toISOString(),
+      isActive,
+      isExpired,
+      governanceNote: isActive
+        ? `ACTIVE: Campaign exception window is open. Authorised discount: ${req.allowedDiscountPrice ?? 'N/A'} for ${req.allowedProductScope ?? 'Nexora Pro'}.`
+        : isExpired
+          ? 'EXPIRED: This campaign\'s exception window has closed.'
+          : `UPCOMING: Campaign starts on ${req.startDate}.`,
+    }
+    mockCampaigns.push(newCampaign)
+    return structuredClone(newCampaign)
+  },
+  validateCampaign: async (code: string) => {
+    await wait(150)
+    const today = new Date().toISOString().split('T')[0]
+    const campaign = mockCampaigns.find((c) => c.code === code.toUpperCase())
+    if (!campaign) {
+      const result: CampaignValidationResult = {
+        status: 'INVALID',
+        campaignCode: code,
+        message: `Campaign '${code}' is not registered for this organisation. A campaign code is a reference, not proof of permission.`,
+      }
+      return result
+    }
+    if (today > campaign.endDate) {
+      return { status: 'EXPIRED', campaignCode: code, message: `Campaign '${code}' expired on ${campaign.endDate}. This exception is no longer applicable.`, campaign: structuredClone(campaign) } as CampaignValidationResult
+    }
+    if (today < campaign.startDate) {
+      return { status: 'INVALID', campaignCode: code, message: `Campaign '${code}' has not started yet. Valid from ${campaign.startDate}.` } as CampaignValidationResult
+    }
+    return { status: 'VALID', campaignCode: code, message: `Campaign '${code}' is active and approved. Discount: ${campaign.allowedDiscountPrice}`, campaign: structuredClone(campaign) } as CampaignValidationResult
+  },
+  preFlightCheck: async (req: PreFlightRequest) => {
+    const isLightweight = req.mode !== 'FULL'
+    await wait(isLightweight ? 180 : 750)
+    const today = new Date().toISOString().split('T')[0]
+    const claims: PreFlightResponse['claims'] = []
+    let violations = 0
+    let verified = 0
+    let conflicts = 0
+    let unverified = 0
+
+    // Campaign check
+    if (req.campaignCode) {
+      const code = req.campaignCode.toUpperCase().trim()
+      const camp = mockCampaigns.find((c) => c.code === code)
+      if (camp && today <= camp.endDate && today >= camp.startDate) {
+        claims.push({
+          claimText: `Campaign exception referenced: '${code}'`,
+          claimType: 'PROMOTION',
+          status: 'VERIFIED',
+          explanation: `Campaign '${code}' is active and approved. Discount: ${camp.allowedDiscountPrice}`,
+          authoritativeSource: 'Registered Campaign Governance',
+        })
+        verified++
+      } else {
+        claims.push({
+          claimText: `Campaign exception referenced: '${code}'`,
+          claimType: 'PROMOTION',
+          status: 'VIOLATION',
+          explanation: camp ? `Campaign '${code}' expired on ${camp.endDate}.` : `Campaign '${code}' is not registered.`,
+          suggestedCorrection: 'Remove invalid campaign reference or register via Campaign Governance.',
+          authoritativeSource: 'Registered Campaign Governance',
+        })
+        violations++
+      }
+    }
+
+    const text = req.text
+    if (/₹799|799/i.test(text)) {
+      if (req.campaignCode?.toUpperCase() === 'DIWALI_SPECIAL') {
+        claims.push({
+          claimText: 'Nexora Pro priced at ₹799',
+          claimType: 'PRICE',
+          status: 'VERIFIED',
+          explanation: 'Price ₹799 is approved under active DIWALI_SPECIAL campaign exception window.',
+          authoritativeSource: 'Diwali Festive 2026 Addendum & Catalogue',
+        })
+        verified++
+      } else {
+        claims.push({
+          claimText: 'Nexora Pro costs ₹799 per month',
+          claimType: 'PRICE',
+          status: 'VIOLATION',
+          explanation: 'Authoritative Master Catalogue v4.2 requires Nexora Pro price to be ₹999/month. Unapproved discount detected.',
+          suggestedCorrection: 'Change ₹799 to ₹999 per user per month.',
+          authoritativeSource: 'Product_Master_Catalogue_v4.2.pdf (Tier 1)',
+        })
+        violations++
+      }
+    } else if (/₹999|999/i.test(text)) {
+      claims.push({
+        claimText: 'Nexora Pro costs ₹999 per user per month',
+        claimType: 'PRICE',
+        status: 'VERIFIED',
+        explanation: 'Matches official pricing in Master Catalogue v4.2.',
+        authoritativeSource: 'Product_Master_Catalogue_v4.2.pdf (Tier 1)',
+      })
+      verified++
+    }
+
+    if (/99\.99%|uptime/i.test(text)) {
+      claims.push({
+        claimText: '99.99% uptime SLA guarantee',
+        claimType: 'FEATURE',
+        status: 'VERIFIED',
+        explanation: 'SLA claim aligns with enterprise service terms.',
+        authoritativeSource: 'Nexora_Sales_Proposal_v2.pdf',
+      })
+      verified++
+    }
+
+    if (claims.length === 0) {
+      claims.push({
+        claimText: text.slice(0, 100),
+        claimType: 'FACTUAL',
+        status: 'VERIFIED',
+        explanation: 'Heuristic checks found no pricing, terminology, or SLA contradictions.',
+        authoritativeSource: 'Brand_Guidelines_v3.pdf',
+      })
+      verified++
+    }
+
+    return {
+      mode: req.mode ?? 'LIGHTWEIGHT',
+      latencyMs: isLightweight ? 185 : 780,
+      totalClaims: claims.length,
+      violations,
+      verified,
+      conflicts,
+      unverified,
+      compliant: violations === 0 && conflicts === 0,
+      summary: violations > 0
+        ? `Found ${violations} compliance violation(s). Re-check claims before publishing.`
+        : 'All analyzed claims conform with authoritative brand rules.',
+      claims,
+    }
   },
 }

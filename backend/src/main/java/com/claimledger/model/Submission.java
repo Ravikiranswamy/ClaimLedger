@@ -20,6 +20,9 @@ public class Submission {
     @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "creator_notes", columnDefinition = "TEXT")
+    private String creatorNotes;
+
     @Column(name = "file_path")
     private String filePath;
 
@@ -60,6 +63,12 @@ public class Submission {
 
     @Column(name = "conflict_claims")
     private Integer conflictClaims = 0;
+
+    @Column(name = "campaign_code", length = 50)
+    private String campaignCode;
+
+    @Column(name = "campaign_id")
+    private UUID campaignId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -119,6 +128,14 @@ public class Submission {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getCreatorNotes() {
+        return creatorNotes;
+    }
+
+    public void setCreatorNotes(String creatorNotes) {
+        this.creatorNotes = creatorNotes;
     }
 
     public String getFilePath() {
@@ -223,6 +240,22 @@ public class Submission {
 
     public void setConflictClaims(Integer conflictClaims) {
         this.conflictClaims = conflictClaims;
+    }
+
+    public String getCampaignCode() {
+        return campaignCode;
+    }
+
+    public void setCampaignCode(String campaignCode) {
+        this.campaignCode = campaignCode;
+    }
+
+    public UUID getCampaignId() {
+        return campaignId;
+    }
+
+    public void setCampaignId(UUID campaignId) {
+        this.campaignId = campaignId;
     }
 
     public LocalDateTime getCreatedAt() {

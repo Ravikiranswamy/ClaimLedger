@@ -66,6 +66,11 @@ public class ReviewService {
         Submission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
 
+        // Enterprise Segregation of Duties: Creator cannot approve their own submission
+        if (submission.getSubmittedBy() != null && submission.getSubmittedBy().equals(reviewer.getId()) && reviewer.getRole() != Role.ADMIN) {
+            throw new AccessDeniedException("Segregation of duties violation: Creators cannot review or approve their own submissions. An independent reviewer must evaluate this content.");
+        }
+
         ActionType action = request.getAction();
         SubmissionStatus newStatus;
 

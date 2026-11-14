@@ -2,13 +2,19 @@ import { ApiError, type Api } from './types'
 import type {
   AuditEntry,
   AuthorityEngineConfig,
+  Campaign,
+  CampaignValidationResult,
   DepartmentItem,
   GovernanceInsights,
   KnowledgeChunk,
   KnowledgeDoc,
   LoginResponse,
   OrganisationProfile,
+  PreFlightRequest,
+  PreFlightResponse,
+  SemanticDiffResponse,
   Submission,
+  SubmissionRevision,
   User,
 } from '../types'
 
@@ -98,36 +104,43 @@ export const httpApi: Api = {
     const user = await request<User>('/auth/me')
     return normalizeUser(user)
   },
-  createTextSubmission: ({ title, content, departmentId }) =>
+  createTextSubmission: ({ title, content, departmentId, campaignCode }) =>
     request<Submission>('/submissions', {
       method: 'POST',
-      body: JSON.stringify({ title, content, contentType: 'TEXT', departmentId }),
+      body: JSON.stringify({ title, content, contentType: 'TEXT', departmentId, campaignCode }),
     }),
-  createPdfSubmission: ({ title, file, departmentId }) => {
+  createPdfSubmission: ({ title, file, departmentId, campaignCode }) => {
     const form = new FormData()
     form.append('title', title)
     form.append('file', file)
     if (departmentId) form.append('departmentId', departmentId)
+    if (campaignCode) form.append('campaignCode', campaignCode)
     return request<Submission>('/submissions/upload', { method: 'POST', body: form })
   },
-  createImageSubmission: ({ title, file, departmentId, text }) => {
+  createImageSubmission: ({ title, file, departmentId, text, creatorNotes, campaignCode }) => {
     const form = new FormData()
     form.append('title', title)
     form.append('file', file)
     form.append('contentType', 'IMAGE')
-    if (text) form.append('text', text)
+    const notes = creatorNotes ?? text
+    if (notes) {
+      form.append('text', notes)
+      form.append('creatorNotes', notes)
+    }
     if (departmentId) form.append('departmentId', departmentId)
+    if (campaignCode) form.append('campaignCode', campaignCode)
     return request<Submission>('/submissions/upload', { method: 'POST', body: form })
   },
   getSubmission: (id) => request<Submission>(`/submissions/${id}`),
   listSubmissions: () => request<Submission[]>('/submissions'),
   reviewSubmission: (id, action, comment) =>
     request<Submission>(`/submissions/${id}/review`, { method: 'POST', body: JSON.stringify({ action, comment }) }),
-  reviseSubmission: (id, content, comment, file) => {
+  reviseSubmission: (id, content, comment, file, creatorNotes) => {
     if (file) {
       const fd = new FormData()
       fd.append('content', content)
       if (comment) fd.append('revisionComment', comment)
+      if (creatorNotes) fd.append('creatorNotes', creatorNotes)
       fd.append('file', file)
       return request<Submission>(`/submissions/${id}/revise`, {
         method: 'POST',
@@ -136,9 +149,12 @@ export const httpApi: Api = {
     }
     return request<Submission>(`/submissions/${id}/revise`, {
       method: 'PUT',
-      body: JSON.stringify({ content, revisionComment: comment, contentType: 'TEXT' }),
+      body: JSON.stringify({ content, revisionComment: comment, creatorNotes, contentType: 'TEXT' }),
     })
   },
+  getSubmissionRevisions: (id) => request<SubmissionRevision[]>(`/submissions/${id}/revisions`),
+  getSubmissionDiff: (id, fromRev, toRev) =>
+    request<SemanticDiffResponse>(`/submissions/${id}/diff?from=${fromRev}&to=${toRev}`),
   getAudit: (id) => request<AuditEntry[]>(`/submissions/${id}/audit`),
   listGlobalAudit: () => request<AuditEntry[]>('/submissions/audit'),
   listDocuments: (filters) => {
@@ -213,4 +229,10 @@ export const httpApi: Api = {
       method: 'PUT',
       body: JSON.stringify(req),
     }),
+  listCampaigns: () => request<Campaign[]>('/campaigns'),
+  registerCampaign: (req) =>
+    request<Campaign>('/campaigns', { method: 'POST', body: JSON.stringify(req) }),
+  validateCampaign: (code) => request<CampaignValidationResult>(`/campaigns/validate/${encodeURIComponent(code)}`),
+  preFlightCheck: (req: PreFlightRequest) =>
+    request<PreFlightResponse>('/preflight/check', { method: 'POST', body: JSON.stringify(req) }),
 }

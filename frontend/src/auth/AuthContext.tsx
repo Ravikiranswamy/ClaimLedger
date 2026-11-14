@@ -72,9 +72,9 @@ export function useAuth() {
 
 /** UI convenience only. The backend is the real permission check. */
 export const NAV_BY_ROLE: Record<Role, string[]> = {
-  CREATOR: ['home', 'create', 'my-content', 'guidelines', 'history'],
-  DEPT_MANAGER: ['dept-home', 'dept-submissions', 'dept-insights', 'dept-activity'],
-  REVIEWER: ['home', 'review', 'history'],
+  CREATOR: ['home', 'create', 'my-content', 'guidelines', 'history', 'preflight'],
+  DEPT_MANAGER: ['dept-home', 'dept-submissions', 'dept-insights', 'dept-activity', 'campaigns', 'preflight'],
+  REVIEWER: ['home', 'review', 'history', 'preflight'],
   ADMIN: [
     'admin-overview',
     'admin-knowledge',
@@ -83,6 +83,8 @@ export const NAV_BY_ROLE: Record<Role, string[]> = {
     'admin-approvals',
     'admin-audit',
     'admin-insights',
+    'campaigns',
+    'preflight',
     'admin-settings',
   ],
 }

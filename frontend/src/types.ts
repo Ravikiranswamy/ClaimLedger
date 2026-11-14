@@ -80,15 +80,25 @@ export interface Claim {
   explanation?: string | null
   suggestedCorrection?: string | null
   aiConfidence?: number | null
+  revisionNumber?: number
   evidence: Evidence[]
 }
 
 export type ContentType = 'TEXT' | 'PDF' | 'IMAGE'
 
+export interface DominantColorDetail {
+  hex: string
+  deltaE: number
+  nearestApprovedHex: string
+  nearestApprovedName: string
+  isApproved: boolean
+}
+
 export interface Submission {
   id: string
   title: string
   content: string
+  creatorNotes?: string | null
   filePath?: string | null
   fileUrl?: string | null
   contentType?: ContentType
@@ -103,6 +113,60 @@ export interface Submission {
   createdAt: string
   updatedAt?: string
   claims: Claim[]
+  visualColorDetails?: DominantColorDetail[]
+}
+
+export interface SubmissionRevision {
+  id: string
+  submissionId: string
+  revisionNumber: number
+  content?: string | null
+  creatorNotes?: string | null
+  filePath?: string | null
+  contentType: ContentType
+  totalClaims?: number
+  verifiedClaims?: number
+  violationClaims?: number
+  unverifiedClaims?: number
+  conflictClaims?: number
+  revisionComment?: string | null
+  createdAt: string
+}
+
+export interface TextDiffChunk {
+  type: 'UNCHANGED' | 'ADDED' | 'REMOVED'
+  text: string
+}
+
+export interface ClaimAttributeDiff {
+  product: string
+  attributeType: string
+  attributeName: string
+  previousValue?: string | null
+  newValue?: string | null
+  unit?: string | null
+  billingPeriod?: string | null
+  changeType: 'MODIFIED' | 'ADDED' | 'REMOVED' | 'UNCHANGED'
+  reverificationRequired: boolean
+  severity: 'HIGH' | 'MEDIUM' | 'LOW'
+  summary: string
+  previousStatus?: string | null
+  newStatus?: string | null
+}
+
+export interface SemanticDiffResponse {
+  submissionId: string
+  fromRevision: number
+  toRevision: number
+  fromContent: string
+  toContent: string
+  fromCreatorNotes?: string | null
+  toCreatorNotes?: string | null
+  textDiff: TextDiffChunk[]
+  claimDiffs: ClaimAttributeDiff[]
+  totalClaimsChanged: number
+  reverificationRequired: boolean
+  diffSummary: string
 }
 
 export interface AuditEntry {
@@ -284,5 +348,78 @@ export interface AuthorityEngineConfig {
   tier1OverridesSubordinate: boolean
   flagNumericContradictions: boolean
 }
+
+// ─── Campaign Governance ───────────────────────────────────────────────────
+export interface Campaign {
+  id: string
+  code: string
+  name: string
+  description?: string
+  organisationId: string
+  departmentId?: string
+  allowedProductScope?: string
+  allowedDiscountPrice?: string
+  startDate: string
+  endDate: string
+  isApproved: boolean
+  createdBy: string
+  createdAt: string
+  isActive: boolean
+  isExpired: boolean
+  governanceNote?: string
+}
+
+export interface CampaignRequest {
+  code: string
+  name: string
+  description?: string
+  allowedProductScope?: string
+  allowedDiscountPrice?: string
+  departmentId?: string
+  startDate: string
+  endDate: string
+}
+
+export type CampaignValidationStatus = 'VALID' | 'INVALID' | 'EXPIRED' | 'NOT_REFERENCED'
+
+export interface CampaignValidationResult {
+  status: CampaignValidationStatus
+  campaignCode?: string
+  message?: string
+  campaign?: Campaign
+}
+
+// ─── Pre-Flight API ────────────────────────────────────────────────────────
+export type PreFlightMode = 'LIGHTWEIGHT' | 'FULL'
+
+export interface PreFlightRequest {
+  text: string
+  mode?: PreFlightMode
+  campaignCode?: string
+  departmentId?: string
+}
+
+export interface PreFlightClaimResult {
+  claimText: string
+  claimType: ClaimType
+  status: ClaimState
+  explanation: string
+  suggestedCorrection?: string
+  authoritativeSource?: string
+}
+
+export interface PreFlightResponse {
+  mode: PreFlightMode
+  latencyMs: number
+  totalClaims: number
+  violations: number
+  verified: number
+  conflicts: number
+  unverified: number
+  compliant: boolean
+  summary: string
+  claims: PreFlightClaimResult[]
+}
+
 
 

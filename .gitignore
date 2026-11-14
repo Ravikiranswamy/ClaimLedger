@@ -30,3 +30,8 @@ render_deck_pdf.py
 deck.html
 *.pptx
 *.pdf
+
+# Private interview prep & notes (never commit to git)
+*INTERVIEW*
+*interview*
+*.notes.md

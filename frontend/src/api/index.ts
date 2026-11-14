@@ -41,8 +41,12 @@ const directApi: Api = {
   getSubmission: (id) => (isEvaluationMode() ? mockApi.getSubmission(id) : httpApi.getSubmission(id)),
   listSubmissions: () => (isEvaluationMode() ? mockApi.listSubmissions() : httpApi.listSubmissions()),
   reviewSubmission: (id, action, comment) => (isEvaluationMode() ? mockApi.reviewSubmission(id, action, comment) : httpApi.reviewSubmission(id, action, comment)),
-  reviseSubmission: (id, content, comment, file) =>
-    isEvaluationMode() ? mockApi.reviseSubmission(id, content, comment, file) : httpApi.reviseSubmission(id, content, comment, file),
+  reviseSubmission: (id, content, comment, file, creatorNotes) =>
+    isEvaluationMode() ? mockApi.reviseSubmission(id, content, comment, file, creatorNotes) : httpApi.reviseSubmission(id, content, comment, file, creatorNotes),
+  getSubmissionRevisions: (id) =>
+    isEvaluationMode() ? mockApi.getSubmissionRevisions(id) : httpApi.getSubmissionRevisions(id),
+  getSubmissionDiff: (id, fromRev, toRev) =>
+    isEvaluationMode() ? mockApi.getSubmissionDiff(id, fromRev, toRev) : httpApi.getSubmissionDiff(id, fromRev, toRev),
   getAudit: (id) => (isEvaluationMode() ? mockApi.getAudit(id) : httpApi.getAudit(id)),
   listGlobalAudit: () => (isEvaluationMode() ? mockApi.listGlobalAudit() : httpApi.listGlobalAudit()),
   listDocuments: (filters) => (isEvaluationMode() ? mockApi.listDocuments(filters) : httpApi.listDocuments(filters)),
@@ -65,6 +69,10 @@ const directApi: Api = {
   updateDepartment: (id, req) => (isEvaluationMode() ? mockApi.updateDepartment(id, req) : httpApi.updateDepartment(id, req)),
   getAuthorityRules: () => (isEvaluationMode() ? mockApi.getAuthorityRules() : httpApi.getAuthorityRules()),
   updateAuthorityRules: (req) => (isEvaluationMode() ? mockApi.updateAuthorityRules(req) : httpApi.updateAuthorityRules(req)),
+  listCampaigns: () => (isEvaluationMode() ? mockApi.listCampaigns() : httpApi.listCampaigns()),
+  registerCampaign: (req) => (isEvaluationMode() ? mockApi.registerCampaign(req) : httpApi.registerCampaign(req)),
+  validateCampaign: (code) => (isEvaluationMode() ? mockApi.validateCampaign(code) : httpApi.validateCampaign(code)),
+  preFlightCheck: (req) => (isEvaluationMode() ? mockApi.preFlightCheck(req) : httpApi.preFlightCheck(req)),
 }
 
 export const api: Api = directApi

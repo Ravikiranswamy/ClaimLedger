@@ -17,6 +17,8 @@
 - **Backend API (Render Cloud)**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)
 - **Database (Neon Cloud)**: Serverless PostgreSQL with `pgvector` (`aws-ap-southeast-1`)
 - **Interactive Swagger / OpenAPI Docs**: [https://claimledger-backend.onrender.com/swagger-ui.html](https://claimledger-backend.onrender.com/swagger-ui.html)
+- **Judge Demo & Verification Guide**: [HACKATHON_DEMO.md](HACKATHON_DEMO.md) — *Complete step-by-step evaluation guide covering all 6 test scenarios*
+- **Browser Extension**: Manifest V3 Chrome Extension in [`extension/`](extension/) — *Real-time in-browser pre-flight claim verification*
 
 ---
 
@@ -180,6 +182,11 @@ npm run dev
 | `GET` | `/api/documents` | List knowledge documents and authority tiers |
 | `GET` | `/api/documents/{id}/chunks` | Inspect pgvector text chunks and embeddings |
 | `POST` | `/api/documents/upload` | Upload and chunk new authoritative PDF |
+| `GET` | `/api/submissions/{id}/diff` | Semantic revision diff comparing structured attributes |
+| `GET` | `/api/campaigns` | List registered marketing campaigns and active windows |
+| `POST` | `/api/campaigns` | Register campaign with start/end validity dates (Admin/Manager) |
+| `GET` | `/api/campaigns/validate/{code}` | Validate campaign code against active exceptions |
+| `POST` | `/api/preflight/check` | Sub-second Pre-Flight claim check (Lightweight / Full RAG) |
 
 ---
 

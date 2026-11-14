@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -43,6 +45,8 @@ public class SubmissionWorkflowService {
     private final ClaimVerificationService claimVerificationService;
     private final PdfExtractionService pdfExtractionService;
     private final FileStorageService fileStorageService;
+    private final SubmissionRevisionRepository submissionRevisionRepository;
+    private final VisualAnalysisService visualAnalysisService;
 
     public SubmissionWorkflowService(
             SubmissionRepository submissionRepository,
@@ -54,7 +58,9 @@ public class SubmissionWorkflowService {
             ReviewActionRepository reviewActionRepository,
             ClaimVerificationService claimVerificationService,
             PdfExtractionService pdfExtractionService,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            SubmissionRevisionRepository submissionRevisionRepository,
+            VisualAnalysisService visualAnalysisService
     ) {
         this.submissionRepository = submissionRepository;
         this.claimRepository = claimRepository;
@@ -66,6 +72,8 @@ public class SubmissionWorkflowService {
         this.claimVerificationService = claimVerificationService;
         this.pdfExtractionService = pdfExtractionService;
         this.fileStorageService = fileStorageService;
+        this.submissionRevisionRepository = submissionRevisionRepository;
+        this.visualAnalysisService = visualAnalysisService;
     }
 
     /**
@@ -87,6 +95,10 @@ public class SubmissionWorkflowService {
         UUID departmentId = request.getDepartmentId() != null ? request.getDepartmentId() : currentUser.getDepartmentId();
         submission.setDepartmentId(departmentId);
 
+        if (request.getCampaignCode() != null && !request.getCampaignCode().isBlank()) {
+            submission.setCampaignCode(request.getCampaignCode().trim().toUpperCase());
+        }
+
         if (request.getContentType() == ContentType.PDF) {
             if (file == null || file.isEmpty()) {
                 throw new BadRequestException("PDF file is required when content type is PDF.");
@@ -97,6 +109,7 @@ public class SubmissionWorkflowService {
                 submission.setContentType(ContentType.PDF);
                 String extractedText = pdfExtractionService.extractFullText(new File(storedPath));
                 submission.setContent(extractedText);
+                submission.setCreatorNotes(request.getCreatorNotes() != null ? request.getCreatorNotes() : request.getContent());
             } catch (IOException e) {
                 throw new BadRequestException("Failed to read PDF submission: " + e.getMessage());
             }
@@ -114,16 +127,20 @@ public class SubmissionWorkflowService {
                 String storedPath = fileStorageService.storeFile(file, "submissions");
                 submission.setFilePath(storedPath);
                 submission.setContentType(ContentType.IMAGE);
-                String contentText = (request.getContent() != null && !request.getContent().isBlank())
-                        ? request.getContent().trim()
-                        : "Visual Submission: " + (file.getOriginalFilename() != null ? file.getOriginalFilename() : "image");
-                submission.setContent(contentText);
+                // Clean separation: Content is reserved strictly for OCR extracted text.
+                // Accompanying notes from creator are preserved in creatorNotes.
+                String notes = (request.getCreatorNotes() != null && !request.getCreatorNotes().isBlank())
+                        ? request.getCreatorNotes().trim()
+                        : (request.getContent() != null ? request.getContent().trim() : null);
+                submission.setCreatorNotes(notes);
+                submission.setContent("");
             } catch (IOException e) {
                 throw new BadRequestException("Failed to store image submission: " + e.getMessage());
             }
         } else {
             submission.setContentType(ContentType.TEXT);
             submission.setContent(request.getContent());
+            submission.setCreatorNotes(request.getCreatorNotes());
         }
 
         Submission saved = submissionRepository.save(submission);
@@ -204,14 +221,34 @@ public class SubmissionWorkflowService {
             try {
                 String storedPath = fileStorageService.storeFile(file, "submissions");
                 submission.setFilePath(storedPath);
+                if (submission.getContentType() == ContentType.IMAGE) {
+                    submission.setContent(""); // Reset so OCR analyzes the replaced image fresh
+                } else if (submission.getContentType() == ContentType.PDF) {
+                    String extractedText = pdfExtractionService.extractFullText(new File(storedPath));
+                    submission.setContent(extractedText);
+                }
             } catch (IOException e) {
                 log.error("Failed to store replacement asset for submission {}: {}", submissionId, e.getMessage());
                 throw new RuntimeException("Failed to store replacement asset: " + e.getMessage(), e);
             }
         }
 
-        // Update content and increment revision number
-        submission.setContent(request.getContent());
+        if (request.getCreatorNotes() != null && !request.getCreatorNotes().isBlank()) {
+            submission.setCreatorNotes(request.getCreatorNotes());
+        }
+
+        if (submission.getContentType() == ContentType.TEXT) {
+            if (request.getContent() != null) {
+                submission.setContent(request.getContent());
+            }
+        } else if (submission.getContentType() == ContentType.IMAGE) {
+            // If creator typed comments into content field, keep them in creatorNotes
+            if (request.getContent() != null && !request.getContent().isBlank() && submission.getCreatorNotes() == null) {
+                submission.setCreatorNotes(request.getContent());
+            }
+        }
+
+        // Increment revision number and transition back to DRAFT for re-verification
         submission.setRevisionNumber(submission.getRevisionNumber() + 1);
         submission.setStatus(SubmissionStatus.DRAFT);
         Submission updated = submissionRepository.save(submission);
@@ -259,7 +296,10 @@ public class SubmissionWorkflowService {
                     .orElse("User (" + submission.getSubmittedBy() + ")");
         }
 
-        List<Claim> claims = claimRepository.findBySubmissionId(submissionId);
+        List<Claim> claims = claimRepository.findBySubmissionIdAndRevisionNumber(submissionId, submission.getRevisionNumber());
+        if (claims.isEmpty()) {
+            claims = claimRepository.findBySubmissionId(submissionId);
+        }
         List<ClaimResponse> claimResponses = new ArrayList<>();
 
         for (Claim claim : claims) {
@@ -276,7 +316,39 @@ public class SubmissionWorkflowService {
             claimResponses.add(ClaimResponse.fromEntity(claim, evidenceResponses));
         }
 
-        return SubmissionResponse.fromEntity(submission, deptName, submitterName, claimResponses);
+        SubmissionResponse response = SubmissionResponse.fromEntity(submission, deptName, submitterName, claimResponses);
+
+        if (submission.getContentType() == ContentType.IMAGE && submission.getFilePath() != null) {
+            try {
+                Path p = fileStorageService.loadFile(submission.getFilePath());
+                if (Files.exists(p) && Files.isRegularFile(p)) {
+                    BufferedImage img = ImageIO.read(p.toFile());
+                    if (img != null) {
+                        List<String> dominantHex = visualAnalysisService.extractDominantColors(img);
+                        List<VisualAnalysisService.DominantColorDetail> details = visualAnalysisService.scoreDominantColors(dominantHex);
+                        List<SubmissionResponse.DominantColorDto> dtos = details.stream()
+                                .map(d -> new SubmissionResponse.DominantColorDto(d.hex(), d.deltaE(), d.nearestApprovedHex(), d.nearestApprovedName(), d.isApproved()))
+                                .toList();
+                        response.setVisualColorDetails(dtos);
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("Could not compute visual color details for submission {}: {}", submissionId, ex.getMessage());
+            }
+        }
+
+        return response;
+    }
+
+    /**
+     * Retrieves all revisions for a submission.
+     */
+    @Transactional(readOnly = true)
+    public List<SubmissionRevision> getSubmissionRevisions(UUID submissionId, UserPrincipal currentUser) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found with id: " + submissionId));
+        validateAccess(submission, currentUser);
+        return submissionRevisionRepository.findBySubmissionIdOrderByRevisionNumberAsc(submissionId);
     }
 
     /**

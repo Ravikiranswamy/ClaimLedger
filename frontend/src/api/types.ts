@@ -1,14 +1,21 @@
 import type {
   AuditEntry,
   AuthorityEngineConfig,
+  Campaign,
+  CampaignRequest,
+  CampaignValidationResult,
   DepartmentItem,
   GovernanceInsights,
   KnowledgeChunk,
   KnowledgeDoc,
   LoginResponse,
   OrganisationProfile,
+  PreFlightRequest,
+  PreFlightResponse,
   ReviewAction,
+  SemanticDiffResponse,
   Submission,
+  SubmissionRevision,
   User,
 } from '../types'
 
@@ -24,13 +31,15 @@ export interface Api {
   login(email: string, password: string): Promise<LoginResponse>
   register(data: RegisterRequest): Promise<LoginResponse>
   me(): Promise<User>
-  createTextSubmission(input: { title: string; content: string; departmentId?: string }): Promise<Submission>
-  createPdfSubmission(input: { title: string; file: File; departmentId?: string }): Promise<Submission>
-  createImageSubmission(input: { title: string; file: File; departmentId?: string; text?: string }): Promise<Submission>
+  createTextSubmission(input: { title: string; content: string; departmentId?: string; campaignCode?: string }): Promise<Submission>
+  createPdfSubmission(input: { title: string; file: File; departmentId?: string; campaignCode?: string }): Promise<Submission>
+  createImageSubmission(input: { title: string; file: File; departmentId?: string; text?: string; creatorNotes?: string; campaignCode?: string }): Promise<Submission>
   getSubmission(id: string): Promise<Submission>
   listSubmissions(): Promise<Submission[]>
   reviewSubmission(id: string, action: ReviewAction, comment?: string): Promise<Submission>
-  reviseSubmission(id: string, content: string, comment?: string, file?: File): Promise<Submission>
+  reviseSubmission(id: string, content: string, comment?: string, file?: File, creatorNotes?: string): Promise<Submission>
+  getSubmissionRevisions(id: string): Promise<SubmissionRevision[]>
+  getSubmissionDiff(id: string, fromRev: number, toRev: number): Promise<SemanticDiffResponse>
   getAudit(id: string): Promise<AuditEntry[]>
   listGlobalAudit(): Promise<AuditEntry[]>
   listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }): Promise<KnowledgeDoc[]>
@@ -66,6 +75,12 @@ export interface Api {
   updateDepartment(id: string, req: { name?: string; code?: string; description?: string; isActive?: boolean }): Promise<DepartmentItem>
   getAuthorityRules(): Promise<AuthorityEngineConfig>
   updateAuthorityRules(req: AuthorityEngineConfig): Promise<AuthorityEngineConfig>
+  // Campaign governance
+  listCampaigns(): Promise<Campaign[]>
+  registerCampaign(req: CampaignRequest): Promise<Campaign>
+  validateCampaign(code: string): Promise<CampaignValidationResult>
+  // Pre-flight check
+  preFlightCheck(req: PreFlightRequest): Promise<PreFlightResponse>
 }
 
 export class ApiError extends Error {

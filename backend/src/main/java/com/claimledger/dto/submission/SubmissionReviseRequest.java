@@ -5,8 +5,9 @@ import jakarta.validation.constraints.NotBlank;
 
 public class SubmissionReviseRequest {
 
-    @NotBlank(message = "Revised content is required")
     private String content;
+
+    private String creatorNotes;
 
     private String revisionComment;
 
@@ -21,6 +22,14 @@ public class SubmissionReviseRequest {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getCreatorNotes() {
+        return creatorNotes;
+    }
+
+    public void setCreatorNotes(String creatorNotes) {
+        this.creatorNotes = creatorNotes;
     }
 
     public String getRevisionComment() {

@@ -1,12 +1,15 @@
 package com.claimledger.controller;
 
 import com.claimledger.dto.common.ApiResponse;
+import com.claimledger.dto.diff.SemanticDiffResponse;
 import com.claimledger.dto.submission.FindingDto;
 import com.claimledger.dto.submission.SubmissionCreateRequest;
 import com.claimledger.dto.submission.SubmissionResponse;
 import com.claimledger.dto.submission.SubmissionReviseRequest;
+import com.claimledger.model.SubmissionRevision;
 import com.claimledger.model.enums.ContentType;
 import com.claimledger.security.UserPrincipal;
+import com.claimledger.service.SemanticDiffService;
 import com.claimledger.service.SubmissionWorkflowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,9 +33,11 @@ import java.util.UUID;
 public class SubmissionController {
 
     private final SubmissionWorkflowService workflowService;
+    private final SemanticDiffService semanticDiffService;
 
-    public SubmissionController(SubmissionWorkflowService workflowService) {
+    public SubmissionController(SubmissionWorkflowService workflowService, SemanticDiffService semanticDiffService) {
         this.workflowService = workflowService;
+        this.semanticDiffService = semanticDiffService;
     }
 
     @PostMapping(value = {"", "/upload"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -43,12 +48,18 @@ public class SubmissionController {
             @RequestParam(value = "departmentId", required = false) String departmentId,
             @RequestParam(value = "contentType", required = false) String contentTypeStr,
             @RequestParam(value = "text", required = false) String text,
+            @RequestParam(value = "creatorNotes", required = false) String creatorNotes,
+            @RequestParam(value = "campaignCode", required = false) String campaignCode,
             @RequestParam(value = "file", required = false) MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         SubmissionCreateRequest request = new SubmissionCreateRequest();
         request.setTitle(title);
         request.setContent(text != null ? text : "");
+        request.setCreatorNotes(creatorNotes != null ? creatorNotes : text);
+        if (campaignCode != null && !campaignCode.isBlank()) {
+            request.setCampaignCode(campaignCode.trim().toUpperCase());
+        }
 
         if (file != null && !file.isEmpty()) {
             String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename().toLowerCase() : "";
@@ -138,6 +149,16 @@ public class SubmissionController {
         return ResponseEntity.ok(ApiResponse.ok(findings));
     }
 
+    @GetMapping("/{id}/revisions")
+    @Operation(summary = "Get full historical revisions timeline for a submission")
+    public ResponseEntity<ApiResponse<List<SubmissionRevision>>> getSubmissionRevisions(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        List<SubmissionRevision> revisions = workflowService.getSubmissionRevisions(id, principal);
+        return ResponseEntity.ok(ApiResponse.ok(revisions));
+    }
+
     @PutMapping("/{id}/revise")
     @Operation(summary = "Creator submits revised content, bumping revision and re-verifying claims")
     public ResponseEntity<ApiResponse<SubmissionResponse>> reviseSubmission(
@@ -153,15 +174,30 @@ public class SubmissionController {
     @Operation(summary = "Creator submits revised content with optional replacement image file")
     public ResponseEntity<ApiResponse<SubmissionResponse>> reviseSubmissionMultipart(
             @PathVariable UUID id,
-            @RequestParam("content") String content,
+            @RequestParam(value = "content", required = false) String content,
+            @RequestParam(value = "creatorNotes", required = false) String creatorNotes,
             @RequestParam(value = "revisionComment", required = false) String revisionComment,
             @RequestParam(value = "file", required = false) MultipartFile file,
             @AuthenticationPrincipal UserPrincipal principal
     ) {
         SubmissionReviseRequest request = new SubmissionReviseRequest();
-        request.setContent(content);
+        request.setContent(content != null ? content : "");
+        request.setCreatorNotes(creatorNotes);
         request.setRevisionComment(revisionComment);
         SubmissionResponse response = workflowService.reviseSubmission(id, request, file, principal);
         return ResponseEntity.ok(ApiResponse.ok("Revision analyzed successfully", response));
+    }
+
+    @GetMapping("/{id}/diff")
+    @Operation(summary = "Get semantic revision diff between two revision numbers (Layer 1 text token diff + Layer 2 claim attribute diff)")
+    public ResponseEntity<ApiResponse<SemanticDiffResponse>> getSubmissionDiff(
+            @PathVariable UUID id,
+            @RequestParam("from") int fromRev,
+            @RequestParam("to") int toRev,
+            @AuthenticationPrincipal UserPrincipal principal
+    ) {
+        workflowService.validateSubmissionAccess(id, principal);
+        SemanticDiffResponse diff = semanticDiffService.computeDiff(id, fromRev, toRev);
+        return ResponseEntity.ok(ApiResponse.ok(diff));
     }
 }

@@ -44,6 +44,12 @@ public class Claim {
     @Column(name = "end_index")
     private Integer endIndex = 0;
 
+    @Column(name = "revision_number", nullable = false)
+    private int revisionNumber = 1;
+
+    @Column(name = "claimed_attributes", columnDefinition = "TEXT")
+    private String claimedAttributes;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -141,6 +147,22 @@ public class Claim {
 
     public void setEndIndex(Integer endIndex) {
         this.endIndex = endIndex;
+    }
+
+    public int getRevisionNumber() {
+        return revisionNumber;
+    }
+
+    public void setRevisionNumber(int revisionNumber) {
+        this.revisionNumber = revisionNumber;
+    }
+
+    public String getClaimedAttributes() {
+        return claimedAttributes;
+    }
+
+    public void setClaimedAttributes(String claimedAttributes) {
+        this.claimedAttributes = claimedAttributes;
     }
 
     public LocalDateTime getCreatedAt() {

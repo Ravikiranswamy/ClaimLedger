@@ -12,8 +12,10 @@ import {
   PenSquare,
   Settings,
   ShieldCheck,
+  Tag,
   Users,
   X,
+  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -54,6 +56,8 @@ const ITEMS: Record<string, NavItemConfig> = {
   'admin-audit': { to: '/history', label: 'Audit & Activity', Icon: History },
   'admin-insights': { to: '/admin/insights', label: 'Insights & Guideline Health', Icon: BarChart3 },
   'admin-settings': { to: '/admin/settings', label: 'Organisation Settings', Icon: Settings, isSettings: true },
+  campaigns: { to: '/campaigns', label: 'Campaign Governance', Icon: Tag },
+  preflight: { to: '/preflight', label: 'Pre-Flight API', Icon: Zap },
 }
 
 export function AppShell() {
