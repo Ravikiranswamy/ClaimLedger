@@ -66,6 +66,7 @@ export default function App() {
               <Route path="campaigns" element={<CampaignManager />} />
               <Route path="preflight" element={<PreFlightWorkbench />} />
               <Route path="developer" element={<PreFlightWorkbench />} />
+              <Route path="draft-checker" element={<PreFlightWorkbench />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

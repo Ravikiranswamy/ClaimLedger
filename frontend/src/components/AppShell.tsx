@@ -2,6 +2,7 @@ import {
   BarChart3,
   BookOpen,
   CheckSquare,
+  Code2,
   FileText,
   History,
   Home,
@@ -12,10 +13,10 @@ import {
   PenSquare,
   Settings,
   ShieldCheck,
+  Sparkles,
   Tag,
   Users,
   X,
-  Zap,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -57,7 +58,9 @@ const ITEMS: Record<string, NavItemConfig> = {
   'admin-insights': { to: '/admin/insights', label: 'Insights & Guideline Health', Icon: BarChart3 },
   'admin-settings': { to: '/admin/settings', label: 'Organisation Settings', Icon: Settings, isSettings: true },
   campaigns: { to: '/campaigns', label: 'Campaign Governance', Icon: Tag },
-  preflight: { to: '/preflight', label: 'Pre-Flight API', Icon: Zap },
+  'draft-check': { to: '/draft-checker', label: 'Quick Draft Checker', Icon: Sparkles },
+  'developer-workbench': { to: '/developer', label: 'Developer & API Workbench', Icon: Code2 },
+  preflight: { to: '/developer', label: 'Developer & API Workbench', Icon: Code2 },
 }
 
 export function AppShell() {
