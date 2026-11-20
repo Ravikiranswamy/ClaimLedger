@@ -1255,18 +1255,22 @@ export function ReviewDetail() {
                       </p>
                     </div>
 
-                    {/* Suggested Correction (where available) */}
-                    {(claim.suggestedCorrection || claim.explanation) && claim.verificationStatus !== 'VERIFIED' && (
-                      <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3.5 text-xs space-y-1">
-                        <div className="flex items-center gap-1.5 font-bold text-[#0F766E]">
-                          <Lightbulb size={15} />
-                          <span>Suggested Compliant Wording</span>
+                    {/* Suggested Correction (only when non-empty display text exists) */}
+                    {claim.verificationStatus !== 'VERIFIED' && (() => {
+                      const displayText = formatSuggestedCorrection(claim) || claim.suggestedCorrection
+                      if (!displayText) return null
+                      return (
+                        <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3.5 text-xs space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-[#0F766E]">
+                            <Lightbulb size={15} />
+                            <span>Suggested Compliant Wording</span>
+                          </div>
+                          <p className="text-sm font-semibold text-[#0A1F36] pl-5">
+                            "{displayText}"
+                          </p>
                         </div>
-                        <p className="text-sm font-semibold text-[#0A1F36] pl-5">
-                          “{formatSuggestedCorrection(claim) || claim.suggestedCorrection}”
-                        </p>
-                      </div>
-                    )}
+                      )
+                    })()}
 
                     {/* Supporting Evidence Documents (Compact & Violation-Prioritized) */}
                     <ClaimEvidenceList
