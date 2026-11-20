@@ -774,7 +774,7 @@ export function ReviewDetail() {
                   className={`image-fallback-card ${mediaUrl ? 'hidden' : 'flex'} flex-col items-center justify-center p-8 text-center text-muted`}
                 >
                   <ImageIcon size={44} className="text-[#0F766E]/60 mb-2" />
-                  <p className="font-semibold text-sm text-ink">{s.filePath?.split('/').pop() || s.title}</p>
+                  <p className="font-semibold text-sm text-ink">{s.title}</p>
                   <p className="text-xs text-muted mt-0.5">Submitted Visual Graphic Asset</p>
                 </div>
                 <div className="absolute top-3 right-3 flex items-center gap-2">

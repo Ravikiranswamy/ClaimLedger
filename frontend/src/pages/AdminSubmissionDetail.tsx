@@ -320,7 +320,7 @@ export function AdminSubmissionDetail() {
                     className={`image-fallback-card ${mediaUrl ? 'hidden' : 'flex'} flex-col items-center justify-center p-8 text-center text-muted`}
                   >
                     <ImageIcon size={44} className="text-[#0F766E]/60 mb-2" />
-                    <p className="font-semibold text-sm text-ink">{s.filePath?.split('/').pop() || s.title}</p>
+                    <p className="font-semibold text-sm text-ink">{s.title}</p>
                     <p className="text-xs text-muted mt-0.5">Submitted Visual Graphic Asset</p>
                   </div>
                   <div className="absolute top-3 right-3 flex items-center gap-2">
@@ -360,7 +360,7 @@ export function AdminSubmissionDetail() {
                     <FileText size={16} className="text-rose-600" />
                     <span>Uploaded PDF Document</span>
                   </div>
-                  <span className="text-muted font-mono">{s.filePath ? s.filePath.split('/').pop() : 'document.pdf'}</span>
+                  <span className="text-muted font-mono">{s.title}</span>
                 </div>
                 <p className="mt-1 text-slate-600">
                   Content extracted and vectorized into Neon pgvector embeddings for semantic grounding.

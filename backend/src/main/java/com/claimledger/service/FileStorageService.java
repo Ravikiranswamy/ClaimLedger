@@ -47,6 +47,43 @@ public class FileStorageService {
     }
 
     public Path loadFile(String filePath) {
+        if (filePath == null || filePath.isBlank()) return null;
+
+        // 1. Direct path check
+        try {
+            Path direct = Paths.get(filePath);
+            if (Files.exists(direct) && Files.isRegularFile(direct)) {
+                return direct;
+            }
+        } catch (Exception ignored) {}
+
+        // 2. Extract clean filename (strips any leading Windows or Unix directory paths)
+        String fileName = filePath.replace('\\', '/');
+        int lastSlash = fileName.lastIndexOf('/');
+        if (lastSlash >= 0) {
+            fileName = fileName.substring(lastSlash + 1);
+        }
+
+        // 3. Check in uploadRoot / submissions
+        Path p1 = this.uploadRoot.resolve("submissions").resolve(fileName);
+        if (Files.exists(p1) && Files.isRegularFile(p1)) return p1;
+
+        // 4. Check in uploadRoot directly
+        Path p2 = this.uploadRoot.resolve(fileName);
+        if (Files.exists(p2) && Files.isRegularFile(p2)) return p2;
+
+        // 5. Check in uploads/documents/submissions (relative to repo/execution root)
+        Path p3 = Paths.get("uploads", "documents", "submissions", fileName);
+        if (Files.exists(p3) && Files.isRegularFile(p3)) return p3;
+
+        // 6. Check in uploads/documents
+        Path p4 = Paths.get("uploads", "documents", fileName);
+        if (Files.exists(p4) && Files.isRegularFile(p4)) return p4;
+
+        // 7. Check backend/uploads/documents/submissions
+        Path p5 = Paths.get("backend", "uploads", "documents", "submissions", fileName);
+        if (Files.exists(p5) && Files.isRegularFile(p5)) return p5;
+
         return Paths.get(filePath);
     }
 
