@@ -434,6 +434,35 @@ export function ReviewDetail() {
     }
   }
 
+  const colorDetails: DominantColorDetail[] = useMemo(() => {
+    if (!s) return []
+    if (s.visualColorDetails && s.visualColorDetails.length > 0) {
+      return s.visualColorDetails
+    }
+    const derived: DominantColorDetail[] = []
+    s.claims
+      .filter((c) => c.claimType === 'VISUAL_BRAND')
+      .forEach((c) => {
+        const hexMatches = (c.claimText + ' ' + (c.explanation ?? '')).match(/#([0-9a-fA-F]{6})/gi)
+        if (hexMatches) {
+          hexMatches.forEach((hex) => {
+            const upper = hex.toUpperCase()
+            if (!derived.some((d) => d.hex.toUpperCase() === upper) && !NEXORA_OFFICIAL_PALETTE.some((p) => p.hex === upper)) {
+              const isApproved = c.verificationStatus === 'VERIFIED'
+              derived.push({
+                hex: upper,
+                deltaE: isApproved ? 2.4 : 48.6,
+                nearestApprovedHex: '#0A1F36',
+                nearestApprovedName: 'Deep Navy',
+                isApproved,
+              })
+            }
+          })
+        }
+      })
+    return derived
+  }, [s])
+
   if (q.isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted">
@@ -469,34 +498,6 @@ export function ReviewDetail() {
   const verifiedCount = s.claims.filter((c) => c.verificationStatus === 'VERIFIED').length
   const unresolved = totalClaims - verifiedCount
 
-  const colorDetails: DominantColorDetail[] = useMemo(() => {
-    if (!s) return []
-    if (s.visualColorDetails && s.visualColorDetails.length > 0) {
-      return s.visualColorDetails
-    }
-    const derived: DominantColorDetail[] = []
-    s.claims
-      .filter((c) => c.claimType === 'VISUAL_BRAND')
-      .forEach((c) => {
-        const hexMatches = (c.claimText + ' ' + (c.explanation ?? '')).match(/#([0-9a-fA-F]{6})/gi)
-        if (hexMatches) {
-          hexMatches.forEach((hex) => {
-            const upper = hex.toUpperCase()
-            if (!derived.some((d) => d.hex.toUpperCase() === upper) && !NEXORA_OFFICIAL_PALETTE.some((p) => p.hex === upper)) {
-              const isApproved = c.verificationStatus === 'VERIFIED'
-              derived.push({
-                hex: upper,
-                deltaE: isApproved ? 2.4 : 48.6,
-                nearestApprovedHex: '#0A1F36',
-                nearestApprovedName: 'Deep Navy',
-                isApproved,
-              })
-            }
-          })
-        }
-      })
-    return derived
-  }, [s])
 
   const isReadOnlyMode =
     new URLSearchParams(location.search).get('mode') === 'readonly' || CLOSED.includes(s.status)
