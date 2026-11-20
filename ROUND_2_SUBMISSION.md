@@ -6,8 +6,8 @@
 **Author**: Ravikiran Swamy (`ravikiranswamy550@gmail.com`)  
 **Live Production URL**: [https://claimledger.vercel.app](https://claimledger.vercel.app) *(Alternate: [https://claimledger-india.vercel.app](https://claimledger-india.vercel.app))*  
 **Source Code Repository**: [https://github.com/Ravikiranswamy/ClaimLedger](https://github.com/Ravikiranswamy/ClaimLedger)  
-**Backend API (Render Cloud)**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)  
-**Interactive API Documentation (Swagger)**: [https://claimledger-backend.onrender.com/swagger-ui.html](https://claimledger-backend.onrender.com/swagger-ui.html)  
+**Backend API (Render Cloud)**: [https://claimledger-backend-miox.onrender.com](https://claimledger-backend-miox.onrender.com)  
+**Interactive API Documentation (Swagger)**: [https://claimledger-backend-miox.onrender.com/swagger-ui.html](https://claimledger-backend-miox.onrender.com/swagger-ui.html)  
 **Presentation Slide Deck (PDF)**: [`ClaimLedger_Round2_Presentation.pdf`](./ClaimLedger_Round2_Presentation.pdf)  
 
 ---

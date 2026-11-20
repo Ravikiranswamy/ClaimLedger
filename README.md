@@ -14,9 +14,9 @@
 
 ### 🌐 Live Cloud Deployment
 - **Live Application (Frontend on Vercel)**: [https://claimledger-india.vercel.app](https://claimledger-india.vercel.app)
-- **Backend API (Render Cloud)**: [https://claimledger-backend.onrender.com](https://claimledger-backend.onrender.com)
+- **Backend API (Render Cloud)**: [https://claimledger-backend-miox.onrender.com](https://claimledger-backend-miox.onrender.com)
 - **Database (Neon Cloud)**: Serverless PostgreSQL with `pgvector` (`aws-ap-southeast-1`)
-- **Interactive Swagger / OpenAPI Docs**: [https://claimledger-backend.onrender.com/swagger-ui.html](https://claimledger-backend.onrender.com/swagger-ui.html)
+- **Interactive Swagger / OpenAPI Docs**: [https://claimledger-backend-miox.onrender.com/swagger-ui.html](https://claimledger-backend-miox.onrender.com/swagger-ui.html)
 - **Judge Demo & Verification Guide**: [HACKATHON_DEMO.md](HACKATHON_DEMO.md) — *Complete step-by-step evaluation guide covering all 6 test scenarios*
 - **Browser Extension**: Manifest V3 Chrome Extension in [`extension/`](extension/) — *Real-time in-browser pre-flight claim verification*
 
