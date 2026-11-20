@@ -6,7 +6,8 @@ export type Segment = { text: string; claimId?: string }
  * The backend does not return character offsets, so we locate each claim's text inside the content.
  * Claims that cannot be found are returned in `unlocated` and still appear in the claim list.
  */
-export function buildSegments(content: string, claims: Claim[]) {
+export function buildSegments(content: string | null | undefined, claims: Claim[]) {
+  if (!content) return { segments: [], unlocated: [] as string[] }
   const lower = content.toLowerCase()
   const found: { start: number; end: number; id: string }[] = []
   const unlocated: string[] = []
@@ -32,7 +33,8 @@ export function buildSegments(content: string, claims: Claim[]) {
 }
 
 /** Replace each flagged claim with its suggested correction (when the backend offered one). */
-export function applySuggestions(content: string, claims: Claim[]) {
+export function applySuggestions(content: string | null | undefined, claims: Claim[]) {
+  if (!content) return { text: '', applied: 0 }
   let out = content
   let applied = 0
 

@@ -181,6 +181,35 @@ public class VisualAnalysisService {
             }
         }
 
+        // Post-processing: If Gemini Vision detected a logo but it describes a competitor brand,
+        // override to mark it as unauthorized — prevents false-positive "VERIFIED" on competitor logos.
+        if (hasLogo && !logoDescription.isBlank()) {
+            String descLower = logoDescription.toLowerCase();
+            boolean isCompetitorLogo =
+                    descLower.contains("amazon") || descLower.contains("arrow") && descLower.contains("smile") ||
+                    descLower.contains("google") || descLower.contains("microsoft") ||
+                    descLower.contains("apple logo") || descLower.contains("samsung") ||
+                    descLower.contains("nike") || descLower.contains("swoosh") && !descLower.contains("nexora") ||
+                    descLower.contains("facebook") || descLower.contains("meta logo") ||
+                    descLower.contains("twitter") || descLower.contains("youtube") ||
+                    descLower.contains("flipkart") || descLower.contains("myntra") ||
+                    descLower.contains("zomato") || descLower.contains("swiggy") ||
+                    // If description mentions colors completely outside Nexora palette
+                    // AND doesn't mention CL/Nexora, treat as competitor
+                    (!descLower.contains("nexora") && !descLower.contains("cl monogram") &&
+                     !descLower.contains("cl logo") && !descLower.contains("teal") &&
+                     !descLower.contains("navy") && !descLower.contains("monogram") &&
+                     // Orange, yellow, red are strong competitor color signals
+                     (descLower.contains("orange") || descLower.contains("red and yellow") ||
+                      descLower.contains("multicolor") || descLower.contains("rainbow")));
+
+            if (isCompetitorLogo) {
+                String summary = logoDescription.length() > 50 ? logoDescription.substring(0, 47) + "..." : logoDescription;
+                log.info("Competitor/unauthorized logo detected: {} — overriding to VIOLATION", summary);
+                logoDescription = "Unauthorized competitor logo mark: " + logoDescription;
+            }
+        }
+
         // 3. Standard Java Color Palette Extraction with CIELAB ΔE scoring
         List<String> dominantHexColors = new ArrayList<>();
         List<DominantColorDetail> dominantColorDetails = new ArrayList<>();
