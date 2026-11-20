@@ -121,7 +121,7 @@ export function Login() {
     localStorage.removeItem('claimledger.force_mock')
 
     // Show wake-up banner after 3s of waiting if backend is starting up
-    const wakeTimer = setTimeout(() => setIsWakingUp(true), 3000)
+    const wakeTimer = setTimeout(() => setIsWakingUp(true), 15000)
     try {
       await login(email, password)
     } catch (e) {

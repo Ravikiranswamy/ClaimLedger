@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertCircle,
+  Loader2,
   BookOpen,
   CheckCircle2,
   Clock,
@@ -215,7 +216,7 @@ export function CreatorDashboard() {
                 <FileEdit size={20} />
               </span>
             </div>
-            <p className="mt-3 font-display text-3xl font-bold text-ink">{draftsCount}</p>
+            <p className="mt-3 font-display text-3xl font-bold text-ink">{submissionsQ.isLoading ? <span className="inline-block h-8 w-10 animate-pulse rounded-md bg-slate-200/70" /> : draftsCount}</p>
             <p className="mt-1 text-xs text-muted">Unsubmitted or work-in-progress →</p>
           </button>
 
@@ -231,7 +232,7 @@ export function CreatorDashboard() {
                 <Clock size={20} />
               </span>
             </div>
-            <p className="mt-3 font-display text-3xl font-bold text-amber-900">{awaitingReviewCount}</p>
+            <p className="mt-3 font-display text-3xl font-bold text-amber-900">{submissionsQ.isLoading ? <span className="inline-block h-8 w-10 animate-pulse rounded-md bg-amber-200/70" /> : awaitingReviewCount}</p>
             <p className="mt-1 text-xs text-muted">In reviewer queue for verification →</p>
           </button>
 
@@ -247,7 +248,7 @@ export function CreatorDashboard() {
                 <AlertCircle size={20} />
               </span>
             </div>
-            <p className="mt-3 font-display text-3xl font-bold text-conflict">{changesRequestedCount}</p>
+            <p className="mt-3 font-display text-3xl font-bold text-conflict">{submissionsQ.isLoading ? <span className="inline-block h-8 w-10 animate-pulse rounded-md bg-conflict-soft/70" /> : changesRequestedCount}</p>
             <p className="mt-1 text-xs text-muted">Revisions requested before approval →</p>
           </button>
 
@@ -263,7 +264,7 @@ export function CreatorDashboard() {
                 <CheckCircle2 size={20} />
               </span>
             </div>
-            <p className="mt-3 font-display text-3xl font-bold text-verified">{approvedCount}</p>
+            <p className="mt-3 font-display text-3xl font-bold text-verified">{submissionsQ.isLoading ? <span className="inline-block h-8 w-10 animate-pulse rounded-md bg-emerald-200/70" /> : approvedCount}</p>
             <p className="mt-1 text-xs text-muted">Cleared for official publishing →</p>
           </button>
         </div>
@@ -292,7 +293,12 @@ export function CreatorDashboard() {
           )}
         </div>
 
-        {submissionsQ.isLoading && <p className="py-6 text-center text-muted">Loading attention items…</p>}
+        {submissionsQ.isLoading && (
+          <div className="py-8 flex flex-col items-center justify-center gap-2 text-muted">
+            <Loader2 size={24} className="animate-spin text-[#0F766E]" />
+            <span className="text-xs font-medium text-slate-500">Retrieving compliance attention items…</span>
+          </div>
+        )}
 
         {submissionsQ.isSuccess && attentionItems.length === 0 && (
           <div className="rounded-2xl border border-dashed border-line bg-canvas p-8 text-center">

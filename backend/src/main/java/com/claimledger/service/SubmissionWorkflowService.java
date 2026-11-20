@@ -184,9 +184,58 @@ public class SubmissionWorkflowService {
                     .toList();
         }
 
+        // Performance Optimization: Prefetch department, user, and document lookups once in-memory
+        // to eliminate 400+ sequential N+1 SQL queries across the network to Neon DB.
+        Map<UUID, String> deptMap = new HashMap<>();
+        departmentRepository.findAll().forEach(d -> deptMap.put(d.getId(), d.getName()));
+
+        Map<UUID, String> userMap = new HashMap<>();
+        userRepository.findAll().forEach(u -> userMap.put(u.getId(), u.getFullName()));
+
+        Map<UUID, String> docMap = new HashMap<>();
+        documentRepository.findAll().forEach(d -> docMap.put(d.getId(), d.getName()));
+
         return submissions.stream()
-                .map(s -> getSubmissionResponse(s.getId()))
+                .map(s -> toSubmissionSummaryResponse(s, deptMap, userMap, docMap))
                 .toList();
+    }
+
+    /**
+     * Fast in-memory summary transformation for list views (avoids redundant findById queries
+     * and skips heavy disk I/O / image decoding / CIELAB re-clustering during list rendering).
+     */
+    private SubmissionResponse toSubmissionSummaryResponse(
+            Submission submission,
+            Map<UUID, String> deptMap,
+            Map<UUID, String> userMap,
+            Map<UUID, String> docMap
+    ) {
+        String deptName = submission.getDepartmentId() != null
+                ? deptMap.getOrDefault(submission.getDepartmentId(), "Department (" + submission.getDepartmentId() + ")")
+                : "Unassigned";
+
+        String submitterName = submission.getSubmittedBy() != null
+                ? userMap.getOrDefault(submission.getSubmittedBy(), "User (" + submission.getSubmittedBy() + ")")
+                : "Unknown";
+
+        List<Claim> claims = claimRepository.findBySubmissionIdAndRevisionNumber(submission.getId(), submission.getRevisionNumber());
+        if (claims.isEmpty()) {
+            claims = claimRepository.findBySubmissionId(submission.getId());
+        }
+
+        List<ClaimResponse> claimResponses = new ArrayList<>();
+        for (Claim claim : claims) {
+            List<Evidence> evidenceList = evidenceRepository.findByClaimId(claim.getId());
+            List<EvidenceResponse> evidenceResponses = evidenceList.stream()
+                    .map(e -> {
+                        String docName = docMap.getOrDefault(e.getDocumentId(), "Document");
+                        return EvidenceResponse.fromEntity(e, docName);
+                    })
+                    .toList();
+            claimResponses.add(ClaimResponse.fromEntity(claim, evidenceResponses));
+        }
+
+        return SubmissionResponse.fromEntity(submission, deptName, submitterName, claimResponses);
     }
 
     /**
