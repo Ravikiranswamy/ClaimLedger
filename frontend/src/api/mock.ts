@@ -298,7 +298,8 @@ function analyse(
   content: string,
   type: ContentType = 'TEXT',
   file?: File,
-  title: string = ''
+  title: string = '',
+  campaignCode?: string
 ): { claims: Claim[]; status: Submission['status'] } {
   const claims: Claim[] = []
 
@@ -315,6 +316,72 @@ function analyse(
   )
 
   const fullContext = `${file?.name || ''} ${title} ${content}`.toLowerCase()
+
+  // 0. Campaign Governance Analysis
+  if (campaignCode && campaignCode.trim()) {
+    const code = campaignCode.trim().toUpperCase()
+    if (code === 'DIWALI_SPECIAL') {
+      claims.push({
+        id: `c${seq++}`,
+        claimText: `Campaign exception referenced: '${code}'`,
+        claimType: 'PROMOTION',
+        verificationStatus: 'VERIFIED',
+        explanation: `Campaign '${code}' is active and approved (2026-10-01 → 2026-12-31). Authorised promotional discount of ₹799 applies to Nexora Pro during the festive window.`,
+        suggestedCorrection: null,
+        aiConfidence: 1.0,
+        evidence: [
+          {
+            id: `c${seq++}-e1`,
+            documentName: 'Product_Master_Catalogue_v4.2.pdf',
+            authorityTier: 'TIER_1',
+            authoritative: true,
+            pageNumber: 1,
+            excerpt: `Campaign Exception Registry: '${code}' approved by Department Manager. Valid discount price: ₹799/month during active promotional window.`,
+          },
+        ],
+      })
+    } else if (code === 'SUMMER_FLASH_2025') {
+      claims.push({
+        id: `c${seq++}`,
+        claimText: `Campaign exception referenced: '${code}'`,
+        claimType: 'PROMOTION',
+        verificationStatus: 'VIOLATION',
+        explanation: `Campaign '${code}' expired on 2025-06-30. Temporal governance rule: expired campaigns cannot be used to justify non-standard pricing.`,
+        suggestedCorrection: 'Remove the expired campaign reference and use standard pricing (₹999/user/month).',
+        aiConfidence: 1.0,
+        evidence: [
+          {
+            id: `c${seq++}-e1`,
+            documentName: 'Product_Master_Catalogue_v4.2.pdf',
+            authorityTier: 'TIER_1',
+            authoritative: true,
+            pageNumber: 1,
+            excerpt: 'Expired promotional schemes are void. All customer-facing materials must default to standard Tier 1 pricing.',
+          },
+        ],
+      })
+    } else {
+      claims.push({
+        id: `c${seq++}`,
+        claimText: `Campaign exception referenced: '${code}'`,
+        claimType: 'PROMOTION',
+        verificationStatus: 'VIOLATION',
+        explanation: `Campaign code '${code}' is not registered or approved in the Campaign Governance registry. Campaign governance rule: creators cannot self-declare promotional pricing exceptions.`,
+        suggestedCorrection: 'Use an approved active campaign code (e.g. DIWALI_SPECIAL) or remove the campaign reference.',
+        aiConfidence: 1.0,
+        evidence: [
+          {
+            id: `c${seq++}-e1`,
+            documentName: 'Product_Master_Catalogue_v4.2.pdf',
+            authorityTier: 'TIER_1',
+            authoritative: true,
+            pageNumber: 1,
+            excerpt: 'Pricing exceptions must be registered and verified in the campaign governance registry prior to submission.',
+          },
+        ],
+      })
+    }
+  }
 
   // 0. Visual Brand Analysis for Image content
   if (type === 'IMAGE') {
@@ -467,6 +534,12 @@ function analyse(
         explanation: 'Matches the current authoritative Nexora Pro price in Tier 1 Product Master Catalogue v4.2.',
         suggestedCorrection: null, aiConfidence: 0.98, evidence: evidenceFor(id),
       })
+    } else if (val === '799' && campaignCode?.trim().toUpperCase() === 'DIWALI_SPECIAL') {
+      claims.push({
+        id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'VERIFIED',
+        explanation: 'Verified against active campaign exception: DIWALI_SPECIAL authorizes ₹799 per month for Nexora Pro.',
+        suggestedCorrection: null, aiConfidence: 0.98, evidence: evidenceFor(id),
+      })
     } else if (val === '899' && isAcme) {
       claims.push({
         id, claimText: price[0], claimType: 'PRICE', verificationStatus: 'VERIFIED',
@@ -603,7 +676,8 @@ async function create(
   type: ContentType,
   departmentId?: string,
   fileUrl?: string | null,
-  file?: File
+  file?: File,
+  campaignCode?: string
 ): Promise<Submission> {
   const user = me()
   await wait(1800) // analysis is synchronous on the real backend, so creation takes a moment
@@ -611,7 +685,7 @@ async function create(
   const depts = mockOrgDepartments.get(currentOrgId) ?? DEPARTMENTS
   const defaultDept = depts[0]?.id ?? SALES.id
   const dep = departmentId ?? user.departmentId ?? defaultDept
-  const { claims, status } = analyse(content, type, file, title)
+  const { claims, status } = analyse(content, type, file, title, campaignCode)
   const s: Submission = {
     id,
     title,
@@ -627,6 +701,7 @@ async function create(
     revisionNumber: 1,
     createdAt: new Date().toISOString(),
     claims,
+    campaignCode: campaignCode ? campaignCode.trim().toUpperCase() : undefined,
     organisationId: currentOrgId,
     visualColorDetails: type === 'IMAGE' ? [
       {
@@ -1041,10 +1116,11 @@ export const mockApi: Api = {
     }
   },
   async me() { await wait(150); return me() },
-  createTextSubmission: ({ title, content, departmentId }) => create(title, content, 'TEXT', departmentId),
-  createPdfSubmission: ({ title, departmentId }) =>
-    create(title, 'Great news! Nexora Pro is now available at ₹799 per month. It is the fastest platform around.', 'PDF', departmentId),
-  createImageSubmission: async ({ title, file, departmentId, text, creatorNotes }) => {
+  createTextSubmission: ({ title, content, departmentId, campaignCode }) =>
+    create(title, content, 'TEXT', departmentId, null, undefined, campaignCode),
+  createPdfSubmission: ({ title, file, departmentId, campaignCode }) =>
+    create(title, 'Great news! Nexora Pro is now available at ₹799 per month. It is the fastest platform around.', 'PDF', departmentId, null, file, campaignCode),
+  createImageSubmission: async ({ title, file, departmentId, text, creatorNotes, campaignCode }) => {
     const fileUrl = file ? URL.createObjectURL(file) : null
     const textContent =
       text && text.trim()
@@ -1054,7 +1130,7 @@ export const mockApi: Api = {
           : file?.name.toLowerCase().includes('999')
             ? 'Nexora Pro is officially available at ₹999 per user per month billed annually.'
             : ''
-    const sub = await create(title, textContent, 'IMAGE', departmentId, fileUrl, file)
+    const sub = await create(title, textContent, 'IMAGE', departmentId, fileUrl, file, campaignCode)
     sub.creatorNotes = creatorNotes ?? (text && text.trim() ? text : null)
     return sub
   },

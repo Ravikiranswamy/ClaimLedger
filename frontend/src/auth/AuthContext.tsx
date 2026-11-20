@@ -84,7 +84,6 @@ export const NAV_BY_ROLE: Record<Role, string[]> = {
     'admin-audit',
     'admin-insights',
     'campaigns',
-    'developer-workbench',
     'admin-settings',
   ],
 }

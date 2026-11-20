@@ -113,6 +113,7 @@ export interface Submission {
   createdAt: string
   updatedAt?: string
   claims: Claim[]
+  campaignCode?: string | null
   visualColorDetails?: DominantColorDetail[]
 }
 
