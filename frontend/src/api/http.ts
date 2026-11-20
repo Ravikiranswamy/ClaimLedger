@@ -33,7 +33,9 @@ export const tokenStore = {
 
 /** Helper token store for authenticated requests. */
 
-const RAW_API_URL = (import.meta.env.VITE_API_URL as string | undefined) || ''
+const RAW_API_URL =
+  (import.meta.env.VITE_API_URL as string | undefined) ||
+  'https://claimledger-backend-miox.onrender.com'
 const API_BASE = RAW_API_URL.endsWith('/api')
   ? RAW_API_URL
   : RAW_API_URL

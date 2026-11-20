@@ -132,8 +132,8 @@ function setupEventListeners() {
   }
   if (btnSetRender) {
     btnSetRender.addEventListener('click', () => {
-      inputApiUrl.value = 'https://claimledger-backend.onrender.com';
-      backendUrl = 'https://claimledger-backend.onrender.com';
+      inputApiUrl.value = 'https://claimledger-backend-miox.onrender.com';
+      backendUrl = 'https://claimledger-backend-miox.onrender.com';
       chrome.storage.local.set({ backendUrl });
       checkBackendHealth();
       showNotice('Switched backend to Live Render Cloud', 'info', 2000);
