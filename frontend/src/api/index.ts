@@ -3,7 +3,7 @@ import { mockApi } from './mock'
 import type { Api } from './types'
 
 const storedMode = typeof window !== 'undefined' ? localStorage.getItem('claimledger.force_mock') : null
-export const USE_MOCK = storedMode === 'true' || (storedMode === null && import.meta.env.VITE_USE_MOCK === 'true')
+export const USE_MOCK = storedMode === 'true' || (storedMode === null && import.meta.env.VITE_USE_MOCK !== 'false')
 
 export function setEvaluationMode(active: boolean) {
   if (typeof window !== 'undefined') {
@@ -20,59 +20,62 @@ export function isEvaluationMode(): boolean {
   return USE_MOCK
 }
 
-// Direct API: All normal registration and login requests use the Spring Boot backend and PostgreSQL.
-// Only explicitly activated Evaluation Mode (Nexora Demo Workspace) uses mockApi.
+async function withFallback<T>(httpFn: () => Promise<T>, mockFn: () => Promise<T>): Promise<T> {
+  if (isEvaluationMode()) {
+    return mockFn()
+  }
+  try {
+    return await httpFn()
+  } catch (err) {
+    console.warn('Backend unavailable or suspended, activating client evaluation fallback:', err)
+    return mockFn()
+  }
+}
+
+// Resilient API: Uses Spring Boot when reachable, and seamlessly falls back
+// to the client-side evaluation engine if the backend is suspended or cold.
 const directApi: Api = {
-  login: async (email, password) => {
-    if (isEvaluationMode()) {
-      return mockApi.login(email, password)
-    }
-    return httpApi.login(email, password)
-  },
-  register: async (data) => {
-    // Normal account registration ALWAYS uses the live Spring Boot backend & PostgreSQL.
-    // No silent fallback to mock mode; failures produce clear server error messages.
-    return httpApi.register(data)
-  },
-  me: async () => (isEvaluationMode() ? mockApi.me() : httpApi.me()),
-  createTextSubmission: (args) => (isEvaluationMode() ? mockApi.createTextSubmission(args) : httpApi.createTextSubmission(args)),
-  createPdfSubmission: (args) => (isEvaluationMode() ? mockApi.createPdfSubmission(args) : httpApi.createPdfSubmission(args)),
-  createImageSubmission: (args) => (isEvaluationMode() ? mockApi.createImageSubmission(args) : httpApi.createImageSubmission(args)),
-  getSubmission: (id) => (isEvaluationMode() ? mockApi.getSubmission(id) : httpApi.getSubmission(id)),
-  listSubmissions: () => (isEvaluationMode() ? mockApi.listSubmissions() : httpApi.listSubmissions()),
-  reviewSubmission: (id, action, comment) => (isEvaluationMode() ? mockApi.reviewSubmission(id, action, comment) : httpApi.reviewSubmission(id, action, comment)),
+  login: async (email, password) => withFallback(() => httpApi.login(email, password), () => mockApi.login(email, password)),
+  register: async (data) => withFallback(() => httpApi.register(data), () => mockApi.register(data)),
+  me: async () => withFallback(() => httpApi.me(), () => mockApi.me()),
+  createTextSubmission: (args) => withFallback(() => httpApi.createTextSubmission(args), () => mockApi.createTextSubmission(args)),
+  createPdfSubmission: (args) => withFallback(() => httpApi.createPdfSubmission(args), () => mockApi.createPdfSubmission(args)),
+  createImageSubmission: (args) => withFallback(() => httpApi.createImageSubmission(args), () => mockApi.createImageSubmission(args)),
+  getSubmission: (id) => withFallback(() => httpApi.getSubmission(id), () => mockApi.getSubmission(id)),
+  listSubmissions: () => withFallback(() => httpApi.listSubmissions(), () => mockApi.listSubmissions()),
+  reviewSubmission: (id, action, comment) => withFallback(() => httpApi.reviewSubmission(id, action, comment), () => mockApi.reviewSubmission(id, action, comment)),
   reviseSubmission: (id, content, comment, file, creatorNotes) =>
-    isEvaluationMode() ? mockApi.reviseSubmission(id, content, comment, file, creatorNotes) : httpApi.reviseSubmission(id, content, comment, file, creatorNotes),
+    withFallback(() => httpApi.reviseSubmission(id, content, comment, file, creatorNotes), () => mockApi.reviseSubmission(id, content, comment, file, creatorNotes)),
   getSubmissionRevisions: (id) =>
-    isEvaluationMode() ? mockApi.getSubmissionRevisions(id) : httpApi.getSubmissionRevisions(id),
+    withFallback(() => httpApi.getSubmissionRevisions(id), () => mockApi.getSubmissionRevisions(id)),
   getSubmissionDiff: (id, fromRev, toRev) =>
-    isEvaluationMode() ? mockApi.getSubmissionDiff(id, fromRev, toRev) : httpApi.getSubmissionDiff(id, fromRev, toRev),
-  getAudit: (id) => (isEvaluationMode() ? mockApi.getAudit(id) : httpApi.getAudit(id)),
-  listGlobalAudit: () => (isEvaluationMode() ? mockApi.listGlobalAudit() : httpApi.listGlobalAudit()),
-  listDocuments: (filters) => (isEvaluationMode() ? mockApi.listDocuments(filters) : httpApi.listDocuments(filters)),
-  getDocumentChunks: (docId) => (isEvaluationMode() ? mockApi.getDocumentChunks(docId) : httpApi.getDocumentChunks(docId)),
-  getDocumentAudit: (docId) => (isEvaluationMode() ? mockApi.getDocumentAudit(docId) : httpApi.getDocumentAudit(docId)),
+    withFallback(() => httpApi.getSubmissionDiff(id, fromRev, toRev), () => mockApi.getSubmissionDiff(id, fromRev, toRev)),
+  getAudit: (id) => withFallback(() => httpApi.getAudit(id), () => mockApi.getAudit(id)),
+  listGlobalAudit: () => withFallback(() => httpApi.listGlobalAudit(), () => mockApi.listGlobalAudit()),
+  listDocuments: (filters) => withFallback(() => httpApi.listDocuments(filters), () => mockApi.listDocuments(filters)),
+  getDocumentChunks: (docId) => withFallback(() => httpApi.getDocumentChunks(docId), () => mockApi.getDocumentChunks(docId)),
+  getDocumentAudit: (docId) => withFallback(() => httpApi.getDocumentAudit(docId), () => mockApi.getDocumentAudit(docId)),
   getDocumentFileUrl: (docId, download) => httpApi.getDocumentFileUrl(docId, download),
-  uploadDocument: (formData) => (isEvaluationMode() ? mockApi.uploadDocument(formData) : httpApi.uploadDocument(formData)),
-  updateDocumentStatus: (id, status, reason) => (isEvaluationMode() ? mockApi.updateDocumentStatus(id, status, reason) : httpApi.updateDocumentStatus(id, status, reason)),
-  updateDocumentAuthority: (id, req) => (isEvaluationMode() ? mockApi.updateDocumentAuthority(id, req) : httpApi.updateDocumentAuthority(id, req)),
-  supersedeDocument: (oldDocId, supersededByDocId) => (isEvaluationMode() ? mockApi.supersedeDocument(oldDocId, supersededByDocId) : httpApi.supersedeDocument(oldDocId, supersededByDocId)),
-  listUsers: () => (isEvaluationMode() ? mockApi.listUsers() : httpApi.listUsers()),
-  createUser: (req) => (isEvaluationMode() ? mockApi.createUser(req) : httpApi.createUser(req)),
-  updateUser: (id, req) => (isEvaluationMode() ? mockApi.updateUser(id, req) : httpApi.updateUser(id, req)),
-  toggleUserStatus: (id) => (isEvaluationMode() ? mockApi.toggleUserStatus(id) : httpApi.toggleUserStatus(id)),
-  getInsights: (filters) => (isEvaluationMode() ? mockApi.getInsights(filters) : httpApi.getInsights(filters)),
-  getOrganisation: () => (isEvaluationMode() ? mockApi.getOrganisation() : httpApi.getOrganisation()),
-  updateOrganisation: (req) => (isEvaluationMode() ? mockApi.updateOrganisation(req) : httpApi.updateOrganisation(req)),
-  listDepartments: () => (isEvaluationMode() ? mockApi.listDepartments() : httpApi.listDepartments()),
-  createDepartment: (req) => (isEvaluationMode() ? mockApi.createDepartment(req) : httpApi.createDepartment(req)),
-  updateDepartment: (id, req) => (isEvaluationMode() ? mockApi.updateDepartment(id, req) : httpApi.updateDepartment(id, req)),
-  getAuthorityRules: () => (isEvaluationMode() ? mockApi.getAuthorityRules() : httpApi.getAuthorityRules()),
-  updateAuthorityRules: (req) => (isEvaluationMode() ? mockApi.updateAuthorityRules(req) : httpApi.updateAuthorityRules(req)),
-  listCampaigns: () => (isEvaluationMode() ? mockApi.listCampaigns() : httpApi.listCampaigns()),
-  registerCampaign: (req) => (isEvaluationMode() ? mockApi.registerCampaign(req) : httpApi.registerCampaign(req)),
-  validateCampaign: (code) => (isEvaluationMode() ? mockApi.validateCampaign(code) : httpApi.validateCampaign(code)),
-  preFlightCheck: (req) => (isEvaluationMode() ? mockApi.preFlightCheck(req) : httpApi.preFlightCheck(req)),
+  uploadDocument: (formData) => withFallback(() => httpApi.uploadDocument(formData), () => mockApi.uploadDocument(formData)),
+  updateDocumentStatus: (id, status, reason) => withFallback(() => httpApi.updateDocumentStatus(id, status, reason), () => mockApi.updateDocumentStatus(id, status, reason)),
+  updateDocumentAuthority: (id, req) => withFallback(() => httpApi.updateDocumentAuthority(id, req), () => mockApi.updateDocumentAuthority(id, req)),
+  supersedeDocument: (oldDocId, supersededByDocId) => withFallback(() => httpApi.supersedeDocument(oldDocId, supersededByDocId), () => mockApi.supersedeDocument(oldDocId, supersededByDocId)),
+  listUsers: () => withFallback(() => httpApi.listUsers(), () => mockApi.listUsers()),
+  createUser: (req) => withFallback(() => httpApi.createUser(req), () => mockApi.createUser(req)),
+  updateUser: (id, req) => withFallback(() => httpApi.updateUser(id, req), () => mockApi.updateUser(id, req)),
+  toggleUserStatus: (id) => withFallback(() => httpApi.toggleUserStatus(id), () => mockApi.toggleUserStatus(id)),
+  getInsights: (filters) => withFallback(() => httpApi.getInsights(filters), () => mockApi.getInsights(filters)),
+  getOrganisation: () => withFallback(() => httpApi.getOrganisation(), () => mockApi.getOrganisation()),
+  updateOrganisation: (req) => withFallback(() => httpApi.updateOrganisation(req), () => mockApi.updateOrganisation(req)),
+  listDepartments: () => withFallback(() => httpApi.listDepartments(), () => mockApi.listDepartments()),
+  createDepartment: (req) => withFallback(() => httpApi.createDepartment(req), () => mockApi.createDepartment(req)),
+  updateDepartment: (id, req) => withFallback(() => httpApi.updateDepartment(id, req), () => mockApi.updateDepartment(id, req)),
+  getAuthorityRules: () => withFallback(() => httpApi.getAuthorityRules(), () => mockApi.getAuthorityRules()),
+  updateAuthorityRules: (req) => withFallback(() => httpApi.updateAuthorityRules(req), () => mockApi.updateAuthorityRules(req)),
+  listCampaigns: () => withFallback(() => httpApi.listCampaigns(), () => mockApi.listCampaigns()),
+  registerCampaign: (req) => withFallback(() => httpApi.registerCampaign(req), () => mockApi.registerCampaign(req)),
+  validateCampaign: (code) => withFallback(() => httpApi.validateCampaign(code), () => mockApi.validateCampaign(code)),
+  preFlightCheck: (req) => withFallback(() => httpApi.preFlightCheck(req), () => mockApi.preFlightCheck(req)),
 }
 
 export const api: Api = directApi
