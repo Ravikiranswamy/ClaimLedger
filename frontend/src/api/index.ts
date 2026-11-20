@@ -3,7 +3,7 @@ import { mockApi } from './mock'
 import type { Api } from './types'
 
 const storedMode = typeof window !== 'undefined' ? localStorage.getItem('claimledger.force_mock') : null
-export const USE_MOCK = storedMode === 'true' || (storedMode === null && import.meta.env.VITE_USE_MOCK !== 'false')
+export const USE_MOCK = storedMode === 'true' || (storedMode === null && import.meta.env.VITE_USE_MOCK === 'true')
 
 export function setEvaluationMode(active: boolean) {
   if (typeof window !== 'undefined') {
@@ -17,7 +17,7 @@ export function isEvaluationMode(): boolean {
     const val = localStorage.getItem('claimledger.force_mock')
     if (val !== null) return val === 'true'
   }
-  return USE_MOCK
+  return import.meta.env.VITE_USE_MOCK === 'true'
 }
 
 async function withFallback<T>(httpFn: () => Promise<T>, mockFn: () => Promise<T>): Promise<T> {

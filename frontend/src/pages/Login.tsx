@@ -117,12 +117,11 @@ export function Login() {
     setValue('password', password)
 
     const isDemoAccount = email.toLowerCase().endsWith('@nexora.com') || email.toLowerCase().endsWith('@claimledger.dev')
-    if (role || isDemoAccount) {
-      localStorage.setItem('claimledger.force_mock', 'true')
-    }
+    // Clear force_mock on login so live backend is always contacted first
+    localStorage.removeItem('claimledger.force_mock')
 
-    // Show wake-up banner after 3s of waiting (only for live backend attempts, never for demo workspace)
-    const wakeTimer = (!role && !isDemoAccount) ? setTimeout(() => setIsWakingUp(true), 3000) : null
+    // Show wake-up banner after 3s of waiting if backend is starting up
+    const wakeTimer = setTimeout(() => setIsWakingUp(true), 3000)
     try {
       await login(email, password)
     } catch (e) {
