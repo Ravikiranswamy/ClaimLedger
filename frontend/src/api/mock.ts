@@ -1203,7 +1203,7 @@ export const mockApi: Api = {
 
     const fileForAnalysis: File | undefined = file || (activeFileName ? ({ name: activeFileName } as File) : undefined)
 
-    let { claims, status } = analyse(content, s.contentType, fileForAnalysis, s.title)
+    let { claims, status } = analyse(content, s.contentType, fileForAnalysis, s.title, s.campaignCode ?? undefined)
 
     // IMPORTANT VISUAL GOVERNANCE RULE:
     // If this is an IMAGE submission and the original visual asset had visual brand violations:

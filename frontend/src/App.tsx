@@ -24,7 +24,16 @@ import { ReviewList } from './pages/ReviewList'
 import { Submit } from './pages/Submit'
 import { UserManagement } from './pages/UserManagement'
 
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } })
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+    },
+  },
+})
 
 function Protected() {
   const { user, loading } = useAuth()

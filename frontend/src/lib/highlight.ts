@@ -35,12 +35,109 @@ export function buildSegments(content: string, claims: Claim[]) {
 export function applySuggestions(content: string, claims: Claim[]) {
   let out = content
   let applied = 0
+
   for (const c of claims) {
-    if (c.verificationStatus === 'VERIFIED' || !c.suggestedCorrection) continue
-    const idx = out.toLowerCase().indexOf(c.claimText.trim().toLowerCase())
-    if (idx === -1) continue
-    out = out.slice(0, idx) + c.suggestedCorrection + out.slice(idx + c.claimText.trim().length)
-    applied++
+    if (c.verificationStatus === 'VERIFIED') continue
+
+    // 1. Check if explanation specifies a clean mismatch: "Claim states 'X' but authoritative document states 'Y'"
+    const match = c.explanation?.match(/states\s+['"]([^'"]+)['"]\s+but\s+authoritative\s+document\s+states\s+['"]([^'"]+)['"]/i)
+    if (match) {
+      const badToken = match[1].trim()
+      const goodToken = match[2].trim()
+
+      // Normalize token variants (e.g. ₹799 vs 799 vs ₹799 per month)
+      const variants = [
+        badToken,
+        badToken.startsWith('₹') ? badToken.slice(1).trim() : '₹' + badToken,
+        badToken.replace(/\s*per\s+month/i, '').trim(),
+        (badToken.startsWith('₹') ? badToken.slice(1) : '₹' + badToken).replace(/\s*per\s+month/i, '').trim(),
+      ]
+
+      let replaced = false
+      for (const v of variants) {
+        if (!v) continue
+        const vIdx = out.toLowerCase().indexOf(v.toLowerCase())
+        if (vIdx !== -1) {
+          // If original token had "per month" or following text has it, ensure clean format
+          const replacement = goodToken.toLowerCase().includes('month') || out.slice(vIdx, vIdx + v.length + 12).toLowerCase().includes('per month')
+            ? goodToken
+            : `${goodToken} per month`
+          out = out.slice(0, vIdx) + replacement + out.slice(vIdx + v.length)
+          applied++
+          replaced = true
+          break
+        }
+      }
+      if (replaced) continue
+    }
+
+    if (!c.suggestedCorrection) continue
+
+    // 2. If suggestedCorrection is "Change X to Y"
+    const changeMatch = c.suggestedCorrection.match(/change\s+(.+?)\s+to\s+(.+?)(\.|$)/i)
+    if (changeMatch) {
+      const from = changeMatch[1].trim()
+      const to = changeMatch[2].trim()
+      const idx = out.toLowerCase().indexOf(from.toLowerCase())
+      if (idx !== -1) {
+        out = out.slice(0, idx) + to + out.slice(idx + from.length)
+        applied++
+        continue
+      }
+    }
+
+    // 3. If suggestedCorrection contains backend meta-text ("Update to match ..."):
+    if (c.suggestedCorrection.startsWith('Update to match') || c.suggestedCorrection.includes('Authoritative excerpt:')) {
+      const priceMatch = c.suggestedCorrection.match(/₹\s*(\d+[\d,]*)/)
+      if (priceMatch) {
+        const correctPrice = priceMatch[0]
+        const oldPriceMatch = c.claimText.match(/₹?\s*(\d+[\d,]*)/)
+        if (oldPriceMatch) {
+          const oldToken = oldPriceMatch[0]
+          const idx = out.indexOf(oldToken)
+          if (idx !== -1) {
+            out = out.slice(0, idx) + correctPrice + out.slice(idx + oldToken.length)
+            applied++
+            continue
+          }
+        }
+      }
+      continue
+    }
+
+    // 4. Default: clean direct replacement of claimText if a concise suggestion exists
+    const needle = c.claimText.trim().toLowerCase()
+    const idx = out.toLowerCase().indexOf(needle)
+    if (idx !== -1) {
+      out = out.slice(0, idx) + c.suggestedCorrection + out.slice(idx + needle.length)
+      applied++
+    }
   }
+
   return { text: out, applied }
+}
+
+/**
+ * Format suggested correction for human display in the UI.
+ * Strips raw backend meta-instructions and presents clean, clear recommendations.
+ */
+export function formatSuggestedCorrection(claim: Claim): string {
+  if (!claim.suggestedCorrection && !claim.explanation) return ''
+
+  const raw = claim.suggestedCorrection || ''
+
+  // Backend format: "Update to match Product_Master_Catalogue_v4.2.pdf (4.2). Authoritative excerpt: "..."
+  if (raw.startsWith('Update to match') || raw.includes('Authoritative excerpt:')) {
+    const match = claim.explanation?.match(/states\s+['"]([^'"]+)['"]\s+but\s+authoritative\s+document\s+states\s+['"]([^'"]+)['"]/i)
+    if (match) {
+      return `Update price from '${match[1]}' to '${match[2]}' (as specified in Master Product Catalogue)`
+    }
+    const priceMatch = raw.match(/₹\s*\d+[\d,]*(?:\s*per\s+user\s+per\s+month|\s*per\s+month)?/i)
+    if (priceMatch) {
+      return `Update pricing to authoritative rate of ${priceMatch[0]}`
+    }
+    return 'Update to align with Master Product Catalogue requirements'
+  }
+
+  return raw
 }

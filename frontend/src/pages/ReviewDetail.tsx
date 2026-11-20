@@ -5,6 +5,8 @@ import {
   ArrowLeft,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   ExternalLink,
   FileCheck2,
@@ -38,7 +40,7 @@ import { AuditTimeline } from '../components/AuditTimeline'
 import { CheckingView } from '../components/CheckingView'
 import { RevisionDiffModal } from '../components/RevisionDiffModal'
 import { SubmissionStatusChip } from '../components/SubmissionStatusChip'
-import { applySuggestions, buildSegments } from '../lib/highlight'
+import { applySuggestions, buildSegments, formatSuggestedCorrection } from '../lib/highlight'
 import { useSecureMediaUrl } from '../lib/media'
 import type { AuthorityTier, Claim, ClaimState, DominantColorDetail, Evidence, KnowledgeDoc, ReviewAction, Submission, SubmissionRevision } from '../types'
 import { isAuthoritative } from '../types'
@@ -174,6 +176,181 @@ function getDocumentVersion(e: Evidence, doc?: KnowledgeDoc) {
   const vMatch = e.documentName.match(/_v(\d+(?:\.\d+)?)/i)
   if (vMatch) return `v${vMatch[1]}`
   return 'v1.0'
+}
+
+function EvidenceItem({
+  ev,
+  matchingDoc,
+  departmentName,
+}: {
+  ev: Evidence
+  matchingDoc?: KnowledgeDoc
+  departmentName?: string | null
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const scopeInfo = getSourceScopeInfo(ev, matchingDoc, departmentName)
+  const version = getDocumentVersion(ev, matchingDoc)
+  const tier = ev.authorityTier ?? matchingDoc?.authorityTier ?? 'TIER_1'
+  const tierMeta = TIER_META[tier] ?? TIER_META.TIER_1
+
+  const isLong = (ev.excerpt?.length ?? 0) > 160
+
+  return (
+    <div
+      className={`rounded-xl border p-3 text-xs transition space-y-2 ${
+        scopeInfo.status === 'APPLICABLE_AUTHORITATIVE'
+          ? 'border-emerald-300 bg-emerald-50/40'
+          : scopeInfo.status === 'SUPERSEDED'
+            ? 'border-rose-200 bg-rose-50/30'
+            : scopeInfo.status === 'OUTSIDE_SCOPE'
+              ? 'border-amber-200 bg-amber-50/30'
+              : 'border-line bg-canvas'
+      }`}
+    >
+      {/* Document title and Scope Badge */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <FileText size={14} className={scopeInfo.iconCls} />
+          <span className="font-bold text-slate-900 truncate max-w-[280px]">
+            {ev.documentName}
+          </span>
+        </div>
+
+        {/* Scope & Applicability Badge */}
+        <span
+          className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${scopeInfo.badgeCls}`}
+        >
+          {scopeInfo.status === 'APPLICABLE_AUTHORITATIVE' && <Check size={11} className="text-emerald-700" />}
+          {scopeInfo.status === 'SUPERSEDED' && <RotateCcw size={11} className="text-rose-700" />}
+          {scopeInfo.status === 'OUTSIDE_SCOPE' && <ShieldAlert size={11} className="text-amber-700" />}
+          {scopeInfo.label}
+        </span>
+      </div>
+
+      {/* Metadata row: Tier, Version, Page Reference */}
+      <div className="flex flex-wrap items-center gap-2 text-[10px]">
+        <span className={`inline-block rounded border px-1.5 py-0.5 font-bold ${tierMeta.badgeCls}`}>
+          {tierMeta.label}
+        </span>
+        <span className="rounded bg-slate-200/80 border border-slate-300 px-1.5 py-0.5 font-mono font-bold text-slate-800">
+          {version}
+        </span>
+        {ev.pageNumber && (
+          <span className="rounded bg-canvas border border-line px-1.5 py-0.5 text-slate-700 font-medium">
+            Page {ev.pageNumber}
+          </span>
+        )}
+      </div>
+
+      {/* Excerpt with clean Read More toggle */}
+      {ev.excerpt && (
+        <div className="rounded-lg border-l-3 border-[#0F766E] bg-white/95 p-2 text-xs text-slate-800 font-mono leading-relaxed space-y-1">
+          <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted">
+            <div className="flex items-center gap-1">
+              <Quote size={10} className="text-[#0F766E]" />
+              <span>Authoritative Excerpt:</span>
+            </div>
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="text-[#0F766E] hover:underline normal-case font-sans cursor-pointer text-[10px]"
+              >
+                {expanded ? 'Show less' : 'Read full excerpt'}
+              </button>
+            )}
+          </div>
+          <p className={`whitespace-pre-wrap italic ${!expanded && isLong ? 'line-clamp-2' : ''}`}>
+            “{ev.excerpt}”
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ClaimEvidenceList({
+  sortedEvidence,
+  claim,
+  docMap,
+  departmentName,
+}: {
+  sortedEvidence: Evidence[]
+  claim: Claim
+  docMap: Map<string, KnowledgeDoc>
+  departmentName?: string | null
+}) {
+  const [showAll, setShowAll] = useState(false)
+
+  if (sortedEvidence.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-line bg-canvas p-4 text-xs text-muted">
+        <p className="font-semibold text-slate-700">No supporting evidence in Knowledge Base</p>
+        <p className="mt-0.5">
+          No approved company brand guideline, price catalogue, or policy document mentions or authorizes this statement.
+        </p>
+      </div>
+    )
+  }
+
+  // Prioritize governing document(s) for this claim (applicable authoritative grounding)
+  const governingEvidence = sortedEvidence.filter((ev) => {
+    const matchingDoc = docMap.get(ev.documentName.toLowerCase().trim())
+    const scopeInfo = getSourceScopeInfo(ev, matchingDoc, departmentName)
+    return scopeInfo.status === 'APPLICABLE_AUTHORITATIVE' || ev.authoritative
+  })
+
+  // Show governing evidence or top 1 by default
+  const primary = governingEvidence.length > 0 ? governingEvidence : [sortedEvidence[0]]
+  const secondary = sortedEvidence.filter((ev) => !primary.some((p) => p.id === ev.id))
+
+  const visibleList = showAll ? sortedEvidence : primary
+
+  return (
+    <div className="space-y-2 pt-0.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+          Governing Evidence ({sortedEvidence.length}):
+        </span>
+        {claim.aiConfidence != null && (
+          <span className="text-[11px] text-muted">
+            Confidence: <strong>{Math.round(Number(claim.aiConfidence) * 100)}%</strong>
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {visibleList.map((ev) => (
+          <EvidenceItem
+            key={ev.id}
+            ev={ev}
+            matchingDoc={docMap.get(ev.documentName.toLowerCase().trim())}
+            departmentName={departmentName}
+          />
+        ))}
+      </div>
+
+      {secondary.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(!showAll)}
+          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F766E] hover:text-[#0D625B] hover:underline cursor-pointer pt-1"
+        >
+          {showAll ? (
+            <>
+              <ChevronUp size={13} />
+              <span>Hide {secondary.length} additional reference {secondary.length === 1 ? 'document' : 'documents'}</span>
+            </>
+          ) : (
+            <>
+              <ChevronDown size={13} />
+              <span>Show {secondary.length} more reference {secondary.length === 1 ? 'document' : 'documents'}</span>
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  )
 }
 
 export function ReviewDetail() {
@@ -1079,121 +1256,25 @@ export function ReviewDetail() {
                     </div>
 
                     {/* Suggested Correction (where available) */}
-                    {claim.suggestedCorrection && claim.verificationStatus !== 'VERIFIED' && (
+                    {(claim.suggestedCorrection || claim.explanation) && claim.verificationStatus !== 'VERIFIED' && (
                       <div className="rounded-xl border border-teal-200 bg-teal-50/70 p-3.5 text-xs space-y-1">
                         <div className="flex items-center gap-1.5 font-bold text-[#0F766E]">
                           <Lightbulb size={15} />
                           <span>Suggested Compliant Wording</span>
                         </div>
                         <p className="text-sm font-semibold text-[#0A1F36] pl-5">
-                          “{claim.suggestedCorrection}”
+                          “{formatSuggestedCorrection(claim) || claim.suggestedCorrection}”
                         </p>
                       </div>
                     )}
 
-                    {/* Supporting Evidence Documents */}
-                    <div className="space-y-2.5 pt-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                          Supporting Evidence & Guidelines ({sortedEvidence.length}):
-                        </span>
-                        {claim.aiConfidence != null && (
-                          <span className="text-[11px] text-muted">
-                            Confidence: <strong>{Math.round(Number(claim.aiConfidence) * 100)}%</strong>
-                          </span>
-                        )}
-                      </div>
-
-                      {sortedEvidence.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-line bg-canvas p-4 text-xs text-muted">
-                          <p className="font-semibold text-slate-700">No supporting evidence in Knowledge Base</p>
-                          <p className="mt-0.5">
-                            No approved company brand guideline, price catalogue, or policy document mentions or authorizes this statement.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2.5">
-                          {sortedEvidence.map((ev) => {
-                            const matchingDoc = docMap.get(ev.documentName.toLowerCase().trim())
-                            const scopeInfo = getSourceScopeInfo(ev, matchingDoc, s.departmentName)
-                            const version = getDocumentVersion(ev, matchingDoc)
-                            const tier = ev.authorityTier ?? matchingDoc?.authorityTier ?? 'TIER_1'
-                            const tierMeta = TIER_META[tier] ?? TIER_META.TIER_1
-
-                            return (
-                              <div
-                                key={ev.id}
-                                className={`rounded-xl border p-3.5 text-xs transition space-y-2.5 ${
-                                  scopeInfo.status === 'APPLICABLE_AUTHORITATIVE'
-                                    ? 'border-emerald-300 bg-emerald-50/40'
-                                    : scopeInfo.status === 'SUPERSEDED'
-                                      ? 'border-rose-200 bg-rose-50/30'
-                                      : scopeInfo.status === 'OUTSIDE_SCOPE'
-                                        ? 'border-amber-200 bg-amber-50/30'
-                                        : 'border-line bg-canvas'
-                                }`}
-                              >
-                                {/* Document title and Scope Badge */}
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={15} className={scopeInfo.iconCls} />
-                                    <span className="font-bold text-slate-900 break-all">
-                                      {ev.documentName}
-                                    </span>
-                                  </div>
-
-                                  {/* Scope & Applicability Badge */}
-                                  <span
-                                    className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold ${scopeInfo.badgeCls}`}
-                                  >
-                                    {scopeInfo.status === 'APPLICABLE_AUTHORITATIVE' && (
-                                      <Check size={11} className="text-emerald-700" />
-                                    )}
-                                    {scopeInfo.status === 'SUPERSEDED' && (
-                                      <RotateCcw size={11} className="text-rose-700" />
-                                    )}
-                                    {scopeInfo.status === 'OUTSIDE_SCOPE' && (
-                                      <ShieldAlert size={11} className="text-amber-700" />
-                                    )}
-                                    {scopeInfo.label}
-                                  </span>
-                                </div>
-
-                                {/* Metadata row: Tier, Version, Page Reference */}
-                                <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                                  <span
-                                    className={`inline-block rounded border px-2 py-0.5 font-bold ${tierMeta.badgeCls}`}
-                                  >
-                                    {tierMeta.label}
-                                  </span>
-
-                                  <span className="rounded bg-slate-200/80 border border-slate-300 px-1.5 py-0.5 font-mono font-bold text-slate-800">
-                                    {version}
-                                  </span>
-
-                                  {ev.pageNumber && (
-                                    <span className="rounded bg-canvas border border-line px-2 py-0.5 text-slate-700 font-medium">
-                                      Page {ev.pageNumber}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* Relevant Excerpt */}
-                                {ev.excerpt && (
-                                  <div className="rounded-lg border-l-4 border-[#0F766E] bg-white/90 p-2.5 text-xs text-slate-800 font-mono leading-relaxed space-y-1">
-                                    <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted">
-                                      <Quote size={11} className="text-[#0F766E]" />
-                                      <span>Authoritative Excerpt:</span>
-                                    </div>
-                                    <p className="whitespace-pre-wrap italic">“{ev.excerpt}”</p>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
+                    {/* Supporting Evidence Documents (Compact & Violation-Prioritized) */}
+                    <ClaimEvidenceList
+                      sortedEvidence={sortedEvidence}
+                      claim={claim}
+                      docMap={docMap}
+                      departmentName={s.departmentName}
+                    />
                   </article>
                 )
               })}
