@@ -1648,21 +1648,39 @@ function RevisePanel({ s, onDone }: { s: Submission; onDone: (s: Submission) => 
   }
 
   if (!open) {
+    // Pre-check: can we actually auto-fix anything?
+    const preCheck = s.contentType !== 'IMAGE' ? applySuggestions(s.content, s.claims) : { applied: 1, text: s.content }
+    const canAutoFix = preCheck.applied > 0
+
     return (
-      <div className="pt-2">
-        <button
-          type="button"
-          onClick={() => {
-            const r = applySuggestions(s.content, s.claims)
-            setText(r.text)
-            setApplied(r.applied)
-            setOpen(true)
-          }}
-          className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-strong transition shadow-2xs cursor-pointer"
-        >
-          <Wand2 size={14} />
-          {s.contentType === 'IMAGE' ? 'Fix Visual Governance & Resubmit' : 'Apply Suggested Corrections & Resubmit'}
-        </button>
+      <div className="pt-2 space-y-2">
+        {canAutoFix ? (
+          <button
+            type="button"
+            onClick={() => {
+              const r = applySuggestions(s.content, s.claims)
+              setText(r.text)
+              setApplied(r.applied)
+              setOpen(true)
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-xs font-bold text-white hover:bg-brand-strong transition shadow-2xs cursor-pointer"
+          >
+            <Wand2 size={14} />
+            {s.contentType === 'IMAGE' ? 'Fix Visual Governance & Resubmit' : 'Apply Suggested Corrections & Resubmit'}
+          </button>
+        ) : (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 space-y-1">
+            <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+              <Wand2 size={13} className="text-slate-400" />
+              No automatic corrections available
+            </div>
+            <p className="pl-5 text-slate-500">
+              {s.claims.some(c => c.verificationStatus === 'UNVERIFIED')
+                ? 'The remaining unverified claim has no matching document in the knowledge base. A reviewer will decide its status.'
+                : 'All fixable violations have been corrected. A reviewer will clear the remaining items.'}
+            </p>
+          </div>
+        )}
       </div>
     )
   }
