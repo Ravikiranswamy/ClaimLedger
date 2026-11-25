@@ -3,7 +3,9 @@ import {
   BookOpen,
   CheckSquare,
   Code2,
+  ExternalLink,
   FileText,
+  FlaskConical,
   History,
   Home,
   LayoutDashboard,
@@ -20,10 +22,10 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { NAV_BY_ROLE, useAuth } from '../auth/AuthContext'
 import { ClaimLedgerLogo } from './ClaimLedgerLogo'
-import { DEPARTMENTS, ROLE_LABEL } from '../types'
+import { DEPARTMENTS, ROLE_LABEL, type Role } from '../types'
 
 interface NavItemConfig {
   to: string
@@ -58,16 +60,32 @@ const ITEMS: Record<string, NavItemConfig> = {
   'admin-insights': { to: '/admin/insights', label: 'Insights & Guideline Health', Icon: BarChart3 },
   'admin-settings': { to: '/admin/settings', label: 'Organisation Settings', Icon: Settings, isSettings: true },
   campaigns: { to: '/campaigns', label: 'Campaign Governance', Icon: Tag },
+  evaluation: { to: '/evaluation', label: 'Evaluation & Proof', Icon: FlaskConical },
   'draft-check': { to: '/draft-checker', label: 'Quick Draft Checker', Icon: Sparkles },
   'developer-workbench': { to: '/developer', label: 'Developer & API Workbench', Icon: Code2 },
   preflight: { to: '/developer', label: 'Developer & API Workbench', Icon: Code2 },
 }
 
 export function AppShell() {
-  const { user, logout } = useAuth()
+  const { user, logout, enterDemoRole, switchingRole } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const mainRef = useRef<HTMLElement>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const isDemoAccount = Boolean(
+    user?.email?.toLowerCase().endsWith('@nexora.com') || user?.email?.toLowerCase().endsWith('@claimledger.dev')
+  )
+
+  const handleQuickRoleSwitch = async (role: Role) => {
+    if (!user || user.role === role || switchingRole) return
+    await enterDemoRole(role)
+    // Stay on submission detail inspection when switching between Creator/Reviewer/Admin; otherwise return to role home
+    const keepRoute = location.pathname.startsWith('/submissions/') || location.pathname === '/evaluation'
+    if (!keepRoute) {
+      navigate('/')
+    }
+  }
 
   // Close mobile drawer on route changes and reset scroll position
   useEffect(() => {
@@ -209,8 +227,40 @@ export function AppShell() {
           })}
         </nav>
 
-        {/* Pinned Bottom Section: User Profile, Role and Sign Out */}
-        <div className="shrink-0 border-t border-white/10 px-5 py-4 mt-auto">
+        {/* Pinned Bottom Section: 1-Click Demo Role Switcher, User Profile & Sign Out */}
+        <div className="shrink-0 border-t border-white/10 px-5 py-4 mt-auto space-y-3">
+          {isDemoAccount && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 space-y-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#5EEAD4]">
+                Demo Role Switcher
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    { role: 'CREATOR', label: 'Creator' },
+                    { role: 'REVIEWER', label: 'Reviewer' },
+                    { role: 'DEPT_MANAGER', label: 'Manager' },
+                    { role: 'ADMIN', label: 'Admin' },
+                  ] as const
+                ).map((item) => (
+                  <button
+                    key={item.role}
+                    type="button"
+                    disabled={switchingRole}
+                    onClick={() => handleQuickRoleSwitch(item.role)}
+                    className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition cursor-pointer ${
+                      user.role === item.role
+                        ? 'bg-[#14B8A6] text-[#0A1F36] font-bold'
+                        : 'bg-white/5 text-[#D6E3EF] hover:bg-white/15 hover:text-white'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col">
             <p className="font-semibold text-sm text-white truncate tracking-tight">{user.fullName}</p>
             {isManager ? (
@@ -225,12 +275,20 @@ export function AppShell() {
             ) : (
               <p className="text-xs text-[#8EA5BC] mt-0.5 font-medium">{ROLE_LABEL[user.role]}</p>
             )}
-            <button
-              onClick={logout}
-              className="mt-3.5 inline-flex items-center gap-2 rounded-lg py-1 text-xs font-medium text-[#D6E3EF] hover:text-[#5EEAD4] cursor-pointer transition w-fit"
-            >
-              <LogOut size={15} aria-hidden /> Sign out
-            </button>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <button
+                onClick={logout}
+                className="inline-flex items-center gap-1.5 rounded-lg py-1 text-xs font-medium text-[#D6E3EF] hover:text-[#5EEAD4] cursor-pointer transition w-fit"
+              >
+                <LogOut size={14} aria-hidden /> Sign out
+              </button>
+              <NavLink
+                to="/showcase"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-[#8EA5BC] hover:text-[#5EEAD4] transition"
+              >
+                Showcase <ExternalLink size={11} />
+              </NavLink>
+            </div>
           </div>
         </div>
       </aside>

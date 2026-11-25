@@ -31,6 +31,43 @@ public class ClaimExtractionService {
         this.objectMapper = objectMapper;
     }
 
+    private static final Pattern PROMPT_INJECTION_PATTERN = Pattern.compile(
+            "(?i)(ignore\\s+(all\\s+)?(previous|prior|system)\\s+(instructions|guidelines|rules)|system\\s+override|mark\\s+(every|all)\\s+claims?\\s+verified|bypass\\s+(review|governance)|jailbreak)"
+    );
+
+    private static final Pattern ACTIONABLE_RISK_PATTERN = Pattern.compile(
+            "(?i)(\\$|€|£|₹|\\d|%|\\bprice\\b|\\bcost\\b|\\bmonth\\b|\\bannual\\b|\\bfree\\b|\\bdiscount\\b|\\buptime\\b|\\bsla\\b|\\bguarantee\\w*\\b|\\bcure\\w*\\b|\\bcertified\\b|\\bsoc\\s*2\\b|\\biso\\b|\\bgdpr\\b|\\btrademark\\b|\\boffer\\b|\\bdeal\\b|\\b100%\\b|\\bfoolproof\\b|\\bzero\\s+risk\\b|\\bfastest\\b|\\bbest\\b|\\b#1\\b|\\bscam\\b|\\bjunk\\b|\\bfoolish\\b|\\bregret\\b|\\b2x\\b|\\binstant\\b)"
+    );
+
+    /**
+     * Detects embedded instruction-override (prompt-injection) payloads inside untrusted draft copy.
+     */
+    public Optional<String> detectPromptInjection(String content) {
+        if (content == null || content.isBlank()) {
+            return Optional.empty();
+        }
+        var matcher = PROMPT_INJECTION_PATTERN.matcher(content);
+        if (matcher.find()) {
+            return Optional.of(matcher.group(0));
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Identifies non-substantive general brand positioning / tagline copy so harmless prose
+     * is not flagged as a false-positive UNVERIFIED factual claim.
+     */
+    public boolean isNonSubstantiveBrandCopy(String sentence) {
+        if (sentence == null || sentence.isBlank()) {
+            return true;
+        }
+        String trimmed = sentence.trim();
+        if (trimmed.length() < 10) {
+            return true;
+        }
+        return !ACTIONABLE_RISK_PATTERN.matcher(trimmed).find();
+    }
+
     /**
      * Extracts individual brand, pricing, and factual claims from content.
      */
@@ -43,8 +80,13 @@ public class ClaimExtractionService {
         if (geminiClient.isGeminiConfigured()) {
             List<ExtractedClaim> aiClaims = extractClaimsViaGemini(content);
             if (!aiClaims.isEmpty()) {
-                log.info("Gemini extracted {} claims from submission", aiClaims.size());
-                return aiClaims;
+                List<ExtractedClaim> filtered = aiClaims.stream()
+                        .filter(c -> !isNonSubstantiveBrandCopy(c.claimText()))
+                        .toList();
+                if (!filtered.isEmpty()) {
+                    log.info("Gemini extracted {} actionable claims (triaged from {})", filtered.size(), aiClaims.size());
+                    return filtered;
+                }
             }
         }
 
@@ -129,7 +171,7 @@ public class ClaimExtractionService {
 
         for (String sentence : sentences) {
             String trimmed = sentence.trim();
-            if (trimmed.length() < 10) continue;
+            if (isNonSubstantiveBrandCopy(trimmed)) continue;
 
             ClaimType type = ClaimType.FACTUAL;
             BigDecimal confidence = BigDecimal.valueOf(0.90);

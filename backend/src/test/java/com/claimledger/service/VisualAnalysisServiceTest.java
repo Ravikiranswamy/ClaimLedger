@@ -143,5 +143,38 @@ class VisualAnalysisServiceTest {
                 .anyMatch(vf -> vf.claim().getClaimText().contains("Off-Brand Color"));
         assertFalse(hasPaletteViolation, "Standalone logo must NOT receive full layout palette violations");
     }
+
+    @Test
+    @DisplayName("Third-party competitor logo file (Amazon) is flagged as VIOLATION instead of false VERIFIED")
+    void testCompetitorAmazonLogoNotVerified() throws IOException {
+        UUID orgId = UUID.randomUUID();
+        Submission sub = new Submission();
+        sub.setId(UUID.randomUUID());
+        sub.setOrganisationId(orgId);
+        sub.setTitle("Social Campaign Banner");
+
+        KnowledgeDocument assetDoc = new KnowledgeDocument();
+        assetDoc.setId(UUID.randomUUID());
+        assetDoc.setName("Nexora_Secondary_Emblem_Mark.png");
+        assetDoc.setApprovalStatus(ApprovalStatus.APPROVED);
+        assetDoc.setCategory("ASSETS");
+        assetDoc.setAuthorityTier(AuthorityTier.TIER_1);
+
+        when(documentRepository.findByOrganisationId(orgId)).thenReturn(List.of(assetDoc));
+
+        File tempFile = Files.createTempFile("amazon_logo_", ".png").toFile();
+        tempFile.deleteOnExit();
+
+        VisualAnalysisService.VisualAnalysisResult result = service.analyzeImageSubmission(sub, tempFile);
+
+        boolean hasLogoVerified = result.visualFindings().stream()
+                .anyMatch(vf -> vf.claim().getClaimText().contains("Logo Verified")
+                        && vf.claim().getVerificationStatus() == VerificationStatus.VERIFIED);
+        assertFalse(hasLogoVerified, "Competitor logo must NEVER be marked as official Nexora Logo Verified");
+
+        boolean hasViolation = result.visualFindings().stream()
+                .anyMatch(vf -> vf.claim().getVerificationStatus() == VerificationStatus.VIOLATION);
+        assertTrue(hasViolation, "Competitor Amazon logo must produce an explicit VIOLATION finding");
+    }
 }
 

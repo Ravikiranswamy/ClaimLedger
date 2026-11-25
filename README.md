@@ -110,6 +110,15 @@ All demo accounts use password: `Demo@1234`
 
 ---
 
+## 🚀 v2 Showcase, Evaluation & Engine Hardening
+
+- **Public Showcase & Interactive Dual-Modality Sandbox (`/`)**: Unauthenticated visitors can test both **Text & Regulatory Claims** (pricing contradictions, statutory risk, Tier 1 vs Tier 2 scope conflicts, prompt injection quarantine, harmless brand copy suppression) and **Visual CIELAB $\Delta E$ Governance** (`ΔE ≤ 25.0` perceptual color distance + competitor mark screening) directly in the browser with a "Preview Compliant Rewrite" toggle.
+- **In-App Evaluation & Guardrails (`/evaluation`)**: Accessible publicly and inside the authenticated sidebar (`Evaluation & Proof`), presenting the hybrid vs. prompt-only vs. regex-only ablation matrix, interactive adversarial probes, known limitations, and the 8 JUnit 5 verification suites (`29` automated backend tests).
+- **1-Click Demo Role Switcher**: Demo accounts (`@nexora.com`) can switch seamlessly between **Creator**, **Authorised Reviewer**, **Department Manager**, and **Admin** in the sidebar without signing out.
+- **Resilience & Security Guardrails**: Global React `ErrorBoundary`, deterministic tagline false-positive suppression (`ClaimExtractionService`), pre-flight prompt-injection quarantine (`ClaimVerificationService`), positive-confirmation logo governance (`VisualAnalysisService`), and public engine metadata endpoint (`GET /api/public/meta`).
+
+---
+
 ## 💻 Tech Stack
 
 - **Frontend**:

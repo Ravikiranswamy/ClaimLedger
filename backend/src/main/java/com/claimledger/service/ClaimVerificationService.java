@@ -203,9 +203,28 @@ public class ClaimVerificationService {
             }
         }
 
-        // 2. Factual and Text Claims Extraction (runs on pasted text, extracted PDF text, or in-image OCR text)
+        // 2. Prompt-Injection Guard + Factual and Text Claims Extraction (runs on pasted text, PDF text, or in-image OCR)
         String content = submission.getContent();
         if (content != null && !content.isBlank() && !content.startsWith("Visual Submission:")) {
+            var injectionOpt = claimExtractionService.detectPromptInjection(content);
+            if (injectionOpt.isPresent()) {
+                Claim secClaim = new Claim();
+                secClaim.setSubmissionId(submission.getId());
+                secClaim.setClaimText("Security Pre-Flight Quarantine: '" + injectionOpt.get() + "'");
+                secClaim.setClaimType(ClaimType.OTHER);
+                secClaim.setVerificationStatus(VerificationStatus.VIOLATION);
+                secClaim.setExplanation("Embedded instruction-override attempt detected inside untrusted copy ('"
+                        + injectionOpt.get() + "'). Automated approval is blocked and escalated for mandatory human review.");
+                secClaim.setSuggestedCorrection("Remove embedded system/override instructions from marketing copy before resubmitting.");
+                secClaim.setAiConfidence(BigDecimal.valueOf(1.0));
+                secClaim.setRevisionNumber(submission.getRevisionNumber());
+                int injStart = Math.max(0, content.indexOf(injectionOpt.get()));
+                secClaim.setStartIndex(injStart);
+                secClaim.setEndIndex(injStart + injectionOpt.get().length());
+                savedClaims.add(claimRepository.save(secClaim));
+                hasViolation = true;
+            }
+
             List<ClaimExtractionService.ExtractedClaim> extractedClaims = claimExtractionService.extractClaims(content);
             log.info("Extracted {} factual/text claims from submission", extractedClaims.size());
 

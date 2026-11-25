@@ -170,14 +170,14 @@ public class VisualAnalysisService {
             if (fileNameLower.contains("no_logo") || fileNameLower.contains("missing_logo")) {
                 hasLogo = false;
                 logoDescription = "";
-            } else if (fileNameLower.contains("wrong_logo") || fileNameLower.contains("competitor_logo") || fileNameLower.contains("unapproved_logo")) {
+            } else if (fileNameLower.contains("wrong_logo") || fileNameLower.contains("competitor_logo") || fileNameLower.contains("unapproved_logo") || fileNameLower.contains("amazon") || fileNameLower.contains("google")) {
                 hasLogo = true;
-                logoDescription = "Circular red gradient mark with unauthorized swoosh (unrecognized variant)";
-            } else if (fileNameLower.contains("standalone_logo") || fileNameLower.contains("approved_logo") || fileNameLower.contains("approved_banner") || fileNameLower.contains("price_999") || fileNameLower.contains("logo")) {
+                logoDescription = "Unauthorized third-party competitor logo mark";
+            } else if (fileNameLower.contains("standalone_logo") || fileNameLower.contains("approved_logo") || fileNameLower.contains("approved_banner") || fileNameLower.contains("price_999") || fileNameLower.contains("nexora_pro_master")) {
                 hasLogo = true;
                 logoDescription = "Official Nexora primary 'CL' monogram in Teal (#0F766E) on Navy background";
             } else if (hasLogo) {
-                logoDescription = "Nexora official brand logotype mark";
+                logoDescription = "Unidentified brand mark detected (requires visual confirmation)";
             }
         }
 
@@ -334,20 +334,34 @@ public class VisualAnalysisService {
 
                     visualFindings.add(new VisualFindingResult(logoClaim, evidence));
                 } else {
-                    // Logo detected: match against approved reference
-                    boolean isUnapprovedOrCompetitor = logoDescription.toLowerCase().contains("unauthorized")
-                            || logoDescription.toLowerCase().contains("unrecognized")
-                            || logoDescription.toLowerCase().contains("competitor")
-                            || logoDescription.toLowerCase().contains("wrong")
+                    // Logo detected: match strictly against approved Nexora identity (positive confirmation required)
+                    String descLower = logoDescription.toLowerCase();
+                    boolean isUnapprovedOrCompetitor = descLower.contains("unauthorized")
+                            || descLower.contains("unrecognized")
+                            || descLower.contains("competitor")
+                            || descLower.contains("wrong")
+                            || descLower.contains("third-party")
                             || fileNameLower.contains("wrong_logo")
                             || fileNameLower.contains("competitor_logo")
                             || fileNameLower.contains("unapproved_logo");
+
+                    boolean isConfirmedNexora = !isUnapprovedOrCompetitor && (
+                            descLower.contains("nexora")
+                            || descLower.contains("cl monogram")
+                            || descLower.contains("cl logo")
+                            || descLower.contains("'cl'")
+                            || fileNameLower.contains("standalone_logo")
+                            || fileNameLower.contains("approved_logo")
+                            || fileNameLower.contains("approved_banner")
+                            || fileNameLower.contains("price_999")
+                            || fileNameLower.contains("nexora_pro_master")
+                    );
 
                     if (isUnapprovedOrCompetitor) {
                         String summary = logoDescription.length() > 50 ? logoDescription.substring(0, 47) + "..." : logoDescription;
                         logoClaim.setClaimText("Official Brand Identity: Unapproved Logo Asset (" + summary + ")");
                         logoClaim.setVerificationStatus(VerificationStatus.VIOLATION);
-                        logoClaim.setExplanation("Detected visual mark ('" + logoDescription + "') contradicts approved corporate logo specifications. The brand guidelines strictly require the official Nexora 'CL' monogram mark and prohibit unapproved colorations or variants.");
+                        logoClaim.setExplanation("Detected visual mark ('" + logoDescription + "') contradicts approved corporate logo specifications. The brand guidelines strictly require the official Nexora 'CL' monogram mark and prohibit unapproved colorations or third-party logos.");
                         logoClaim.setSuggestedCorrection("Replace unapproved visual mark with the official Nexora primary 'CL' monogram in Primary Teal (#0F766E) or Deep Navy (#0A1F36).");
                         logoClaim.setAiConfidence(BigDecimal.valueOf(0.9400));
 
@@ -355,7 +369,7 @@ public class VisualAnalysisService {
                                 "Brand Guidelines - Visual Standards: Logo Usage: The Nexora monogram ('CL' monogram) is the sole approved corporate brand mark. Never recolour, distort, stretch, or rotate the logo. Unapproved variant marks are strictly prohibited.");
 
                         visualFindings.add(new VisualFindingResult(logoClaim, evidence));
-                    } else {
+                    } else if (isConfirmedNexora) {
                         String summary = logoDescription.length() > 50 ? logoDescription.substring(0, 47) + "..." : logoDescription;
                         logoClaim.setClaimText("Official Brand Identity: Logo Verified (" + summary + ")");
                         logoClaim.setVerificationStatus(VerificationStatus.VERIFIED);
@@ -365,6 +379,18 @@ public class VisualAnalysisService {
 
                         Evidence evidence = createEvidence(logoClaim, authoritativeAsset,
                                 "Brand Guidelines - Visual Standards: Logo Usage: The Nexora monogram ('CL' monogram) requires clear space equal to 50% of its height on all sides.");
+
+                        visualFindings.add(new VisualFindingResult(logoClaim, evidence));
+                    } else {
+                        String summary = logoDescription.length() > 50 ? logoDescription.substring(0, 47) + "..." : logoDescription;
+                        logoClaim.setClaimText("Official Brand Identity: Unconfirmed Logo Mark (" + summary + ")");
+                        logoClaim.setVerificationStatus(VerificationStatus.UNVERIFIED);
+                        logoClaim.setExplanation("A visual logo mark was detected ('" + logoDescription + "'), but it could not be positively matched to the registered Nexora 'CL' monogram. Human visual sign-off is required.");
+                        logoClaim.setSuggestedCorrection("Confirm that the graphic displays the approved Nexora 'CL' monogram or replace with an official brand asset.");
+                        logoClaim.setAiConfidence(BigDecimal.valueOf(0.8200));
+
+                        Evidence evidence = createEvidence(logoClaim, authoritativeAsset,
+                                "Brand Guidelines - Visual Standards: Logo Usage: Only the registered Nexora 'CL' monogram is approved for corporate collateral.");
 
                         visualFindings.add(new VisualFindingResult(logoClaim, evidence));
                     }

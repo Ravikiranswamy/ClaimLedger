@@ -24,5 +24,19 @@ public class HealthController {
                 "engine", "Deterministic Hierarchy & Neon pgvector"
         ));
     }
+
+    @GetMapping("/api/public/meta")
+    @Operation(summary = "Public engine capabilities and verification benchmark metadata for landing & evaluation views")
+    public ResponseEntity<Map<String, Object>> publicMeta() {
+        return ResponseEntity.ok(Map.of(
+                "authorityTiers", 3,
+                "governanceRoles", 4,
+                "deltaEThreshold", 25.0,
+                "automatedTests", 29,
+                "testSuites", 8,
+                "modalities", java.util.List.of("TEXT", "PDF", "IMAGE"),
+                "engineVersion", "v2.0"
+        ));
+    }
 }
 
