@@ -45,6 +45,17 @@ export const getSubmissionMediaUrl = getCleanSubmissionMediaUrl
  *  - Reverse proxy & server access logs (Cloudflare, Nginx, Render)
  *  - Referer headers
  */
+/** Returns true if the string looks like a local filesystem path (not a URL). */
+function isLocalFilePath(url: string): boolean {
+  // Windows: C:\... or C:/... or UNC \\server\share
+  if (/^[A-Za-z]:[/\\]/.test(url)) return true
+  // Unix absolute path that is NOT a URL
+  if (url.startsWith('/') && !url.startsWith('//')) return false // could be a relative API path
+  // UNC path
+  if (url.startsWith('\\\\')) return true
+  return false
+}
+
 export function useSecureMediaUrl(
   s: { id: string; fileUrl?: string | null } | null | undefined
 ): string | undefined {
@@ -59,6 +70,12 @@ export function useSecureMediaUrl(
     // Direct in-memory blob or base64 data URI
     if (s.fileUrl?.startsWith('blob:') || s.fileUrl?.startsWith('data:')) {
       setBlobUrl(s.fileUrl)
+      return
+    }
+
+    // Local filesystem path — cannot be fetched by the browser; show fallback card cleanly
+    if (s.fileUrl && isLocalFilePath(s.fileUrl)) {
+      setBlobUrl(undefined)
       return
     }
 
