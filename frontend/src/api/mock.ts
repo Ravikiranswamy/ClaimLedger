@@ -1115,7 +1115,7 @@ export const mockApi: Api = {
       user: strip(newAdmin),
     }
   },
-  async me() { await wait(150); return me() },
+  async me() { return me() },
   createTextSubmission: ({ title, content, departmentId, campaignCode }) =>
     create(title, content, 'TEXT', departmentId, null, undefined, campaignCode),
   createPdfSubmission: ({ title, file, departmentId, campaignCode }) =>
@@ -1135,7 +1135,6 @@ export const mockApi: Api = {
     return sub
   },
   async getSubmission(id) {
-    await wait(150)
     const user = me()
     const s = subs.get(id)
     if (!s || (s.organisationId && s.organisationId !== currentOrgId)) {
@@ -1147,7 +1146,6 @@ export const mockApi: Api = {
     return structuredClone(s)
   },
   async listSubmissions() {
-    await wait(200)
     const user = me()
     const all = [...subs.values()]
       .filter((s) => (s.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId)
@@ -1373,7 +1371,6 @@ export const mockApi: Api = {
     return structuredClone(audits.get(id) ?? [])
   },
   async listGlobalAudit() {
-    await wait(150)
     const user = me()
 
     if (currentOrgId !== DEFAULT_NEXORA_ORG_ID) {
@@ -1450,7 +1447,6 @@ export const mockApi: Api = {
     return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   },
   async listDocuments(filters?: { departmentId?: string; status?: string; tier?: string; category?: string }) {
-    await wait(200)
     let res = MOCK_DOCS.filter((d) => (d.organisationId ?? DEFAULT_NEXORA_ORG_ID) === currentOrgId)
     if (filters?.category) {
       res = res.filter((d) => d.category === filters.category)

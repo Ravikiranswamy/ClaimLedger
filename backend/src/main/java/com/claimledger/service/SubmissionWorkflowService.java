@@ -184,8 +184,8 @@ public class SubmissionWorkflowService {
                     .toList();
         }
 
-        // Performance Optimization: Prefetch department, user, and document lookups once in-memory
-        // to eliminate 400+ sequential N+1 SQL queries across the network to Neon DB.
+        // Performance Optimization: Prefetch department, user, document, claim, and evidence lookups
+        // in batch queries to eliminate sequential N+1 SQL round-trips to Neon Postgres.
         Map<UUID, String> deptMap = new HashMap<>();
         departmentRepository.findAll().forEach(d -> deptMap.put(d.getId(), d.getName()));
 
@@ -195,20 +195,42 @@ public class SubmissionWorkflowService {
         Map<UUID, String> docMap = new HashMap<>();
         documentRepository.findAll().forEach(d -> docMap.put(d.getId(), d.getName()));
 
+        if (submissions.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> submissionIds = submissions.stream().map(Submission::getId).toList();
+        List<Claim> allClaims = claimRepository.findBySubmissionIdIn(submissionIds);
+
+        Map<UUID, List<Claim>> claimsBySubmission = new HashMap<>();
+        for (Claim claim : allClaims) {
+            claimsBySubmission.computeIfAbsent(claim.getSubmissionId(), k -> new ArrayList<>()).add(claim);
+        }
+
+        List<UUID> claimIds = allClaims.stream().map(Claim::getId).toList();
+        Map<UUID, List<Evidence>> evidenceByClaim = new HashMap<>();
+        if (!claimIds.isEmpty()) {
+            for (Evidence ev : evidenceRepository.findByClaimIdIn(claimIds)) {
+                evidenceByClaim.computeIfAbsent(ev.getClaimId(), k -> new ArrayList<>()).add(ev);
+            }
+        }
+
         return submissions.stream()
-                .map(s -> toSubmissionSummaryResponse(s, deptMap, userMap, docMap))
+                .map(s -> toSubmissionSummaryResponse(s, deptMap, userMap, docMap, claimsBySubmission, evidenceByClaim))
                 .toList();
     }
 
     /**
-     * Fast in-memory summary transformation for list views (avoids redundant findById queries
-     * and skips heavy disk I/O / image decoding / CIELAB re-clustering during list rendering).
+     * Fast in-memory summary transformation for list views using pre-fetched claim and evidence maps
+     * (skips per-submission/per-claim queries and heavy image decoding during list rendering).
      */
     private SubmissionResponse toSubmissionSummaryResponse(
             Submission submission,
             Map<UUID, String> deptMap,
             Map<UUID, String> userMap,
-            Map<UUID, String> docMap
+            Map<UUID, String> docMap,
+            Map<UUID, List<Claim>> claimsBySubmission,
+            Map<UUID, List<Evidence>> evidenceByClaim
     ) {
         String deptName = submission.getDepartmentId() != null
                 ? deptMap.getOrDefault(submission.getDepartmentId(), "Department (" + submission.getDepartmentId() + ")")
@@ -218,14 +240,15 @@ public class SubmissionWorkflowService {
                 ? userMap.getOrDefault(submission.getSubmittedBy(), "User (" + submission.getSubmittedBy() + ")")
                 : "Unknown";
 
-        List<Claim> claims = claimRepository.findBySubmissionIdAndRevisionNumber(submission.getId(), submission.getRevisionNumber());
-        if (claims.isEmpty()) {
-            claims = claimRepository.findBySubmissionId(submission.getId());
-        }
+        List<Claim> subClaims = claimsBySubmission.getOrDefault(submission.getId(), List.of());
+        List<Claim> currentRevClaims = subClaims.stream()
+                .filter(c -> c.getRevisionNumber() == submission.getRevisionNumber())
+                .toList();
+        List<Claim> claims = currentRevClaims.isEmpty() ? subClaims : currentRevClaims;
 
-        List<ClaimResponse> claimResponses = new ArrayList<>();
+        List<ClaimResponse> claimResponses = new ArrayList<>(claims.size());
         for (Claim claim : claims) {
-            List<Evidence> evidenceList = evidenceRepository.findByClaimId(claim.getId());
+            List<Evidence> evidenceList = evidenceByClaim.getOrDefault(claim.getId(), List.of());
             List<EvidenceResponse> evidenceResponses = evidenceList.stream()
                     .map(e -> {
                         String docName = docMap.getOrDefault(e.getDocumentId(), "Document");

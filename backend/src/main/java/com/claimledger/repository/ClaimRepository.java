@@ -13,6 +13,8 @@ public interface ClaimRepository extends JpaRepository<Claim, UUID> {
 
     List<Claim> findBySubmissionId(UUID submissionId);
 
+    List<Claim> findBySubmissionIdIn(List<UUID> submissionIds);
+
     List<Claim> findBySubmissionIdAndRevisionNumber(UUID submissionId, int revisionNumber);
 
     void deleteBySubmissionId(UUID submissionId);

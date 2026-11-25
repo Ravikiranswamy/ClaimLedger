@@ -93,8 +93,6 @@ export function ReviewList() {
         </button>
       </div>
 
-      {q.isLoading && <p className="text-lg text-muted py-6" role="status">Loading submissions…</p>}
-
       {q.isError && (
         <p role="alert" className="rounded-2xl bg-violation-soft p-5 text-violation mb-4">
           We couldn’t load submissions. Please refresh and try again.

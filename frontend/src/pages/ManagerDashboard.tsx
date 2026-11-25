@@ -54,7 +54,7 @@ export function ManagerDashboard() {
   ).length
   const approvedCount = departmentSubmissions.filter((s) => s.status === 'APPROVED').length
 
-  const isLoading = submissionsQ.isLoading
+  void submissionsQ.isLoading // loading state available if needed
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
@@ -120,7 +120,7 @@ export function ManagerDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-[#0A1F36]">
-              {isLoading ? '–' : totalDepartmentSubmissions}
+              {totalDepartmentSubmissions}
             </p>
             <div className="mt-2 text-xs text-muted">
               <span>Total departmental submissions</span>
@@ -141,7 +141,7 @@ export function ManagerDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-amber-600">
-              {isLoading ? '–' : awaitingReviewCount}
+              {awaitingReviewCount}
             </p>
             <div className="mt-2 flex items-center justify-between text-xs text-muted">
               <span>Awaiting reviewer decision</span>
@@ -165,7 +165,7 @@ export function ManagerDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-orange-600">
-              {isLoading ? '–' : changesRequestedCount}
+              {changesRequestedCount}
             </p>
             <div className="mt-2 flex items-center justify-between text-xs text-muted">
               <span>Returned to creators</span>
@@ -189,7 +189,7 @@ export function ManagerDashboard() {
               </span>
             </div>
             <p className="mt-3 font-display text-3xl font-bold text-emerald-600">
-              {isLoading ? '–' : approvedCount}
+              {approvedCount}
             </p>
             <div className="mt-2 flex items-center justify-between text-xs text-muted">
               <span>Approved for publication</span>
